@@ -2,126 +2,131 @@ package rearth.belts.blocks;
 
 import com.mojang.serialization.MapCodec;
 import dev.architectury.platform.Platform;
-import net.minecraft.block.*;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityTicker;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.block.enums.BlockFace;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.Properties;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.ItemActionResult;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.util.shape.VoxelShapes;
-import net.minecraft.world.BlockView;
-import net.minecraft.world.World;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponentGetter;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.AttachFace;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 import rearth.belts.BlockEntitiesContent;
 import rearth.belts.util.MathHelpers;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 
-public class ChuteBlock extends HorizontalFacingBlock implements BlockEntityProvider {
+public class ChuteBlock extends HorizontalDirectionalBlock implements EntityBlock {
     
     private static final Map<Direction, VoxelShape> SHAPES = new HashMap<>();
     
     private VoxelShape createShapeForDirection(Direction direction) {
-        return VoxelShapes.union(
-          MathHelpers.rotateVoxelShape(VoxelShapes.cuboid(2 / 16f, 4 / 16f, 14 / 16f, 14 / 16f, 1f, 1f), direction, BlockFace.FLOOR),
-          MathHelpers.rotateVoxelShape(VoxelShapes.cuboid(3 / 16f, 5 / 16f, 16 / 16f, 13 / 16f, 15 / 16f, 18 / 16f), direction, BlockFace.FLOOR)
-        ).simplify();
+        return Shapes.or(
+          MathHelpers.rotateVoxelShape(Shapes.box(2 / 16f, 4 / 16f, 14 / 16f, 14 / 16f, 1f, 1f), direction, AttachFace.FLOOR),
+          MathHelpers.rotateVoxelShape(Shapes.box(3 / 16f, 5 / 16f, 16 / 16f, 13 / 16f, 15 / 16f, 18 / 16f), direction, AttachFace.FLOOR)
+        ).optimize();
     }
     
-    public ChuteBlock(Settings settings) {
+    public ChuteBlock(BlockBehaviour.Properties settings) {
         super(settings);
-        setDefaultState(getDefaultState().with(Properties.HORIZONTAL_FACING, Direction.NORTH));
+        registerDefaultState(defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH));
     }
     
     @Override
-    protected ItemActionResult onUseWithItem(ItemStack stack, BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
+    protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         
         var candidate = world.getBlockEntity(pos, BlockEntitiesContent.CHUTE_BLOCK.get());
         if (candidate.isPresent()) {
             var entity = candidate.get();
-            if (!entity.isUsed()) return super.onUseWithItem(stack, state, world, pos, player, hand, hit);
-            if (!world.isClient)
+            if (!entity.isUsed()) return super.useItemOn(stack, state, world, pos, player, hand, hit);
+            if (!world.isClientSide())
                 entity.assignFilterItem(stack, player);
-            return ItemActionResult.SUCCESS;
+            return InteractionResult.SUCCESS;
         }
         
-        return super.onUseWithItem(stack, state, world, pos, player, hand, hit);
+        return super.useItemOn(stack, state, world, pos, player, hand, hit);
     }
     
     @Override
-    protected ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
+    public InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos, Player player, BlockHitResult hit) {
         
         var candidate = world.getBlockEntity(pos, BlockEntitiesContent.CHUTE_BLOCK.get());
         if (candidate.isPresent()) {
             var entity = candidate.get();
-            if (!entity.isUsed()) return super.onUse(state, world, pos, player, hit);
-            if (!world.isClient)
+            if (!entity.isUsed()) return super.useWithoutItem(state, world, pos, player, hit);
+            if (!world.isClientSide())
                 entity.resetFilterItem(player);
-            return ActionResult.SUCCESS;
+            return InteractionResult.SUCCESS;
         }
-        return super.onUse(state, world, pos, player, hit);
+        return super.useWithoutItem(state, world, pos, player, hit);
     }
     
     @Override
-    protected VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
-        var dir = state.get(Properties.HORIZONTAL_FACING);
+    protected VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+        var dir = state.getValue(BlockStateProperties.HORIZONTAL_FACING);
         return SHAPES.computeIfAbsent(dir, this::createShapeForDirection);
     }
     
     @Override
-    protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
-        builder.add(Properties.HORIZONTAL_FACING);
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        builder.add(BlockStateProperties.HORIZONTAL_FACING);
     }
     
     @Nullable
     @Override
-    public BlockState getPlacementState(ItemPlacementContext ctx) {
+    public BlockState getStateForPlacement(BlockPlaceContext ctx) {
         
-        var targetFacing = ctx.getSide();
+        var targetFacing = ctx.getClickedFace();
         if (targetFacing.getAxis().isVertical())
-            targetFacing = ctx.getHorizontalPlayerFacing().getOpposite();
+            targetFacing = ctx.getHorizontalDirection().getOpposite();
         
-        return Objects.requireNonNull(super.getPlacementState(ctx)).with(Properties.HORIZONTAL_FACING, targetFacing);
+        return Objects.requireNonNull(super.getStateForPlacement(ctx)).setValue(BlockStateProperties.HORIZONTAL_FACING, targetFacing);
     }
     
     @Override
-    protected MapCodec<? extends HorizontalFacingBlock> getCodec() {
-        return null;
+    protected MapCodec<? extends HorizontalDirectionalBlock> codec() {
+        return simpleCodec(ChuteBlock::new);
     }
     
     @Override
-    public @Nullable BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+    public @Nullable BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new ChuteBlockEntity(pos, state);
     }
     
     @Override
-    protected boolean onSyncedBlockEvent(BlockState state, World world, BlockPos pos, int type, int data) {
-        super.onSyncedBlockEvent(state, world, pos, type, data);
+    protected boolean triggerEvent(BlockState state, Level world, BlockPos pos, int type, int data) {
+        super.triggerEvent(state, world, pos, type, data);
         var blockEntity = world.getBlockEntity(pos);
-        return blockEntity != null && blockEntity.onSyncedBlockEvent(type, data);
+        return blockEntity != null && blockEntity.triggerEvent(type, data);
     }
     
     @Override
-    public @Nullable <T extends BlockEntity> BlockEntityTicker<T> getTicker(World world, BlockState state, BlockEntityType<T> type) {
+    public @Nullable <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level world, BlockState state, BlockEntityType<T> type) {
         return ((world1, pos, state1, blockEntity) -> {
             if (blockEntity instanceof ChuteBlockEntity chuteBlockEntity)
                 chuteBlockEntity.tick(world1, pos, state1, chuteBlockEntity);
@@ -129,28 +134,16 @@ public class ChuteBlock extends HorizontalFacingBlock implements BlockEntityProv
     }
     
     @Override
-    public BlockState onBreak(World world, BlockPos pos, BlockState state, PlayerEntity player) {
+    public BlockState playerWillDestroy(Level world, BlockPos pos, BlockState state, Player player) {
         
-        if (world.isClient) return super.onBreak(world, pos, state, player);
+        if (world.isClientSide()) return super.playerWillDestroy(world, pos, state, player);
         
         var chuteEntity = world.getBlockEntity(pos, BlockEntitiesContent.CHUTE_BLOCK.get());
-        if (chuteEntity.isEmpty()) return super.onBreak(world, pos, state, player);
+        if (chuteEntity.isEmpty()) return super.playerWillDestroy(world, pos, state, player);
         
         chuteEntity.get().dropContent(world, pos);
         
-        return super.onBreak(world, pos, state, player);
+        return super.playerWillDestroy(world, pos, state, player);
     }
     
-    @Override
-    public void appendTooltip(ItemStack stack, Item.TooltipContext context, List<Text> tooltip, TooltipType options) {
-        
-        var showExtra = Screen.hasControlDown();
-        if (showExtra) {
-            tooltip.add(Text.translatable("block.belts.chute.tooltip.1").formatted(Formatting.GRAY));
-            if (Platform.isModLoaded("ftbfiltersystem"))
-                tooltip.add(Text.translatable("block.belts.chute.tooltip.ftbfilters").formatted(Formatting.GRAY));
-        }
-        
-        super.appendTooltip(stack, context, tooltip, options);
-    }
 }

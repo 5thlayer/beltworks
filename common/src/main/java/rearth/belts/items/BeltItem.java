@@ -3,64 +3,69 @@ package rearth.belts.items;
 import rearth.belts.BlockContent;
 import rearth.belts.BlockEntitiesContent;
 import rearth.belts.ComponentContent;
-import net.minecraft.block.HorizontalFacingBlock;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.ItemUsageContext;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.*;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.World;
+import com.mojang.datafixers.util.Pair;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
+import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import rearth.belts.ItemContent;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 public class BeltItem extends Item {
     
     public static boolean invalidCurve = false;
     
-    public BeltItem(Settings settings) {
+    public BeltItem(Properties settings) {
         super(settings);
     }
     
     @Override
-    public TypedActionResult<ItemStack> use(World world, PlayerEntity user, Hand hand) {
+    public InteractionResult use(Level world, Player user, InteractionHand hand) {
         
-        if (!world.isClient() && user.isSneaking()) {
-            var stack = user.getStackInHand(hand);
+        if (!world.isClientSide() && user.isShiftKeyDown()) {
+            var stack = user.getItemInHand(hand);
             stack.remove(ComponentContent.MIDPOINTS.get());
             stack.remove(ComponentContent.BELT_START.get());
             stack.remove(ComponentContent.BELT_DIR.get());
-            user.sendMessage(Text.translatable("message.belts.reset"));
+            user.sendSystemMessage(Component.translatable("message.belts.reset"));
         }
         
         return super.use(world, user, hand);
     }
     
     @Override
-    public ActionResult useOnBlock(ItemUsageContext context) {
+    public InteractionResult useOn(UseOnContext context) {
         
-        var stack = context.getStack();
+        var stack = context.getItemInHand();
         
-        if (context.getWorld().isClient) return ActionResult.SUCCESS;
+        if (context.getLevel().isClientSide()) return InteractionResult.SUCCESS;
         
-        var targetBlockPos = context.getBlockPos();
+        var targetBlockPos = context.getClickedPos();
         
-        var hasStart = stack.contains(ComponentContent.BELT_START.get()) && stack.contains(ComponentContent.BELT_DIR.get());
+        var hasStart = stack.has(ComponentContent.BELT_START.get()) && stack.has(ComponentContent.BELT_DIR.get());
         
-        var chuteCandidate = context.getWorld().getBlockEntity(targetBlockPos, BlockEntitiesContent.CHUTE_BLOCK.get());
+        var chuteCandidate = context.getLevel().getBlockEntity(targetBlockPos, BlockEntitiesContent.CHUTE_BLOCK.get());
         if (chuteCandidate.isPresent()) {
             var chuteEntity = chuteCandidate.get();
             if (chuteEntity.isUsed()) {
-                context.getPlayer().sendMessage(Text.translatable("message.belts.chute_used"));
-                return ActionResult.FAIL;
+                context.getPlayer().sendSystemMessage(Component.translatable("message.belts.chute_used"));
+                return InteractionResult.FAIL;
             }
             
             if (hasStart) {
@@ -71,7 +76,7 @@ public class BeltItem extends Item {
                 var endPos = targetBlockPos;
                 var endDir = chuteEntity.getOwnFacing();
                 
-                createBelt(startPos, startDir, midPoints, endPos, endDir, context.getWorld(), context.getStack(), context.getPlayer());
+                createBelt(startPos, startDir, midPoints, endPos, endDir, context.getLevel(), context.getItemInHand(), context.getPlayer());
             } else {
                 // assign manual start
                 var startPos = targetBlockPos;
@@ -80,42 +85,42 @@ public class BeltItem extends Item {
                 stack.set(ComponentContent.BELT_START.get(), startPos);
                 stack.set(ComponentContent.BELT_DIR.get(), startDir);
                 
-                context.getPlayer().sendMessage(Text.translatable("message.belts.started"));
+                context.getPlayer().sendSystemMessage(Component.translatable("message.belts.started"));
             }
             
-            return ActionResult.SUCCESS;
+            return InteractionResult.SUCCESS;
         }
         
-        var supportCandidate = context.getWorld().getBlockState(targetBlockPos);
+        var supportCandidate = context.getLevel().getBlockState(targetBlockPos);
         if (hasStart && supportCandidate.getBlock().equals(BlockContent.CONVEYOR_SUPPORT_BLOCK.get())) {
             // store midpoint
             var list = new ArrayList<BlockPos>();
-            if (stack.contains(ComponentContent.MIDPOINTS.get())) {
+            if (stack.has(ComponentContent.MIDPOINTS.get())) {
                 list.addAll(stack.get(ComponentContent.MIDPOINTS.get()));
             }
             
             if (list.contains(targetBlockPos)) {
-                context.getPlayer().sendMessage(Text.translatable("message.belts.midpoint_duplicate"));
-                return ActionResult.FAIL;
+                context.getPlayer().sendSystemMessage(Component.translatable("message.belts.midpoint_duplicate"));
+                return InteractionResult.FAIL;
             }
             
             list.add(targetBlockPos);
             stack.set(ComponentContent.MIDPOINTS.get(), list);
-            context.getPlayer().sendMessage(Text.translatable("message.belts.midpoint_added"));
+            context.getPlayer().sendSystemMessage(Component.translatable("message.belts.midpoint_added"));
             
-            return ActionResult.SUCCESS;
+            return InteractionResult.SUCCESS;
         }
         
         // at this point, no existing midpoint or start is being targeted, so we try to store the potential positions of a new one.
         // this is done by taking the block on the surface of the target. For grounds/walls, the direction is determined by the player. Otherwise facing away from the target.
-        var targetDir = context.getSide();
-        targetBlockPos = targetBlockPos.add(context.getSide().getVector());
-        if (context.getSide().getAxis().equals(Direction.Axis.Y)) {
-            targetDir = context.getHorizontalPlayerFacing();
+        var targetDir = context.getClickedFace();
+        targetBlockPos = targetBlockPos.relative(context.getClickedFace());
+        if (context.getClickedFace().getAxis().equals(Direction.Axis.Y)) {
+            targetDir = context.getHorizontalDirection();
         }
         
-        var candidateState = context.getWorld().getBlockState(targetBlockPos);
-        if (candidateState.isReplaceable() || candidateState.isAir()) {
+        var candidateState = context.getLevel().getBlockState(targetBlockPos);
+        if (candidateState.canBeReplaced() || candidateState.isAir()) {
             // create either new start or end at this position
             if (hasStart) {
                 // create end
@@ -125,9 +130,9 @@ public class BeltItem extends Item {
                 var endPos = targetBlockPos;
                 var endDir = targetDir;
                 
-                createBelt(startPos, startDir, midPoints, endPos, endDir, context.getWorld(), context.getStack(), context.getPlayer());
+                createBelt(startPos, startDir, midPoints, endPos, endDir, context.getLevel(), context.getItemInHand(), context.getPlayer());
             } else {
-                if (!context.getSide().getAxis().equals(Direction.Axis.Y)) {
+                if (!context.getClickedFace().getAxis().equals(Direction.Axis.Y)) {
                     targetDir = targetDir.getOpposite();
                 }
                 var startPos = targetBlockPos;
@@ -135,38 +140,38 @@ public class BeltItem extends Item {
                 
                 stack.set(ComponentContent.BELT_START.get(), startPos);
                 stack.set(ComponentContent.BELT_DIR.get(), startDir);
-                context.getPlayer().sendMessage(Text.translatable("message.belts.started"));
+                context.getPlayer().sendSystemMessage(Component.translatable("message.belts.started"));
                 
             }
         }
         
-        return ActionResult.SUCCESS;
+        return InteractionResult.SUCCESS;
     }
     
     // creates optional chute entities at start and end
-    private void createBelt(BlockPos start, Direction startDir, List<BlockPos> supports, BlockPos end, Direction endDir, World world, ItemStack stack, PlayerEntity player) {
+    private void createBelt(BlockPos start, Direction startDir, List<BlockPos> supports, BlockPos end, Direction endDir, Level world, ItemStack stack, Player player) {
         
         stack.remove(ComponentContent.MIDPOINTS.get());
         stack.remove(ComponentContent.BELT_START.get());
         stack.remove(ComponentContent.BELT_DIR.get());
         
         if (!player.isCreative())
-            stack.decrement(1);
+            stack.shrink(1);
         
-        player.sendMessage(Text.translatable("message.belts.belt_created"));
+        player.sendSystemMessage(Component.translatable("message.belts.belt_created"));
         
         var createdChutes = 0;
         
-        var distStart = start.getSquaredDistance(player.getPos());
-        var distEnd = end.getSquaredDistance(player.getPos());
+        var distStart = start.distToCenterSqr(player.position());
+        var distEnd = end.distToCenterSqr(player.position());
         var playfrom = distStart < distEnd ? start : end;
-        world.playSound(null, playfrom, SoundEvents.ENTITY_BREEZE_WIND_BURST.value(), SoundCategory.PLAYERS, 1f, 0.5f);
+        world.playSound(null, playfrom, SoundEvents.BREEZE_WIND_CHARGE_BURST.value(), SoundSource.PLAYERS, 1f, 0.5f);
         
         // optionally create start entity
         var startState = world.getBlockState(start);
         var startCandidate = world.getBlockEntity(start, BlockEntitiesContent.CHUTE_BLOCK.get());
-        if (startCandidate.isEmpty() && (startState.isReplaceable() || startState.isAir())) {
-            world.setBlockState(start, BlockContent.CHUTE_BLOCK.get().getDefaultState().with(HorizontalFacingBlock.FACING, startDir));
+        if (startCandidate.isEmpty() && (startState.canBeReplaced() || startState.isAir())) {
+            world.setBlockAndUpdate(start, BlockContent.CHUTE_BLOCK.get().defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, startDir));
             startCandidate = world.getBlockEntity(start, BlockEntitiesContent.CHUTE_BLOCK.get());
             createdChutes++;
         }
@@ -174,8 +179,8 @@ public class BeltItem extends Item {
         // optionally create end entity
         var endState = world.getBlockState(end);
         var endCandidate = world.getBlockEntity(end, BlockEntitiesContent.CHUTE_BLOCK.get());
-        if (endCandidate.isEmpty() && (endState.isReplaceable() || endState.isAir())) {
-            world.setBlockState(end, BlockContent.CHUTE_BLOCK.get().getDefaultState().with(HorizontalFacingBlock.FACING, endDir));
+        if (endCandidate.isEmpty() && (endState.canBeReplaced() || endState.isAir())) {
+            world.setBlockAndUpdate(end, BlockContent.CHUTE_BLOCK.get().defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, endDir));
             endCandidate = world.getBlockEntity(end, BlockEntitiesContent.CHUTE_BLOCK.get());
             createdChutes++;
         }
@@ -189,13 +194,13 @@ public class BeltItem extends Item {
         // optionally consume chutes in inventory
         if (createdChutes > 0) {
             var taken = 0;
-            for (var playerItem : player.getInventory().main) {
-                if (playerItem.isOf(ItemContent.CHUTE.get())) {
+            for (var playerItem : player.getInventory().getNonEquipmentItems()) {
+                if (playerItem.is(ItemContent.CHUTE.get())) {
                     
                     var count = playerItem.getCount();
                     var removed = Math.min(count, createdChutes);
                     
-                    playerItem.decrement(removed);
+                    playerItem.shrink(removed);
                     
                     taken += removed;
                     if (taken >= createdChutes) break;
@@ -205,39 +210,39 @@ public class BeltItem extends Item {
     }
     
     @Override
-    public void appendTooltip(ItemStack stack, TooltipContext context, List<Text> tooltip, TooltipType type) {
+    public void appendHoverText(ItemStack stack, TooltipContext context, TooltipDisplay display, Consumer<Component> tooltip, TooltipFlag type) {
         
-        if (stack.contains(ComponentContent.BELT_START.get())) {
+        if (stack.has(ComponentContent.BELT_START.get())) {
             var targetPos = stack.get(ComponentContent.BELT_START.get());
-            tooltip.add(Text.translatable(targetPos.toShortString()));
+            tooltip.accept(Component.literal(targetPos.toShortString()));
         }
         
-        if (stack.contains(ComponentContent.MIDPOINTS.get())) {
-            tooltip.add(Text.translatable("Midpoints: "));
+        if (stack.has(ComponentContent.MIDPOINTS.get())) {
+            tooltip.accept(Component.literal("Midpoints: "));
             for (var midPoint : stack.get(ComponentContent.MIDPOINTS.get())) {
-                tooltip.add(Text.translatable(midPoint.toShortString()));
+                tooltip.accept(Component.literal(midPoint.toShortString()));
             }
         }
         
-        var showExtra = Screen.hasControlDown();
+        var showExtra = Minecraft.getInstance().hasControlDown();
         if (showExtra) {
             for (int i = 0; i < 4; i++) {
-                tooltip.add(Text.translatable("item.belts.belt.tooltip." + i).formatted(Formatting.GRAY));
+                tooltip.accept(Component.translatable("item.belts.belt.tooltip." + i).withStyle(ChatFormatting.GRAY));
             }
         } else {
-            tooltip.add(Text.translatable("message.belts.show_extra").formatted(Formatting.GRAY, Formatting.ITALIC));
+            tooltip.accept(Component.translatable("message.belts.show_extra").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
         }
         
-        super.appendTooltip(stack, context, tooltip, type);
+        super.appendHoverText(stack, context, display, tooltip, type);
     }
     
-    public static List<Pair<BlockPos, Direction>> getStoredMidpoints(ItemStack stack, World world) {
+    public static List<Pair<BlockPos, Direction>> getStoredMidpoints(ItemStack stack, Level world) {
         var res = new ArrayList<Pair<BlockPos, Direction>>();
-        if (stack.contains(ComponentContent.MIDPOINTS.get())) {
+        if (stack.has(ComponentContent.MIDPOINTS.get())) {
             stack.get(ComponentContent.MIDPOINTS.get())
               .stream()
               .filter(point -> world.getBlockState(point).getBlock().equals(BlockContent.CONVEYOR_SUPPORT_BLOCK.get()))
-              .map(point -> new Pair<>(point, world.getBlockState(point).get(HorizontalFacingBlock.FACING))).forEachOrdered(res::add);
+              .map(point -> new Pair<>(point, world.getBlockState(point).getValue(HorizontalDirectionalBlock.FACING))).forEachOrdered(res::add);
         }
         
         return res;

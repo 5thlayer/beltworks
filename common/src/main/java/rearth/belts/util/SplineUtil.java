@@ -1,24 +1,24 @@
 package rearth.belts.util;
 
 import rearth.belts.blocks.ChuteBlockEntity;
-import net.minecraft.util.Pair;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import com.mojang.datafixers.util.Pair;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class SplineUtil {
     
-    public static Vec3d getPositionOnSpline(ChuteBlockEntity.BeltData data, double t) {
+    public static Vec3 getPositionOnSpline(ChuteBlockEntity.BeltData data, double t) {
         return getPositionOnSpline(data.allPoints(), data.totalLength(), data.segmentLengths(), t);
     }
     
     // t is in range 0-1
-    public static Vec3d getPositionOnSpline(Vec3d start, Vec3d startDir, Vec3d end, Vec3d endDir, List<Pair<BlockPos, Direction>> middlePoints, double t) {
+    public static Vec3 getPositionOnSpline(Vec3 start, Vec3 startDir, Vec3 end, Vec3 endDir, List<Pair<BlockPos, Direction>> middlePoints, double t) {
         
-        var transformedMidPoints = middlePoints.stream().map(elem -> new Pair<>(elem.getLeft().toCenterPos(), Vec3d.of(elem.getRight().getVector()))).toList();
+        var transformedMidPoints = middlePoints.stream().map(elem -> new Pair<>(elem.getFirst().getCenter(), Vec3.atLowerCornerOf(elem.getSecond().getUnitVec3i()))).toList();
         
         var allPairs = getPointPairs(start, startDir, end, endDir, transformedMidPoints);
         
@@ -27,7 +27,7 @@ public class SplineUtil {
         for (int i = 0; i < allPairs.size() - 1; i++) {
             var from = allPairs.get(i);
             var to = allPairs.get(i + 1);
-            var length = getLineLength(from.getLeft(), from.getRight(), to.getLeft(), to.getRight().multiply(1));
+            var length = getLineLength(from.getFirst(), from.getSecond(), to.getFirst(), to.getSecond());
             segmentLengths[i] = (length);
             totalLength += length;
         }
@@ -35,7 +35,7 @@ public class SplineUtil {
         return getPositionOnSpline(allPairs, totalLength, segmentLengths, t);
     }
     
-    public static Vec3d getPositionOnSpline(List<Pair<Vec3d, Vec3d>> allPoints, double totalLength, Double[] segmentLengths, double t) {
+    public static Vec3 getPositionOnSpline(List<Pair<Vec3, Vec3>> allPoints, double totalLength, Double[] segmentLengths, double t) {
         t = Math.clamp(t, 0, 1);
         
         var targetLength = totalLength * t;
@@ -53,14 +53,14 @@ public class SplineUtil {
                 
                 var mappedT = remapProgress(delta);
                 
-                return getPointOnHermiteSpline(from.getLeft(), from.getRight().multiply(segmentLength * 1.5f), to.getLeft(), to.getRight().multiply(segmentLength * 1.5F), mappedT);
+                return getPointOnHermiteSpline(from.getFirst(), from.getSecond().scale(segmentLength * 1.5f), to.getFirst(), to.getSecond().scale(segmentLength * 1.5F), mappedT);
             } else {
                 traversedLength += segmentLength;
             }
             
         }
         
-        return allPoints.getLast().getLeft();
+        return allPoints.getLast().getFirst();
     }
     
     private static double remapProgress(double x) {
@@ -68,27 +68,27 @@ public class SplineUtil {
     }
     
     // approximates segment length by sampling 2 points along the line, and returning the total distance
-    public static double getLineLength(Vec3d from, Vec3d fromTangent, Vec3d to, Vec3d toTangent) {
+    public static double getLineLength(Vec3 from, Vec3 fromTangent, Vec3 to, Vec3 toTangent) {
         
         var approxLength = from.distanceTo(to);
-        if (fromTangent.squaredDistanceTo(toTangent) < 0.1)
+        if (fromTangent.distanceToSqr(toTangent) < 0.1)
             approxLength += 1;
         
-        var midPointA = getPointOnHermiteSpline(from, fromTangent.multiply(approxLength), to, toTangent.multiply(approxLength), 0.33f);
-        var midPointB = getPointOnHermiteSpline(from, fromTangent.multiply(approxLength), to, toTangent.multiply(approxLength), 0.66f);
+        var midPointA = getPointOnHermiteSpline(from, fromTangent.scale(approxLength), to, toTangent.scale(approxLength), 0.33f);
+        var midPointB = getPointOnHermiteSpline(from, fromTangent.scale(approxLength), to, toTangent.scale(approxLength), 0.66f);
         
         
         return from.distanceTo(midPointA) + midPointA.distanceTo(midPointB) + midPointB.distanceTo(to);
     }
     
-    public static double getTotalLength(List<Pair<Vec3d, Vec3d>> points) {
+    public static double getTotalLength(List<Pair<Vec3, Vec3>> points) {
         
         var res = 0d;
         
         for (int i = 0; i < points.size() - 1; i++) {
             var current = points.get(i);
             var next = points.get(i + 1);
-            var segmentLength = getLineLength(current.getLeft(), current.getRight(), next.getLeft(), next.getRight());
+            var segmentLength = getLineLength(current.getFirst(), current.getSecond(), next.getFirst(), next.getSecond());
             res += segmentLength;
         }
         
@@ -97,31 +97,31 @@ public class SplineUtil {
     }
     
     // calculates the facing of the middle points automatically. Returns a pair for each point with the desired tangent (to the next point)
-    public static List<Pair<Vec3d, Vec3d>> getPointPairs(Vec3d start, Vec3d startDir, Vec3d end, Vec3d endDir, List<Pair<Vec3d, Vec3d>> middlePoints) {
+    public static List<Pair<Vec3, Vec3>> getPointPairs(Vec3 start, Vec3 startDir, Vec3 end, Vec3 endDir, List<Pair<Vec3, Vec3>> middlePoints) {
         
-        var pendingPoints = new ArrayList<Pair<Vec3d, Vec3d>>();
+        var pendingPoints = new ArrayList<Pair<Vec3, Vec3>>();
         pendingPoints.addAll(middlePoints);
         pendingPoints.add(new Pair<>(end, endDir));
         
-        var pointsWithTangents = new ArrayList<Pair<Vec3d, Vec3d>>();
+        var pointsWithTangents = new ArrayList<Pair<Vec3, Vec3>>();
         pointsWithTangents.add(new Pair<>(start, startDir));
         
-        var currentFrom = start.add(startDir.multiply(0.3f));
+        var currentFrom = start.add(startDir.scale(0.3f));
         
         while (!pendingPoints.isEmpty()) {
             var pair = pendingPoints.removeFirst();
             
-            if (pair.getLeft().equals(end)) {
+            if (pair.getFirst().equals(end)) {
                 pointsWithTangents.add(new Pair<>(end, endDir));
                 break;
             }
             
-            var currentTo = pair.getLeft();
-            var distA = currentFrom.distanceTo(pair.getLeft().add(pair.getRight()));
-            var distB = currentFrom.distanceTo(pair.getLeft().subtract(pair.getRight()));
-            var currentToDir = distA > distB ? pair.getRight() : pair.getRight().multiply(-1);
+            var currentTo = pair.getFirst();
+            var distA = currentFrom.distanceTo(pair.getFirst().add(pair.getSecond()));
+            var distB = currentFrom.distanceTo(pair.getFirst().subtract(pair.getSecond()));
+            var currentToDir = distA > distB ? pair.getSecond() : pair.getSecond().scale(-1);
             
-            currentFrom = currentTo.add(currentToDir.multiply(-0.3f));
+            currentFrom = currentTo.add(currentToDir.scale(-0.3f));
             
             pointsWithTangents.add(new Pair<>(currentTo, currentToDir));
         }
@@ -141,9 +141,9 @@ public class SplineUtil {
      *                 at pointB with this tangent.
      * @param t        The interpolation parameter, ranging from 0.0 (returns pointA) to 1.0 (returns pointB).
      *                 Values outside this range will be clamped.
-     * @return A Vec3d representing the point on the Hermite spline at parameter t.
+     * @return A Vec3 representing the point on the Hermite spline at parameter t.
      */
-    public static Vec3d getPointOnHermiteSpline(Vec3d pointA, Vec3d tangentA, Vec3d pointB, Vec3d tangentB, double t) {
+    public static Vec3 getPointOnHermiteSpline(Vec3 pointA, Vec3 tangentA, Vec3 pointB, Vec3 tangentB, double t) {
         // Clamp t to the range [0, 1]
         if (t < 0.0) t = 0.0;
         if (t > 1.0) t = 1.0;
@@ -159,10 +159,10 @@ public class SplineUtil {
         
         // Calculate the point on the spline
         // H(t) = h00(t)*P0 + h10(t)*M0 + h01(t)*P1 + h11(t)*M1
-        Vec3d termP0 = pointA.multiply(h00);
-        Vec3d termM0 = tangentA.multiply(h10);
-        Vec3d termP1 = pointB.multiply(h01);
-        Vec3d termM1 = tangentB.multiply(h11);
+        Vec3 termP0 = pointA.scale(h00);
+        Vec3 termM0 = tangentA.scale(h10);
+        Vec3 termP1 = pointB.scale(h01);
+        Vec3 termM1 = tangentB.scale(h11);
         
         return termP0.add(termM0).add(termP1).add(termM1);
     }

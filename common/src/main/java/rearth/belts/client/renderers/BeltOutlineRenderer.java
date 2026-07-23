@@ -1,175 +1,173 @@
 package rearth.belts.client.renderers;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.datafixers.util.Pair;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.ShapeRenderer;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Vec3i;
+import net.minecraft.util.ARGB;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.Shapes;
 import rearth.belts.BlockContent;
 import rearth.belts.BlockEntitiesContent;
 import rearth.belts.ComponentContent;
 import rearth.belts.items.BeltItem;
 import rearth.belts.util.MathHelpers;
 import rearth.belts.util.SplineUtil;
-import net.minecraft.block.HorizontalFacingBlock;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.WorldRenderer;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.util.Pair;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.*;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class BeltOutlineRenderer {
-    
-    public static void renderPlannedBelt(ClientWorld world, Camera camera, MatrixStack matrixStack, VertexConsumerProvider consumer) {
-        if (world == null) return;
-        
-        var client = MinecraftClient.getInstance();
-        var player = client.player;
-        if (player == null || client.crosshairTarget == null || client.crosshairTarget.getType() != HitResult.Type.BLOCK)
-            return;
-        
-        var stack = player.getMainHandStack();
-        var blockHit = ((BlockHitResult) client.crosshairTarget);
-        
-        if (!(stack.getItem() instanceof BeltItem)) return;
-        
-        var hasStart = stack.contains(ComponentContent.BELT_START.get()) && stack.contains(ComponentContent.BELT_DIR.get());
+public final class BeltOutlineRenderer {
+
+    private BeltOutlineRenderer() {
+    }
+
+    public record Outline(AABB box, int color) {
+    }
+
+    public static List<Outline> extractPlannedBelt(ClientLevel level, BlockHitResult blockHit) {
+        var player = Minecraft.getInstance().player;
+        if (player == null) return List.of();
+
+        var stack = player.getMainHandItem();
+        if (!(stack.getItem() instanceof BeltItem)) return List.of();
+
+        var outlines = new ArrayList<Outline>();
+        var hasStart = stack.has(ComponentContent.BELT_START.get()) && stack.has(ComponentContent.BELT_DIR.get());
         if (!hasStart) {
-            // render just start
-            
-            var couldBePlaced = false;
-            
-            // in world space
-            var potentialStart = blockHit.getBlockPos().add(blockHit.getSide().getVector());
-            var startDir = blockHit.getSide();
-            if (blockHit.getSide().getAxis().equals(Direction.Axis.Y))
-                startDir = player.getHorizontalFacing().getOpposite();
-            
-            var startState = world.getBlockState(potentialStart);
-            if (startState.isReplaceable() || startState.isAir())
-                couldBePlaced = true;
-            
-            var targetedChuteCandidate = world.getBlockEntity(blockHit.getBlockPos(), BlockEntitiesContent.CHUTE_BLOCK.get());
-            if (targetedChuteCandidate.isPresent()) {
-                var chuteEntity = targetedChuteCandidate.get();
-                startDir = chuteEntity.getOwnFacing();
+            var potentialStart = blockHit.getBlockPos().relative(blockHit.getDirection());
+            var startDir = blockHit.getDirection();
+            if (startDir.getAxis() == Direction.Axis.Y) {
+                startDir = player.getDirection().getOpposite();
+            }
+
+            var startState = level.getBlockState(potentialStart);
+            var couldBePlaced = startState.canBeReplaced() || startState.isAir();
+
+            var targetedChute = level.getBlockEntity(blockHit.getBlockPos(), BlockEntitiesContent.CHUTE_BLOCK.get());
+            if (targetedChute.isPresent()) {
+                startDir = targetedChute.get().getOwnFacing();
                 potentialStart = blockHit.getBlockPos();
                 couldBePlaced = true;
             }
-            
-            var boxDirectionOffset = Vec3d.of(startDir.getVector()).multiply(0.1 + (world.getTime() % 10) / 20f);
-            var bowLower = potentialStart.toCenterPos().subtract(Vec3d.of(startDir.getVector()).multiply(0.4f)).subtract(0.1f, 0.1f, 0.1f);
-            var boxUpper = potentialStart.toCenterPos().subtract(Vec3d.of(startDir.getVector()).multiply(0.4f)).add(0.1f, 0.1f, 0.1f).add(boxDirectionOffset);
-            var box = new Box(bowLower, boxUpper);
-            
-            matrixStack.push();
-            var cameraPos = camera.getPos();
-            matrixStack.translate(-cameraPos.getX(), -cameraPos.getY(), -cameraPos.getZ());
-            
-            WorldRenderer.drawBox(matrixStack, consumer.getBuffer(RenderLayer.getLines()), box, couldBePlaced ? 0.1f : 1f, couldBePlaced ? 0.8f : 0.1f, couldBePlaced ? 0.7f : 0f, 0.9f);
-            
-            matrixStack.pop();
-            
-            return;
+
+            var direction = Vec3.atLowerCornerOf(startDir.getUnitVec3i());
+            var directionOffset = direction.scale(0.1 + (level.getGameTime() % 10) / 20f);
+            var lower = potentialStart.getCenter().subtract(direction.scale(0.4)).subtract(0.1, 0.1, 0.1);
+            var upper = potentialStart.getCenter().subtract(direction.scale(0.4)).add(0.1, 0.1, 0.1).add(directionOffset);
+            var color = couldBePlaced
+                    ? ARGB.colorFromFloat(0.9f, 0.1f, 0.8f, 0.7f)
+                    : ARGB.colorFromFloat(0.9f, 1f, 0.1f, 0f);
+            outlines.add(new Outline(new AABB(lower, upper), color));
+            return List.copyOf(outlines);
         }
-        
+
         var startBlockPos = stack.get(ComponentContent.BELT_START.get());
         var startFacing = stack.get(ComponentContent.BELT_DIR.get());
-        if (startBlockPos == null || startBlockPos.equals(BlockPos.ORIGIN) || startFacing == null) return;
-        
-        var startPos = startBlockPos.toCenterPos();
-        var startDir = startFacing.getVector();
-        var midPoints = BeltItem.getStoredMidpoints(stack, world);
-        
+        if (startBlockPos == null || startBlockPos.equals(BlockPos.ZERO) || startFacing == null) return List.of();
+
+        var startPos = startBlockPos.getCenter();
+        var startDir = startFacing.getUnitVec3i();
+        var midPoints = BeltItem.getStoredMidpoints(stack, level);
+
         BlockPos endBlockPos;
         Direction endDir;
-        
-        var endChuteCandidate = world.getBlockEntity(blockHit.getBlockPos(), BlockEntitiesContent.CHUTE_BLOCK.get());
-        if (endChuteCandidate.isPresent()) {
-            var endChute = endChuteCandidate.get();
+        var endChute = level.getBlockEntity(blockHit.getBlockPos(), BlockEntitiesContent.CHUTE_BLOCK.get());
+        if (endChute.isPresent()) {
             endBlockPos = blockHit.getBlockPos();
-            endDir = endChute.getOwnFacing().getOpposite();
-        } else if (world.getBlockState(blockHit.getBlockPos()).getBlock().equals(BlockContent.CONVEYOR_SUPPORT_BLOCK.get())) {
+            endDir = endChute.get().getOwnFacing().getOpposite();
+        } else if (level.getBlockState(blockHit.getBlockPos()).is(BlockContent.CONVEYOR_SUPPORT_BLOCK.get())) {
             var conveyorPos = blockHit.getBlockPos();
-            var conveyorFacing = world.getBlockState(blockHit.getBlockPos()).get(HorizontalFacingBlock.FACING);
-            var reversedConveyorFacing = conveyorFacing.getVector().multiply(-1);
-            var lastEnd = midPoints.isEmpty() ? startBlockPos : midPoints.getLast().getLeft();
-            var distA = conveyorPos.add(conveyorFacing.getVector()).getSquaredDistance(lastEnd);
-            var distB = conveyorPos.add(reversedConveyorFacing).getSquaredDistance(lastEnd);
-            endDir = distB < distA ? conveyorFacing : conveyorFacing.getOpposite();
+            var conveyorFacing = level.getBlockState(conveyorPos).getValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING);
+            var lastEnd = midPoints.isEmpty() ? startBlockPos : midPoints.getLast().getFirst();
+            var distanceForward = conveyorPos.relative(conveyorFacing).distSqr(lastEnd);
+            var distanceBackward = conveyorPos.relative(conveyorFacing.getOpposite()).distSqr(lastEnd);
+            endDir = distanceBackward < distanceForward ? conveyorFacing : conveyorFacing.getOpposite();
             endBlockPos = conveyorPos;
         } else {
-            endBlockPos = blockHit.getBlockPos().add(blockHit.getSide().getVector());
-            endDir = blockHit.getSide().getOpposite();
-            if (endDir.getAxis().isVertical())
-                endDir = player.getHorizontalFacing().getOpposite();
+            endBlockPos = blockHit.getBlockPos().relative(blockHit.getDirection());
+            endDir = blockHit.getDirection().getOpposite();
+            if (endDir.getAxis().isVertical()) {
+                endDir = player.getDirection().getOpposite();
+            }
         }
-        
-        var visualEndPos = endBlockPos.toCenterPos();
-        var visualEndDir = endDir.getVector();
-        
-        matrixStack.push();
-        var cameraPos = camera.getPos();
-        matrixStack.translate(-cameraPos.getX(), -cameraPos.getY(), -cameraPos.getZ());
-        var linePoints = getPositionsAlongLine(startPos, visualEndPos, startDir, visualEndDir, midPoints);
-        
-        var lastForward = Vec3d.of(startDir).normalize();
-        var lastCenter = Vec3d.ZERO;
-        if (!linePoints.isEmpty())
-            lastCenter = linePoints.getFirst();
-        
+
+        var linePoints = getPositionsAlongLine(
+                startPos,
+                endBlockPos.getCenter(),
+                startDir,
+                endDir.getUnitVec3i(),
+                midPoints
+        );
+        var lastForward = Vec3.atLowerCornerOf(startDir).normalize();
+        var lastCenter = linePoints.isEmpty() ? Vec3.ZERO : linePoints.getFirst();
+
         for (var center : linePoints) {
-            var lineRadius = 0.05f;
-            
             var newForward = center.subtract(lastCenter).normalize();
-            
-            // this only happens for the first one
-            if (center.equals(lastCenter))
-                newForward = lastForward;
-            
+            if (center.equals(lastCenter)) newForward = lastForward;
+
             var curveFactor = newForward.distanceTo(lastForward);
-            var color = new Vec3d(1, 1, 1);
-            
-            if (curveFactor > 0.25f) {
-                color = new Vec3d(1, 0.6f, 0.2f);
-            }
-            
-            if (curveFactor > 0.43f) {
-                color = new Vec3d(1, 0, 0);
-            }
-            
+            var color = ARGB.colorFromFloat(0.8f, 1f, 1f, 1f);
+            if (curveFactor > 0.25f) color = ARGB.colorFromFloat(0.8f, 1f, 0.6f, 0.2f);
+            if (curveFactor > 0.43f) color = ARGB.colorFromFloat(0.8f, 1f, 0f, 0f);
+
+            outlines.add(new Outline(new AABB(center, center).inflate(0.05), color));
             lastCenter = center;
             lastForward = MathHelpers.lerp(lastForward, newForward, 0.3f);
-            
-            WorldRenderer.drawBox(matrixStack, consumer.getBuffer(RenderLayer.getLines()), center.x - lineRadius, center.y - lineRadius, center.z - lineRadius, center.x + lineRadius, center.y + lineRadius, center.z + lineRadius, (float) color.x, (float) color.y, (float) color.z, 0.8f);
         }
-        
-        matrixStack.pop();
-        
+
+        return List.copyOf(outlines);
     }
-    
-    private static List<Vec3d> getPositionsAlongLine(Vec3d from, Vec3d to, Vec3i startDir, Vec3i endDir, List<Pair<BlockPos, Direction>> midpoints) {
-        var stepSize = 0.1f;
-        
-        var result = new ArrayList<Vec3d>();
-        
-        var transformedMidPoints = midpoints.stream().map(elem -> new Pair<>(elem.getLeft().toCenterPos(), Vec3d.of(elem.getRight().getVector()))).toList();
-        var segmentPoints = SplineUtil.getPointPairs(from, Vec3d.of(startDir), to, Vec3d.of(endDir), transformedMidPoints);
-        
-        var dist = SplineUtil.getTotalLength(segmentPoints);
-        
-        for (var i = 0f; i < dist; i += stepSize) {
-            var progress = i / dist;
-            var center = SplineUtil.getPositionOnSpline(from, Vec3d.of(startDir), to, Vec3d.of(endDir), midpoints, progress);
-            result.add(center);
+
+    public static void renderPlannedBelt(List<Outline> outlines, Vec3 cameraPos, PoseStack poseStack, MultiBufferSource buffers) {
+        if (outlines.isEmpty()) return;
+
+        var consumer = buffers.getBuffer(RenderTypes.lines());
+        for (var outline : outlines) {
+            ShapeRenderer.renderShape(
+                    poseStack,
+                    consumer,
+                    Shapes.create(outline.box()),
+                    -cameraPos.x,
+                    -cameraPos.y,
+                    -cameraPos.z,
+                    outline.color(),
+                    2f
+            );
         }
-        
+    }
+
+    private static List<Vec3> getPositionsAlongLine(
+            Vec3 from,
+            Vec3 to,
+            Vec3i startDir,
+            Vec3i endDir,
+            List<Pair<BlockPos, Direction>> midpoints
+    ) {
+        var transformedMidPoints = midpoints.stream()
+                .map(point -> Pair.of(point.getFirst().getCenter(), Vec3.atLowerCornerOf(point.getSecond().getUnitVec3i())))
+                .toList();
+        var segmentPoints = SplineUtil.getPointPairs(
+                from,
+                Vec3.atLowerCornerOf(startDir),
+                to,
+                Vec3.atLowerCornerOf(endDir),
+                transformedMidPoints
+        );
+        var distance = SplineUtil.getTotalLength(segmentPoints);
+        var result = new ArrayList<Vec3>();
+
+        for (var current = 0f; current < distance; current += 0.1f) {
+            result.add(SplineUtil.getPositionOnSpline(from, Vec3.atLowerCornerOf(startDir), to, Vec3.atLowerCornerOf(endDir), midpoints, current / distance));
+        }
         return result;
-        
     }
-    
 }

@@ -1,32 +1,34 @@
 package rearth.belts.items;
 
-import net.minecraft.block.Block;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.tooltip.TooltipType;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
+import net.minecraft.world.level.block.Block;
 
-import java.util.List;
+import java.util.function.Consumer;
 
 public class TooltipBlockItem extends BlockItem {
     
-    public TooltipBlockItem(Block block, Settings settings) {
+    public TooltipBlockItem(Block block, Properties settings) {
         super(block, settings);
     }
     
     @Override
-    public void appendTooltip(ItemStack stack, TooltipContext context, List<Text> tooltip, TooltipType type) {
+    public void appendHoverText(ItemStack stack, Item.TooltipContext context, TooltipDisplay display, Consumer<Component> tooltip, TooltipFlag type) {
         
-        var showExtra = Screen.hasControlDown();
+        var showExtra = Minecraft.getInstance().hasControlDown();
         if (showExtra) {
-            var langKey = stack.getItem().getTranslationKey();
-            tooltip.add(Text.translatable(langKey + ".tooltip").formatted(Formatting.GRAY));
+            var langKey = stack.getItem().getDescriptionId();
+            tooltip.accept(Component.translatable(langKey + ".tooltip").withStyle(ChatFormatting.GRAY));
         } else {
-            tooltip.add(Text.translatable("message.belts.show_extra").formatted(Formatting.GRAY, Formatting.ITALIC));
+            tooltip.accept(Component.translatable("message.belts.show_extra").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
         }
         
-        super.appendTooltip(stack, context, tooltip, type);
+        super.appendHoverText(stack, context, display, tooltip, type);
     }
 }

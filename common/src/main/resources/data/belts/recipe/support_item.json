@@ -2,12 +2,8 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "i": {
-      "item": "minecraft:copper_ingot"
-    },
-    "p": {
-      "tag": "minecraft:planks"
-    }
+    "i": "minecraft:copper_ingot",
+    "p": "#minecraft:planks"
   },
   "pattern": [
     "   ",

@@ -2,12 +2,8 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "c": {
-      "item": "minecraft:black_dye"
-    },
-    "i": {
-      "item": "minecraft:stick"
-    }
+    "c": "minecraft:black_dye",
+    "i": "minecraft:stick"
   },
   "pattern": [
     "   ",

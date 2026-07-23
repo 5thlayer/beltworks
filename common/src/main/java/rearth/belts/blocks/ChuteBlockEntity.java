@@ -2,27 +2,28 @@ package rearth.belts.blocks;
 
 import dev.architectury.platform.Platform;
 import dev.ftb.mods.ftbfiltersystem.api.FTBFilterSystemAPI;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.HorizontalFacingBlock;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityTicker;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.network.listener.ClientPlayPacketListener;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.s2c.play.BlockEntityUpdateS2CPacket;
-import net.minecraft.registry.RegistryWrapper;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
-import net.minecraft.util.Pair;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import com.mojang.datafixers.util.Pair;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 import rearth.belts.BlockContent;
 import rearth.belts.BlockEntitiesContent;
@@ -34,6 +35,8 @@ import rearth.belts.util.SplineUtil;
 import java.util.*;
 
 public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<ChuteBlockEntity> {
+
+    public static final float BELT_SPEED = 1f;
     
     // everything in this section is synced to the client
     private BlockPos target;
@@ -50,14 +53,14 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     
     // used to check if a belt is used as target. Periodically updated on belt ends from the belt starts.
     private long lastTargetedTime;
-    private BlockPos sourceBeltPos = BlockPos.ORIGIN;
+    private BlockPos sourceBeltPos = BlockPos.ZERO;
     
     // used for filtering. Optionally works with create and ftb filters.
     public ItemStack filteredItem = ItemStack.EMPTY;
     
     // client only data, used for rendering
     public ChuteBeltRenderer.Quad[] renderedModel;
-    public Map<Short, Vec3d> lastRenderedPositions = new HashMap<>();
+    public Map<Short, Vec3> lastRenderedPositions = new HashMap<>();
     
     private boolean networkDirty = false;
     
@@ -66,11 +69,11 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     }
     
     @Override
-    public void tick(World world, BlockPos pos, BlockState state, ChuteBlockEntity blockEntity) {
+    public void tick(Level world, BlockPos pos, BlockState state, ChuteBlockEntity blockEntity) {
         if (world == null) return;
         
-        if (target == null || target.equals(BlockPos.ORIGIN)) {
-            if (!world.isClient && !movingItems.isEmpty()) {
+        if (target == null || target.equals(BlockPos.ZERO)) {
+            if (!world.isClientSide() && !movingItems.isEmpty()) {
                 dropContent(world, pos);
             }
             return;
@@ -78,8 +81,8 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         
         if (beltData == null) {
             beltData = BeltData.create(this);
-            if (world instanceof ServerWorld serverWorld)
-                serverWorld.getChunkManager().markForUpdate(pos);
+            if (world instanceof ServerLevel serverWorld)
+                serverWorld.sendBlockUpdated(pos, state, state, Block.UPDATE_ALL);
         }
         
         if (beltData == null) {
@@ -88,60 +91,60 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             return;
         }
         
-        if (world.isClient) return;
+        if (world.isClientSide()) return;
         
         moveItemsOnBelt();
         loadItemsOnBelt();
         
         // refresh target
-        if (world.getTime() % 19 == 0)
+        if (world.getGameTime() % 19 == 0)
             assignTargetState(world);
         
         
-        if (networkDirty && world instanceof ServerWorld serverWorld) {
-            serverWorld.getChunkManager().markForUpdate(pos);
+        if (networkDirty && world instanceof ServerLevel serverWorld) {
+            serverWorld.sendBlockUpdated(pos, state, state, Block.UPDATE_ALL);
             networkDirty = false;
         }
         
     }
     
-    public void dropContent(World world, BlockPos pos) {
+    public void dropContent(Level world, BlockPos pos) {
         
         // notify source to be reset
-        if (world.getTime() - this.lastTargetedTime < 20 && !this.sourceBeltPos.equals(BlockPos.ORIGIN) && world instanceof ServerWorld serverWorld) {
+        if (world.getGameTime() - this.lastTargetedTime < 20 && !this.sourceBeltPos.equals(BlockPos.ZERO) && world instanceof ServerLevel serverWorld) {
             var sourceEntityCandidate = world.getBlockEntity(this.sourceBeltPos, BlockEntitiesContent.CHUTE_BLOCK.get());
             if (sourceEntityCandidate.isPresent() && sourceEntityCandidate.get() != this) {
                 var source = sourceEntityCandidate.get();
                 source.dropContent(world, pos);
                 source.target = null;
-                serverWorld.getChunkManager().markForUpdate(this.sourceBeltPos);
+                serverWorld.sendBlockUpdated(this.sourceBeltPos, source.getBlockState(), source.getBlockState(), Block.UPDATE_ALL);
                 source.networkDirty = true;
-                source.markDirty();
+                source.setChanged();
             }
         }
         
         for (var beltItem : movingItems) {
             var stack = beltItem.stack;
-            var spawnAt = pos.toCenterPos();
-            world.spawnEntity(new ItemEntity(world, spawnAt.x, spawnAt.y, spawnAt.z, stack));
+            var spawnAt = pos.getCenter();
+            world.addFreshEntity(new ItemEntity(world, spawnAt.x, spawnAt.y, spawnAt.z, stack));
         }
         
-        if (!movingItems.isEmpty() || (target != null && !target.equals(BlockPos.ORIGIN))) {
+        if (!movingItems.isEmpty() || (target != null && !target.equals(BlockPos.ZERO))) {
             // pretend to drop an actual belt
             var stack = new ItemStack(ItemContent.BELT.get(), 1);
-            var spawnAt = pos.toCenterPos();
-            world.spawnEntity(new ItemEntity(world, spawnAt.x, spawnAt.y, spawnAt.z, stack));
+            var spawnAt = pos.getCenter();
+            world.addFreshEntity(new ItemEntity(world, spawnAt.x, spawnAt.y, spawnAt.z, stack));
         }
         
         movingItems.clear();
     }
     
     // notifies the belt end entity that the current entity is the sender to it
-    private void assignTargetState(World world) {
+    private void assignTargetState(Level world) {
         var beltTargetCandidate = world.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get());
         if (beltTargetCandidate.isPresent()) {
-            beltTargetCandidate.get().lastTargetedTime = world.getTime();
-            beltTargetCandidate.get().sourceBeltPos = pos;
+            beltTargetCandidate.get().lastTargetedTime = world.getGameTime();
+            beltTargetCandidate.get().sourceBeltPos = worldPosition;
         } else {
             target = null;
             midPoints = new ArrayList<>();
@@ -151,8 +154,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     private void moveItemsOnBelt() {
         
         var beltLength = beltData.totalLength();
-        var beltSpeed = 1f;
-        var progressDelta = beltSpeed / beltLength / 20f;
+        var progressDelta = BELT_SPEED / beltLength / 20f;
         
         boolean unloaded = false;
         outputQueue = 0;
@@ -173,10 +175,10 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             
             // try to insert last item (if its in queue). Gets put into queue when the end is reached.
             if (inQueue && outputQueue == 1) {
-                var conveyorEndEntityCandidate = world.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get());
+                var conveyorEndEntityCandidate = level.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get());
                 if (conveyorEndEntityCandidate.isEmpty()) continue;
                 var conveyorEndEntity = conveyorEndEntityCandidate.get();
-                var targetInv = ItemApi.BLOCK.find(world, target.add(conveyorEndEntity.getOwnFacing().getOpposite().getVector()), null, null, conveyorEndEntity.getOwnFacing());
+                var targetInv = ItemApi.BLOCK.find(level, target.relative(conveyorEndEntity.getOwnFacing().getOpposite()), null, null, conveyorEndEntity.getOwnFacing());
                 if (targetInv == null) continue;
                 
                 var insertionStack = pair.stack;
@@ -198,13 +200,13 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     @SuppressWarnings("DataFlowIssue")
     private void loadItemsOnBelt() {
         var extractionInterval = (int) (20 / 0.8f) + 1;
-        var extractionOffset = pos.asLong();
+        var extractionOffset = worldPosition.asLong();
         
-        if ((world.getTime() + extractionOffset) % extractionInterval != 0) return;
+        if ((level.getGameTime() + extractionOffset) % extractionInterval != 0) return;
         
         if (getPotentialQueueStart() < 0) return;
         
-        var source = ItemApi.BLOCK.find(world, pos.add(getOwnFacing().getOpposite().getVector()), null, null, getOwnFacing());
+        var source = ItemApi.BLOCK.find(level, worldPosition.relative(getOwnFacing().getOpposite()), null, null, getOwnFacing());
         if (source != null) {
             // try extracting first stack
             ItemStack extracted = null;
@@ -221,9 +223,9 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             }
             
             if (extracted != null) {
-                var id = (short) world.random.nextBetween(Short.MIN_VALUE, Short.MAX_VALUE);
+                var id = (short) level.getRandom().nextIntBetweenInclusive(Short.MIN_VALUE, Short.MAX_VALUE);
                 movingItems.addFirst(new BeltItem(id, extracted));
-                this.markDirty();
+                this.setChanged();
                 networkDirty = true;
             }
         }
@@ -235,7 +237,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         if (Platform.isModLoaded("ftbfiltersystem")) {
             var filterAPI = FTBFilterSystemAPI.api();
             if (filterAPI.isFilterItem(filteredItem))
-                return filterAPI.doesFilterMatch(filteredItem, stack);
+                return filterAPI.doesFilterMatch(filteredItem, stack, level.registryAccess());
         }
         
         return stack.getItem().equals(filteredItem.getItem());
@@ -250,71 +252,62 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     }
     
     @Override
-    protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-        super.writeNbt(nbt, registryLookup);
-        if (target != null)
-            nbt.putLong("target", target.asLong());
-        
-        if (!midPoints.isEmpty()) {
-            var midpointsArray = midPoints.stream().map(BlockPos::asLong).toList();
-            nbt.putLongArray("midpoints", midpointsArray);
+    protected void saveAdditional(ValueOutput output) {
+        super.saveAdditional(output);
+        output.storeNullable("target", BlockPos.CODEC, target);
+        output.store("midpoints", BlockPos.CODEC.listOf(), midPoints);
+        output.store("filter", ItemStack.OPTIONAL_CODEC, filteredItem);
+
+        var positions = output.childrenList("moving");
+        for (var pair : movingItems) {
+            var item = positions.addChild();
+            item.putFloat("progress", pair.progress);
+            item.store("stack", ItemStack.OPTIONAL_CODEC, pair.stack);
+            item.putShort("id", pair.id);
         }
-        
-        nbt.put("filter", filteredItem.encodeAllowEmpty(registryLookup));
-        
-        var positionsList = new NbtList();
-        positionsList.addAll(movingItems.stream().map(pair -> {
-            var compound = new NbtCompound();
-            compound.putFloat("a", pair.progress);
-            compound.put("b", pair.stack.encode(registryLookup));
-            compound.putShort("id", pair.id);
-            return compound;
-        }).toList());
-        nbt.put("moving", positionsList);
     }
     
     @SuppressWarnings("OptionalIsPresent")
     @Override
-    protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-        super.readNbt(nbt, registryLookup);
-        
-        target = BlockPos.fromLong(nbt.getLong("target"));
-        
-        var midPointsList = nbt.getLongArray("midpoints");
-        midPoints = Arrays.stream(midPointsList).mapToObj(BlockPos::fromLong).toList();
-        
-        filteredItem = ItemStack.fromNbtOrEmpty(registryLookup, nbt.getCompound("filter"));
-        
-        var positions = nbt.getList("moving", NbtElement.COMPOUND_TYPE);
+    protected void loadAdditional(ValueInput input) {
+        super.loadAdditional(input);
+
+        target = input.read("target", BlockPos.CODEC).orElse(null);
+        midPoints = new ArrayList<>(input.read("midpoints", BlockPos.CODEC.listOf()).orElse(List.of()));
+        filteredItem = input.read("filter", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY);
+
+        var previousProgress = new HashMap<Short, Float>();
+        for (var movingItem : movingItems) {
+            previousProgress.put(movingItem.id, movingItem.progress);
+        }
+
         movingItems.clear();
-        movingItems.addAll(positions.stream().map(element -> {
-            var compound = (NbtCompound) element;
-            var progress = compound.getFloat("a");
-            var id = compound.getShort("id");
-            var stackCandidate = ItemStack.fromNbt(registryLookup, compound.get("b"));
-            var stack = stackCandidate.isEmpty() ? ItemStack.EMPTY : stackCandidate.get();
-            return new BeltItem(progress, id, stack);
+        movingItems.addAll(input.childrenListOrEmpty("moving").stream().map(item -> {
+            var progress = item.getFloatOr("progress", 0);
+            var id = (short) item.getShortOr("id", (short) 0);
+            var stack = item.read("stack", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY);
+            var beltItem = new BeltItem(progress, id, stack);
+            beltItem.previousProgress = previousProgress.getOrDefault(id, progress);
+            return beltItem;
         }).toList());
         
-        if (world == null) return;
+        if (level == null) return;
         
         beltData = BeltData.create(this);
         
-        if (world.isClient) {
+        if (level.isClientSide()) {
             renderedModel = null;
         }
     }
     
     @Override
-    public NbtCompound toInitialChunkDataNbt(RegistryWrapper.WrapperLookup registryLookup) {
-        var base = super.toInitialChunkDataNbt(registryLookup);
-        writeNbt(base, registryLookup);
-        return base;
+    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        return saveCustomOnly(registries);
     }
     
     @Override
-    public @Nullable Packet<ClientPlayPacketListener> toUpdatePacket() {
-        return BlockEntityUpdateS2CPacket.create(this);
+    public @Nullable Packet<ClientGamePacketListener> getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
     }
     
     public Iterable<BeltItem> getMovingItems() {
@@ -330,12 +323,12 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     }
     
     public Direction getOwnFacing() {
-        return getCachedState().get(HorizontalFacingBlock.FACING);
+        return getBlockState().getValue(HorizontalDirectionalBlock.FACING);
     }
     
     public boolean isUsed() {
-        var usedAsTarget = world.getTime() - lastTargetedTime < 40;
-        var usedAsSource = target != null && !target.equals(BlockPos.ORIGIN);
+        var usedAsTarget = level.getGameTime() - lastTargetedTime < 40;
+        var usedAsSource = target != null && !target.equals(BlockPos.ZERO);
         return usedAsTarget || usedAsSource;
     }
     
@@ -344,81 +337,84 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         this.midPoints = midpoints;
         beltData = BeltData.create(this);
         networkDirty = true;
-        this.markDirty();
+        this.setChanged();
         
-        if (world instanceof ServerWorld serverWorld)
-            serverWorld.getChunkManager().markForUpdate(pos);
+        if (level instanceof ServerLevel serverWorld)
+            serverWorld.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
     }
     
     public List<Pair<BlockPos, Direction>> getMidPointsWithTangents() {
         return midPoints.stream()
-                 .filter(point -> world.getBlockState(point).getBlock().equals(BlockContent.CONVEYOR_SUPPORT_BLOCK.get()))
-                 .map(point -> new Pair<>(point, world.getBlockState(point).get(HorizontalFacingBlock.FACING)))
+                 .filter(point -> level.getBlockState(point).getBlock().equals(BlockContent.CONVEYOR_SUPPORT_BLOCK.get()))
+                 .map(point -> new Pair<>(point, level.getBlockState(point).getValue(HorizontalDirectionalBlock.FACING)))
                  .toList();
     }
     
-    public void assignFilterItem(ItemStack stack, PlayerEntity player) {
+    public void assignFilterItem(ItemStack stack, Player player) {
         
         if (stack.isEmpty()) {
             resetFilterItem(player);
             return;
         }
         
-        player.sendMessage(Text.translatable("message.belts.filter_set"));
+        player.sendSystemMessage(Component.translatable("message.belts.filter_set"));
         filteredItem = stack.copy();
-        this.markDirty();
+        this.setChanged();
         
-        if (world instanceof ServerWorld serverWorld)
-            serverWorld.getChunkManager().markForUpdate(pos);
+        if (level instanceof ServerLevel serverWorld)
+            serverWorld.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
     }
     
-    public void resetFilterItem(PlayerEntity player) {
-        player.sendMessage(Text.translatable("message.belts.filter_reset"));
+    public void resetFilterItem(Player player) {
+        player.sendSystemMessage(Component.translatable("message.belts.filter_reset"));
         filteredItem = ItemStack.EMPTY;
-        this.markDirty();
+        this.setChanged();
         
-        if (world instanceof ServerWorld serverWorld)
-            serverWorld.getChunkManager().markForUpdate(pos);
+        if (level instanceof ServerLevel serverWorld)
+            serverWorld.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
     }
     
     public static class BeltItem {
         public float progress;
+        public float previousProgress;
         public final short id;
         public final ItemStack stack;
         
         public BeltItem(short id, ItemStack stack) {
             this.id = id;
             this.stack = stack;
+            this.previousProgress = this.progress;
         }
         
         public BeltItem(float progress, short id, ItemStack stack) {
             this.id = id;
             this.stack = stack;
             this.progress = progress;
+            this.previousProgress = progress;
         }
     }
     
-    public record BeltData(List<Pair<Vec3d, Vec3d>> allPoints, double totalLength, Double[] segmentLengths) {
+    public record BeltData(List<Pair<Vec3, Vec3>> allPoints, double totalLength, Double[] segmentLengths) {
         
         public static @Nullable BeltData create(ChuteBlockEntity entity) {
             
-            if (entity.getWorld() == null || entity.target == null || entity.target.equals(BlockPos.ORIGIN))
+            if (entity.getLevel() == null || entity.target == null || entity.target.equals(BlockPos.ZERO))
                 return null;
             
-            var targetCandidate = entity.getWorld().getBlockEntity(entity.getTarget(), BlockEntitiesContent.CHUTE_BLOCK.get());
+            var targetCandidate = entity.getLevel().getBlockEntity(entity.getTarget(), BlockEntitiesContent.CHUTE_BLOCK.get());
             if (targetCandidate.isEmpty()) return null;
             
-            var conveyorStartPoint = entity.getPos();
+            var conveyorStartPoint = entity.getBlockPos();
             var conveyorEndPoint = entity.getTarget();
-            var conveyorStartDir = Vec3d.of(entity.getOwnFacing().getVector());
+            var conveyorStartDir = Vec3.atLowerCornerOf(entity.getOwnFacing().getUnitVec3i());
             var conveyorFacing = targetCandidate.get().getOwnFacing();
-            var conveyorEndDir = Vec3d.of(conveyorFacing.getOpposite().getVector());
+            var conveyorEndDir = Vec3.atLowerCornerOf(conveyorFacing.getOpposite().getUnitVec3i());
             
             var conveyorMidPointsVisual = entity.getMidPointsWithTangents();
-            var conveyorStartPointVisual = conveyorStartPoint.toCenterPos().add(conveyorStartDir.multiply(-0.5f));
-            var conveyorEndPointVisual = conveyorEndPoint.toCenterPos().add(conveyorEndDir.multiply(0.5f));
+            var conveyorStartPointVisual = conveyorStartPoint.getCenter().add(conveyorStartDir.scale(-0.5f));
+            var conveyorEndPointVisual = conveyorEndPoint.getCenter().add(conveyorEndDir.scale(0.5f));
             
-            var transformedMidPoints = conveyorMidPointsVisual.stream().map(elem -> new Pair<>(elem.getLeft().toCenterPos(), Vec3d.of(elem.getRight().getVector()))).toList();
+            var transformedMidPoints = conveyorMidPointsVisual.stream().map(elem -> new Pair<>(elem.getFirst().getCenter(), Vec3.atLowerCornerOf(elem.getSecond().getUnitVec3i()))).toList();
             var segmentPoints = SplineUtil.getPointPairs(conveyorStartPointVisual, conveyorStartDir, conveyorEndPointVisual, conveyorEndDir, transformedMidPoints);
             
             var segmentLengths = new Double[segmentPoints.size() - 1];
@@ -426,7 +422,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             for (int i = 0; i < segmentPoints.size() - 1; i++) {
                 var from = segmentPoints.get(i);
                 var to = segmentPoints.get(i + 1);
-                var length = SplineUtil.getLineLength(from.getLeft(), from.getRight(), to.getLeft(), to.getRight().multiply(1));
+                var length = SplineUtil.getLineLength(from.getFirst(), from.getSecond(), to.getFirst(), to.getSecond());
                 segmentLengths[i] = (length);
                 totalLength += length;
             }

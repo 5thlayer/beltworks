@@ -16,21 +16,21 @@ This is an example description! Tell everyone what your mod is about!
 [[dependencies.belts]]
 modId = "neoforge"
 type = "required"
-versionRange = "[21.1,)"
+versionRange = "[26.1.2.77,)"
 ordering = "NONE"
 side = "BOTH"
 
 [[dependencies.belts]]
 modId = "minecraft"
 type = "required"
-versionRange = "[1.21.1,)"
+versionRange = "[26.1.2]"
 ordering = "NONE"
 side = "BOTH"
 
 [[dependencies.belts]]
 modId = "architectury"
 type = "required"
-versionRange = "[13.0.8,)"
+versionRange = "[20.0.9,)"
 ordering = "AFTER"
 side = "BOTH"
 

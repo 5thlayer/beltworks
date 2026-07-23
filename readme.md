@@ -1,6 +1,6 @@
 ![Belt connecting chest and furnace](https://cdn.modrinth.com/data/cached_images/ac7f13962088c002ca8a82cfdfb644f8cdd0dc89.png)
 
-This mod adds clean, flexible conveyor belts for Minecraft 1.21.1, compatible with **both Fabric and NeoForge**. It’s designed to work seamlessly with **any item storage mod**. The mod is still in **beta**, please report any issues you find.
+This mod adds clean, flexible conveyor belts for Minecraft 26.1.2, compatible with **both Fabric and NeoForge**. It’s designed to work seamlessly with **any item storage mod**. The mod is still in **beta**, please report any issues you find.
 
 ### 🚚 Features:
 

@@ -7,10 +7,6 @@ architectury {
     fabric()
 }
 
-loom {
-    accessWidenerPath.set(project(":common").loom.accessWidenerPath)
-}
-
 configurations {
     common {
         canBeResolved = true
@@ -46,27 +42,28 @@ repositories {
 }
 
 dependencies {
-    modImplementation "net.fabricmc:fabric-loader:$rootProject.fabric_loader_version"
+    implementation "net.fabricmc:fabric-loader:$rootProject.fabric_loader_version"
 
     // Fabric API. This is technically optional, but you probably want it anyway.
-    modImplementation "net.fabricmc.fabric-api:fabric-api:$rootProject.fabric_api_version"
+    implementation "net.fabricmc.fabric-api:fabric-api:$rootProject.fabric_api_version"
 
     // Architectury API. This is optional, and you can comment it out if you don't need it.
-    modImplementation "dev.architectury:architectury-fabric:$rootProject.architectury_api_version"
+    implementation "dev.architectury:architectury-fabric:$rootProject.architectury_api_version"
 
-    common(project(path: ':common', configuration: 'namedElements')) { transitive false }
+    common(project(path: ':common')) { transitive false }
     shadowBundle project(path: ':common', configuration: 'transformProductionFabric')
 
-    modRuntimeOnly "dev.emi:emi-fabric:1.1.22+1.21.1";
-
-    modImplementation "curse.maven:ftb-filter-system-943925:6259287"
-    modImplementation "curse.maven:ftb-library-fabric-438495:6711325"
-
-    modRuntimeOnly "curse.maven:oritech-1030830:6807349"
-    modRuntimeOnly "teamreborn:energy:4.1.0"
-    modRuntimeOnly "io.wispforest:owo-lib:0.12.15.4+1.21"
-    modRuntimeOnly "software.bernie.geckolib:geckolib-fabric-1.21.1:4.6.6"
-    modRuntimeOnly "earth.terrarium.athena:athena-fabric-1.21:4.0.0"
+    // paused during updating:
+//    modRuntimeOnly "dev.emi:emi-fabric:1.1.22+1.21.1";
+//
+//    modImplementation "curse.maven:ftb-filter-system-943925:6259287"
+//    modImplementation "curse.maven:ftb-library-fabric-438495:6711325"
+//
+//    modRuntimeOnly "curse.maven:oritech-1030830:6807349"
+//    modRuntimeOnly "teamreborn:energy:4.1.0"
+//    modRuntimeOnly "io.wispforest:owo-lib:0.12.15.4+1.21"
+//    modRuntimeOnly "software.bernie.geckolib:geckolib-fabric-1.21.1:4.6.6"
+//    modRuntimeOnly "earth.terrarium.athena:athena-fabric-1.21:4.0.0"
 }
 
 processResources {
@@ -78,16 +75,24 @@ processResources {
 }
 
 shadowJar {
+    exclude "architectury.common.json"
+
+    dependsOn jar
+    mainSpec.sourcePaths.clear()
+    from(zipTree(jar.archiveFile))
     configurations = [project.configurations.shadowBundle]
-    archiveClassifier = 'dev-shadow'
+    archiveClassifier = null
+    zip64 = true
 }
 
-remapJar {
-    inputFile.set shadowJar.archiveFile
+jar {
+    archiveClassifier = 'raw'
 }
+
+assemble.dependsOn shadowJar
 
 publishMods {
-    file = remapJar.archiveFile
+    file = shadowJar.archiveFile
     changelog = file("../CHANGELOG.md").getText()
     type = BETA
     modLoaders.add("fabric")
@@ -95,7 +100,7 @@ publishMods {
     modrinth {
         accessToken = providers.environmentVariable("MODRINTH_API_KEY")
         projectId = "kNthsBTM"
-        minecraftVersions.add("1.21.1")
+        minecraftVersions.add("26.1.2")
 
         requires("architectury-api")
 
@@ -106,11 +111,11 @@ publishMods {
         accessToken = providers.environmentVariable("CURSEFORGE_API_KEY")
         projectId = "1292980"
         projectSlug = "simple-conveyor-belts"
-        minecraftVersions.add("1.21.1")
+        minecraftVersions.add("26.1.2")
 
         requires("architectury-api")
 
-        javaVersions.add(JavaVersion.VERSION_21)
+        javaVersions.add(JavaVersion.VERSION_25)
         clientRequired = true
         serverRequired = true
 
