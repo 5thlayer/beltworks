@@ -111,7 +111,7 @@ public final class BeltCollisionRegistry {
             }
         }
 
-        if (closest != null) moveEntity(player, closest);
+        if (closest != null) applyPlayerVelocity(player, closest);
     }
 
     private static boolean canBeMoved(Entity entity) {
@@ -126,6 +126,16 @@ public final class BeltCollisionRegistry {
     private static void moveEntity(Entity entity, BeltContact contact) {
         entity.move(MoverType.SELF, contact.tangent.scale(contact.speed / 20d));
         entity.resetFallDistance();
+    }
+
+    private static void applyPlayerVelocity(Player player, BeltContact contact) {
+        var movement = player.getDeltaMovement();
+        var targetSpeed = contact.speed / 20d;
+        var currentSpeed = movement.dot(contact.tangent);
+        if (currentSpeed < targetSpeed) {
+            player.setDeltaMovement(movement.add(contact.tangent.scale(targetSpeed - currentSpeed)));
+        }
+        player.resetFallDistance();
     }
 
     private static BeltCollision createCollision(ChuteBlockEntity.BeltData beltData, double speed) {
