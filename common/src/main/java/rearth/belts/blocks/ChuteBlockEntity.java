@@ -31,11 +31,21 @@ import rearth.belts.ItemContent;
 import rearth.belts.api.item.ItemApi;
 import rearth.belts.util.SplineUtil;
 
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<ChuteBlockEntity> {
 
-    public static final float BELT_SPEED = 1f;
+    // config
+    private static final float BASE_BELT_SPEED = 0.9f;
+    private static final int EXTRACTION_INTERVAL = 26;
+    private static final float ITEM_QUEUE_SPACING = 0.8f;
+    public static final int BELT_SPEED_MULTIPLIER = 1;
     
     // everything in this section is synced to the client
     private BlockPos target;
@@ -58,8 +68,8 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     public ItemStack filteredItem = ItemStack.EMPTY;
     
     // client only data, used for rendering
-    public Map<Short, Vec3> lastRenderedPositions = new HashMap<>();
-    public Map<Long, Integer> cachedLightCoords = new HashMap<>();
+    public final Map<Short, Vec3> lastRenderedPositions = new HashMap<>();
+    public final Map<Long, Integer> cachedLightCoords = new HashMap<>();
     
     private boolean networkDirty = false;
     
@@ -69,8 +79,6 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     
     @Override
     public void tick(Level world, BlockPos pos, BlockState state, ChuteBlockEntity blockEntity) {
-        if (world == null) return;
-        
         if (target == null || target.equals(BlockPos.ZERO)) {
             if (!world.isClientSide() && !movingItems.isEmpty()) {
                 dropContent(world, pos);
@@ -92,8 +100,8 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         
         if (world.isClientSide()) return;
         
-        moveItemsOnBelt();
-        loadItemsOnBelt();
+        moveItemsOnBelt(world);
+        loadItemsOnBelt(world);
         
         // refresh target
         if (world.getGameTime() % 19 == 0)
@@ -122,16 +130,14 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             }
         }
         
+        var spawnAt = pos.getCenter();
         for (var beltItem : movingItems) {
-            var stack = beltItem.stack;
-            var spawnAt = pos.getCenter();
-            world.addFreshEntity(new ItemEntity(world, spawnAt.x, spawnAt.y, spawnAt.z, stack));
+            world.addFreshEntity(new ItemEntity(world, spawnAt.x, spawnAt.y, spawnAt.z, beltItem.stack));
         }
         
         if (!movingItems.isEmpty() || (target != null && !target.equals(BlockPos.ZERO))) {
             // pretend to drop an actual belt
             var stack = new ItemStack(ItemContent.BELT.get(), 1);
-            var spawnAt = pos.getCenter();
             world.addFreshEntity(new ItemEntity(world, spawnAt.x, spawnAt.y, spawnAt.z, stack));
         }
         
@@ -150,10 +156,10 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         }
     }
     
-    private void moveItemsOnBelt() {
+    private void moveItemsOnBelt(Level world) {
         
         var beltLength = beltData.totalLength();
-        var progressDelta = BELT_SPEED / beltLength / 20f;
+        var progressDelta = getBeltSpeed() / beltLength / 20f;
         
         boolean unloaded = false;
         outputQueue = 0;
@@ -174,10 +180,10 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             
             // try to insert last item (if its in queue). Gets put into queue when the end is reached.
             if (inQueue && outputQueue == 1) {
-                var conveyorEndEntityCandidate = level.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get());
+                var conveyorEndEntityCandidate = world.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get());
                 if (conveyorEndEntityCandidate.isEmpty()) continue;
                 var conveyorEndEntity = conveyorEndEntityCandidate.get();
-                var targetInv = ItemApi.BLOCK.find(level, target.relative(conveyorEndEntity.getOwnFacing().getOpposite()), null, null, conveyorEndEntity.getOwnFacing());
+                var targetInv = ItemApi.BLOCK.find(world, target.relative(conveyorEndEntity.getOwnFacing().getOpposite()), null, null, conveyorEndEntity.getOwnFacing());
                 if (targetInv == null) continue;
                 
                 var insertionStack = pair.stack;
@@ -196,58 +202,45 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         
     }
     
-    @SuppressWarnings("DataFlowIssue")
-    private void loadItemsOnBelt() {
-        var extractionInterval = (int) (20 / 0.8f) + 1;
+    private void loadItemsOnBelt(Level world) {
         var extractionOffset = worldPosition.asLong();
         
-        if ((level.getGameTime() + extractionOffset) % extractionInterval != 0) return;
-        
+        if ((world.getGameTime() + extractionOffset) % EXTRACTION_INTERVAL != 0) return;
         if (getPotentialQueueStart() < 0) return;
         
-        var source = ItemApi.BLOCK.find(level, worldPosition.relative(getOwnFacing().getOpposite()), null, null, getOwnFacing());
-        if (source != null) {
-            // try extracting first stack
-            ItemStack extracted = null;
-            for (int i = 0; i < source.getSlotCount(); i++) {
-                var extractingStack = source.getStackInSlot(i).copy();
-                if (extractingStack.isEmpty()) continue;
-                if (!stackMatchesFilter(extractingStack)) continue;
-                extractingStack.setCount(Math.min(extractingStack.getCount(), 64));
-                var extractedAmount = source.extract(extractingStack, false);
-                if (extractedAmount > 0) {
-                    extracted = extractingStack.copyWithCount(extractedAmount);
-                    break;
-                }
-            }
-            
-            if (extracted != null) {
-                var id = (short) level.getRandom().nextIntBetweenInclusive(Short.MIN_VALUE, Short.MAX_VALUE);
-                movingItems.addFirst(new BeltItem(id, extracted));
-                this.setChanged();
-                networkDirty = true;
-            }
+        var source = ItemApi.BLOCK.find(world, worldPosition.relative(getOwnFacing().getOpposite()), null, null, getOwnFacing());
+        if (source == null) return;
+
+        for (int slot = 0; slot < source.getSlotCount(); slot++) {
+            var availableStack = source.getStackInSlot(slot);
+            if (availableStack.isEmpty() || !stackMatchesFilter(availableStack, world)) continue;
+
+            var extractingStack = availableStack.copyWithCount(Math.min(availableStack.getCount(), 64));
+            var extractedAmount = source.extract(extractingStack, false);
+            if (extractedAmount <= 0) continue;
+
+            var id = (short) world.getRandom().nextIntBetweenInclusive(Short.MIN_VALUE, Short.MAX_VALUE);
+            movingItems.addFirst(new BeltItem(id, extractingStack.copyWithCount(extractedAmount)));
+            setChanged();
+            networkDirty = true;
+            return;
         }
     }
     
-    private boolean stackMatchesFilter(ItemStack stack) {
+    private boolean stackMatchesFilter(ItemStack stack, Level world) {
         if (filteredItem.isEmpty()) return true;
         
         if (Platform.isModLoaded("ftbfiltersystem")) {
             var filterAPI = FTBFilterSystemAPI.api();
             if (filterAPI.isFilterItem(filteredItem))
-                return filterAPI.doesFilterMatch(filteredItem, stack, level.registryAccess());
+                return filterAPI.doesFilterMatch(filteredItem, stack, world.registryAccess());
         }
         
         return stack.getItem().equals(filteredItem.getItem());
     }
     
     private float getPotentialQueueStart() {
-        var squashFactor = 0.8f;
-        var beltLength = beltData.totalLength();
-        var queueCount = outputQueue;
-        var queueSize = queueCount * squashFactor / beltLength;
-        return (float) (1f - queueSize);
+        return (float) (1 - outputQueue * ITEM_QUEUE_SPACING / beltData.totalLength());
     }
     
     @Override
@@ -270,8 +263,12 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     protected void loadAdditional(ValueInput input) {
         super.loadAdditional(input);
 
-        target = input.read("target", BlockPos.CODEC).orElse(null);
-        midPoints = new ArrayList<>(input.read("midpoints", BlockPos.CODEC.listOf()).orElse(List.of()));
+        var loadedTarget = input.read("target", BlockPos.CODEC).orElse(null);
+        var loadedMidPoints = new ArrayList<>(input.read("midpoints", BlockPos.CODEC.listOf()).orElse(List.of()));
+        var pathChanged = !Objects.equals(target, loadedTarget) || !midPoints.equals(loadedMidPoints);
+
+        target = loadedTarget;
+        midPoints = loadedMidPoints;
         filteredItem = input.read("filter", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY);
 
         movingItems.clear();
@@ -282,9 +279,9 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             return new BeltItem(progress, id, stack);
         }).toList());
         
-        if (level == null) return;
-        
-        beltData = BeltData.create(this);
+        if (level != null && (pathChanged || beltData == null)) {
+            beltData = BeltData.create(this);
+        }
         
     }
     
@@ -312,6 +309,14 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     
     public Direction getOwnFacing() {
         return getBlockState().getValue(HorizontalDirectionalBlock.FACING);
+    }
+
+    public int getBeltSpeedMultiplier() {
+        return BELT_SPEED_MULTIPLIER;
+    }
+
+    public float getBeltSpeed() {
+        return BASE_BELT_SPEED * getBeltSpeedMultiplier();
     }
     
     public boolean isUsed() {
@@ -379,7 +384,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         }
     }
     
-    public record BeltData(List<Pair<Vec3, Vec3>> allPoints, double totalLength, Double[] segmentLengths) {
+    public record BeltData(List<Pair<Vec3, Vec3>> allPoints, double totalLength, double[] segmentLengths) {
         
         public static @Nullable BeltData create(ChuteBlockEntity entity) {
             
@@ -402,7 +407,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             var transformedMidPoints = conveyorMidPointsVisual.stream().map(elem -> new Pair<>(elem.getFirst().getCenter(), Vec3.atLowerCornerOf(elem.getSecond().getUnitVec3i()))).toList();
             var segmentPoints = SplineUtil.getPointPairs(conveyorStartPointVisual, conveyorStartDir, conveyorEndPointVisual, conveyorEndDir, transformedMidPoints);
             
-            var segmentLengths = new Double[segmentPoints.size() - 1];
+            var segmentLengths = new double[segmentPoints.size() - 1];
             var totalLength = 0d;
             for (int i = 0; i < segmentPoints.size() - 1; i++) {
                 var from = segmentPoints.get(i);

@@ -5,22 +5,20 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.Sheets;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState;
 import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.data.AtlasIds;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.phys.Vec3;
-import org.joml.GeometryUtils;
 import org.jspecify.annotations.Nullable;
 import rearth.belts.Belts;
 import rearth.belts.BlockEntitiesContent;
@@ -30,8 +28,20 @@ import rearth.belts.util.SplineUtil;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.WeakHashMap;
 
 public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, ChuteBeltRenderer.RenderState> {
+
+    private static final int BELT_FRAME_COUNT = 16;
+    private static final int LIGHT_REFRESH_INTERVAL = 82;
+    private static final double ITEM_POSITION_LERP = 0.06;
+    private static final Vec3 UP = new Vec3(0, 1, 0);
+    private static final RenderType BELT_RENDER_TYPE =
+            RenderTypes.entityCutout(Belts.id("textures/block/conveyorbelt.png"));
+
+    private final Map<ChuteBlockEntity, CachedMesh> meshCache = new WeakHashMap<>();
 
     public record Vertex(float x, float y, float z, float u, float v) {
         public static Vertex create(Vec3 pos, float u, float v) {
@@ -43,6 +53,10 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
     }
 
     public record RenderedItem(Vec3 position, float yaw, float pitch, int lightCoords, ItemStackRenderState itemState) {
+    }
+
+    private record CachedMesh(ChuteBlockEntity.BeltData beltData, Direction startFacing, Direction endFacing,
+                              List<Quad> quads, Set<Long> lightPositions, long lightRefreshTick) {
     }
 
     @Override
@@ -58,60 +72,78 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
         state.quads = List.of();
         state.items.clear();
         state.filter = null;
-        state.beltSprite = null;
+        state.beltFrame = 0;
 
         var level = entity.getLevel();
         var targetPos = entity.getTarget();
         var beltData = entity.getBeltData();
         if (level == null || targetPos == null || beltData == null || targetPos.distManhattan(entity.getBlockPos()) < 1) {
-            entity.lastRenderedPositions.clear();
-            entity.cachedLightCoords.clear();
+            clearCaches(entity);
             return;
         }
 
         var targetCandidate = level.getBlockEntity(targetPos, BlockEntitiesContent.CHUTE_BLOCK.get());
         if (targetCandidate.isEmpty()) {
-            entity.lastRenderedPositions.clear();
-            entity.cachedLightCoords.clear();
+            clearCaches(entity);
             return;
         }
 
-        var activeLightPositions = new HashSet<Long>();
-        state.quads = createSplineModel(
-          beltData,
-          entity.getBlockPos(),
-          entity.getOwnFacing(),
-          targetCandidate.get().getOwnFacing().getOpposite(),
-          pos -> getLightCoords(entity, pos, activeLightPositions)
-        );
-        state.beltSprite = Minecraft.getInstance()
-                .getAtlasManager()
-                .getAtlasOrThrow(AtlasIds.BLOCKS)
-                .getSprite(Belts.id("block/conveyorbelt"));
+        var startFacing = entity.getOwnFacing();
+        var endFacing = targetCandidate.get().getOwnFacing().getOpposite();
+        var gameTime = level.getGameTime();
+        var cachedMesh = meshCache.get(entity);
+        var rebuildMesh = cachedMesh == null
+                || cachedMesh.beltData != beltData
+                || cachedMesh.startFacing != startFacing
+                || cachedMesh.endFacing != endFacing
+                || gameTime < cachedMesh.lightRefreshTick
+                || gameTime - cachedMesh.lightRefreshTick >= LIGHT_REFRESH_INTERVAL;
+
+        if (rebuildMesh) {
+            var meshLightPositions = new HashSet<Long>();
+            var quads = createSplineModel(
+              beltData,
+              entity.getBlockPos(),
+              startFacing,
+              endFacing,
+              pos -> getLightCoords(entity, pos, meshLightPositions, true)
+            );
+            cachedMesh = new CachedMesh(
+              beltData, startFacing, endFacing, quads, Set.copyOf(meshLightPositions), gameTime
+            );
+            meshCache.put(entity, cachedMesh);
+        }
+
+        state.quads = cachedMesh.quads;
+        var activeLightPositions = new HashSet<>(cachedMesh.lightPositions);
+        var animationTime = (gameTime + partialTicks) * entity.getBeltSpeedMultiplier();
+        state.beltFrame = Math.floorMod((int) Math.floor(animationTime), BELT_FRAME_COUNT);
 
         var minecraft = Minecraft.getInstance();
         var activeItemIds = new HashSet<Short>();
+        var originCenter = entity.getBlockPos().getCenter();
+        var progressPerTick = entity.getBeltSpeed() / beltData.totalLength() / 20f;
         for (var beltItem : entity.getMovingItems()) {
-            var progressPerTick = ChuteBlockEntity.BELT_SPEED / beltData.totalLength() / 20f;
             var nextProgress = Math.min(1, beltItem.progress + progressPerTick);
             var worldPoint = SplineUtil.getPositionOnSpline(beltData, beltItem.progress);
             var nextWorldPoint = SplineUtil.getPositionOnSpline(beltData, nextProgress);
-            var localPoint = worldPoint.subtract(entity.getBlockPos().getCenter());
+            var localPoint = worldPoint.subtract(originCenter);
             var renderPosition = entity.lastRenderedPositions
                     .getOrDefault(beltItem.id, localPoint)
-                    .lerp(localPoint, 0.06f);
+                    .lerp(localPoint, ITEM_POSITION_LERP);
 
             activeItemIds.add(beltItem.id);
             entity.lastRenderedPositions.put(beltItem.id, renderPosition);
             var itemLight = getLightCoords(
               entity,
-              BlockPos.containing(renderPosition.add(entity.getBlockPos().getCenter())),
-              activeLightPositions
+              BlockPos.containing(renderPosition.add(originCenter)),
+              activeLightPositions,
+              rebuildMesh
             );
 
-            var blockItem = beltItem.stack.getItem() instanceof BlockItem;
-            if (!blockItem)
+            if (!(beltItem.stack.getItem() instanceof BlockItem)) {
                 renderPosition = renderPosition.add(0, -0.12, 0);
+            }
 
             var forward = nextWorldPoint.subtract(worldPoint);
             var flatForward = new Vec3(forward.x, 0, forward.z).normalize();
@@ -139,15 +171,15 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
 
     @Override
     public void submit(RenderState state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState cameraRenderState) {
-        if (!state.quads.isEmpty() && state.beltSprite != null) {
+        if (!state.quads.isEmpty()) {
             poseStack.pushPose();
             poseStack.translate(0, -2 / 16f + 0.08f, 0);
-            collector.submitCustomGeometry(poseStack, Sheets.cutoutBlockSheet(), (pose, consumer) -> {
+            collector.submitCustomGeometry(poseStack, BELT_RENDER_TYPE, (pose, consumer) -> {
                 for (var quad : state.quads) {
-                    addVertex(consumer, pose, state.beltSprite, quad.a, quad.lightA);
-                    addVertex(consumer, pose, state.beltSprite, quad.b, quad.lightB);
-                    addVertex(consumer, pose, state.beltSprite, quad.c, quad.lightC);
-                    addVertex(consumer, pose, state.beltSprite, quad.d, quad.lightD);
+                    addVertex(consumer, pose, quad.a, quad.lightA, state.beltFrame);
+                    addVertex(consumer, pose, quad.b, quad.lightB, state.beltFrame);
+                    addVertex(consumer, pose, quad.c, quad.lightC, state.beltFrame);
+                    addVertex(consumer, pose, quad.d, quad.lightD, state.beltFrame);
                 }
             });
             poseStack.popPose();
@@ -186,7 +218,8 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
         var lineWidth = 0.33f;
         var startDirection = Vec3.atLowerCornerOf(startFacing.getUnitVec3i());
         var endDirection = Vec3.atLowerCornerOf(endFacing.getUnitVec3i());
-        var beginRight = startDirection.cross(new Vec3(0, 1, 0)).normalize();
+        var beginRight = startDirection.cross(UP).normalize();
+        var originCenter = origin.getCenter();
         var localStart = new Vec3(0.5, 0.5, 0.5).add(startDirection.scale(-0.5));
         var lastRight = localStart.add(beginRight.scale(lineWidth));
         var lastLeft = localStart.add(beginRight.scale(-lineWidth));
@@ -197,13 +230,13 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
             var nextProgress = (i + 1) / (double) segmentCount;
             var worldPoint = SplineUtil.getPositionOnSpline(beltData, progress);
             var worldPointNext = SplineUtil.getPositionOnSpline(beltData, nextProgress);
-            var localPoint = worldPoint.subtract(origin.getCenter());
-            var localPointNext = worldPointNext.subtract(origin.getCenter());
+            var localPoint = worldPoint.subtract(originCenter);
+            var localPointNext = worldPointNext.subtract(originCenter);
             var startLight = lightResolver.applyAsInt(BlockPos.containing(worldPoint));
             var endLight = lightResolver.applyAsInt(BlockPos.containing(worldPointNext));
 
-            var cross = localPointNext.subtract(localPoint).cross(new Vec3(0, 1, 0)).normalize();
-            if (last) cross = endDirection.cross(new Vec3(0, 1, 0)).normalize();
+            var cross = localPointNext.subtract(localPoint).cross(UP).normalize();
+            if (last) cross = endDirection.cross(UP).normalize();
 
             var nextRight = localPointNext.add(cross.scale(lineWidth)).add(0.5, 0.5, 0.5);
             var nextLeft = localPointNext.add(cross.scale(-lineWidth)).add(0.5, 0.5, 0.5);
@@ -212,9 +245,9 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
             if (curveStrength > 0.025) {
                 var midProgress = (i + 0.5) / segmentCount;
                 var worldMid = SplineUtil.getPositionOnSpline(beltData, midProgress);
-                var localMid = worldMid.subtract(origin.getCenter());
+                var localMid = worldMid.subtract(originCenter);
                 var midLight = lightResolver.applyAsInt(BlockPos.containing(worldMid));
-                var midCross = localMid.subtract(localPoint).cross(new Vec3(0, 1, 0)).normalize();
+                var midCross = localMid.subtract(localPoint).cross(UP).normalize();
                 var midRight = localMid.add(midCross.scale(lineWidth)).add(0.5, 0.5, 0.5);
                 var midLeft = localMid.add(midCross.scale(-lineWidth)).add(0.5, 0.5, 0.5);
                 addSegmentVertices(midRight, lastRight, midLeft, lastLeft, result, 0, 0.5f, startLight, midLight);
@@ -256,25 +289,33 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
         ));
     }
 
-    private static int getLightCoords(ChuteBlockEntity entity, BlockPos pos, HashSet<Long> activePositions) {
+    private static int getLightCoords(ChuteBlockEntity entity, BlockPos pos, Set<Long> activePositions, boolean refresh) {
         var key = pos.asLong();
-        activePositions.add(key);
+        var firstSample = activePositions.add(key);
 
         var level = entity.getLevel();
         if (level == null) {
             return 15728880;
         }
 
-        if (!entity.cachedLightCoords.containsKey(key) || level.getGameTime() % 82 == 0) {
-            entity.cachedLightCoords.put(key, LevelRenderer.getLightCoords(level, pos));
+        var cachedLight = entity.cachedLightCoords.get(key);
+        if (cachedLight == null || (refresh && firstSample)) {
+            cachedLight = LevelRenderer.getLightCoords(level, pos);
+            entity.cachedLightCoords.put(key, cachedLight);
         }
-        return entity.cachedLightCoords.get(key);
+        return cachedLight;
     }
 
-    private static void addVertex(VertexConsumer consumer, PoseStack.Pose pose, TextureAtlasSprite sprite, Vertex vertex, int light) {
+    private void clearCaches(ChuteBlockEntity entity) {
+        meshCache.remove(entity);
+        entity.lastRenderedPositions.clear();
+        entity.cachedLightCoords.clear();
+    }
+
+    private static void addVertex(VertexConsumer consumer, PoseStack.Pose pose, Vertex vertex, int light, int frame) {
         consumer.addVertex(pose.pose(), vertex.x, vertex.y, vertex.z)
           .setColor(255, 255, 255, 255)
-          .setUv(sprite.getU(vertex.u), sprite.getV(vertex.v))
+          .setUv(vertex.u, (frame + vertex.v) / BELT_FRAME_COUNT)
           .setOverlay(OverlayTexture.NO_OVERLAY)
           .setLight(light)
           .setNormal(pose, 0, 1, 0);
@@ -293,7 +334,7 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
     public static class RenderState extends BlockEntityRenderState {
         private List<Quad> quads = List.of();
         private final List<RenderedItem> items = new ArrayList<>();
-        private TextureAtlasSprite beltSprite;
+        private int beltFrame;
         private ItemStackRenderState filter;
         private Direction filterFacing = Direction.NORTH;
     }
