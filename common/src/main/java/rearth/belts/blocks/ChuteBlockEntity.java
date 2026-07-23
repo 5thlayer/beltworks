@@ -78,18 +78,18 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     }
     
     @Override
-    public void tick(Level world, BlockPos pos, BlockState state, ChuteBlockEntity blockEntity) {
+    public void tick(Level level, BlockPos pos, BlockState state, ChuteBlockEntity blockEntity) {
         if (target == null || target.equals(BlockPos.ZERO)) {
-            if (!world.isClientSide() && !movingItems.isEmpty()) {
-                dropContent(world, pos);
+            if (!level.isClientSide() && !movingItems.isEmpty()) {
+                dropContent(level, pos);
             }
             return;
         }
         
         if (beltData == null) {
             beltData = BeltData.create(this);
-            if (world instanceof ServerLevel serverWorld)
-                serverWorld.sendBlockUpdated(pos, state, state, Block.UPDATE_ALL);
+            if (level instanceof ServerLevel serverLevel)
+                serverLevel.sendBlockUpdated(pos, state, state, Block.UPDATE_ALL);
         }
         
         if (beltData == null) {
@@ -98,31 +98,31 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             return;
         }
         
-        if (world.isClientSide()) return;
+        if (level.isClientSide()) return;
         
-        moveItemsOnBelt(world);
-        loadItemsOnBelt(world);
+        moveItemsOnBelt();
+        loadItemsOnBelt();
         
         // refresh target
-        if (world.getGameTime() % 19 == 0)
-            assignTargetState(world);
+        if (level.getGameTime() % 19 == 0)
+            assignTargetState(level);
         
         
-        if (networkDirty && world instanceof ServerLevel serverWorld) {
+        if (networkDirty && level instanceof ServerLevel serverWorld) {
             serverWorld.sendBlockUpdated(pos, state, state, Block.UPDATE_ALL);
             networkDirty = false;
         }
         
     }
     
-    public void dropContent(Level world, BlockPos pos) {
+    public void dropContent(Level level, BlockPos pos) {
         
         // notify source to be reset
-        if (world.getGameTime() - this.lastTargetedTime < 20 && !this.sourceBeltPos.equals(BlockPos.ZERO) && world instanceof ServerLevel serverWorld) {
-            var sourceEntityCandidate = world.getBlockEntity(this.sourceBeltPos, BlockEntitiesContent.CHUTE_BLOCK.get());
+        if (level.getGameTime() - this.lastTargetedTime < 20 && !this.sourceBeltPos.equals(BlockPos.ZERO) && level instanceof ServerLevel serverWorld) {
+            var sourceEntityCandidate = level.getBlockEntity(this.sourceBeltPos, BlockEntitiesContent.CHUTE_BLOCK.get());
             if (sourceEntityCandidate.isPresent() && sourceEntityCandidate.get() != this) {
                 var source = sourceEntityCandidate.get();
-                source.dropContent(world, pos);
+                source.dropContent(level, pos);
                 source.target = null;
                 serverWorld.sendBlockUpdated(this.sourceBeltPos, source.getBlockState(), source.getBlockState(), Block.UPDATE_ALL);
                 source.networkDirty = true;
@@ -132,23 +132,23 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         
         var spawnAt = pos.getCenter();
         for (var beltItem : movingItems) {
-            world.addFreshEntity(new ItemEntity(world, spawnAt.x, spawnAt.y, spawnAt.z, beltItem.stack));
+            level.addFreshEntity(new ItemEntity(level, spawnAt.x, spawnAt.y, spawnAt.z, beltItem.stack));
         }
         
         if (!movingItems.isEmpty() || (target != null && !target.equals(BlockPos.ZERO))) {
             // pretend to drop an actual belt
             var stack = new ItemStack(ItemContent.BELT.get(), 1);
-            world.addFreshEntity(new ItemEntity(world, spawnAt.x, spawnAt.y, spawnAt.z, stack));
+            level.addFreshEntity(new ItemEntity(level, spawnAt.x, spawnAt.y, spawnAt.z, stack));
         }
         
         movingItems.clear();
     }
     
     // notifies the belt end entity that the current entity is the sender to it
-    private void assignTargetState(Level world) {
-        var beltTargetCandidate = world.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get());
+    private void assignTargetState(Level level) {
+        var beltTargetCandidate = level.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get());
         if (beltTargetCandidate.isPresent()) {
-            beltTargetCandidate.get().lastTargetedTime = world.getGameTime();
+            beltTargetCandidate.get().lastTargetedTime = level.getGameTime();
             beltTargetCandidate.get().sourceBeltPos = worldPosition;
         } else {
             target = null;
@@ -156,7 +156,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         }
     }
     
-    private void moveItemsOnBelt(Level world) {
+    private void moveItemsOnBelt() {
         
         var beltLength = beltData.totalLength();
         var progressDelta = getBeltSpeed() / beltLength / 20f;
@@ -180,10 +180,10 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             
             // try to insert last item (if its in queue). Gets put into queue when the end is reached.
             if (inQueue && outputQueue == 1) {
-                var conveyorEndEntityCandidate = world.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get());
+                var conveyorEndEntityCandidate = level.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get());
                 if (conveyorEndEntityCandidate.isEmpty()) continue;
                 var conveyorEndEntity = conveyorEndEntityCandidate.get();
-                var targetInv = ItemApi.BLOCK.find(world, target.relative(conveyorEndEntity.getOwnFacing().getOpposite()), null, null, conveyorEndEntity.getOwnFacing());
+                var targetInv = ItemApi.BLOCK.find(level, target.relative(conveyorEndEntity.getOwnFacing().getOpposite()), null, null, conveyorEndEntity.getOwnFacing());
                 if (targetInv == null) continue;
                 
                 var insertionStack = pair.stack;
@@ -202,24 +202,25 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         
     }
     
-    private void loadItemsOnBelt(Level world) {
+    @SuppressWarnings("DataFlowIssue")
+    private void loadItemsOnBelt() {
         var extractionOffset = worldPosition.asLong();
         
-        if ((world.getGameTime() + extractionOffset) % EXTRACTION_INTERVAL != 0) return;
+        if ((level.getGameTime() + extractionOffset) % EXTRACTION_INTERVAL != 0) return;
         if (getPotentialQueueStart() < 0) return;
         
-        var source = ItemApi.BLOCK.find(world, worldPosition.relative(getOwnFacing().getOpposite()), null, null, getOwnFacing());
+        var source = ItemApi.BLOCK.find(level, worldPosition.relative(getOwnFacing().getOpposite()), null, null, getOwnFacing());
         if (source == null) return;
 
         for (int slot = 0; slot < source.getSlotCount(); slot++) {
             var availableStack = source.getStackInSlot(slot);
-            if (availableStack.isEmpty() || !stackMatchesFilter(availableStack, world)) continue;
+            if (availableStack.isEmpty() || !stackMatchesFilter(availableStack)) continue;
 
             var extractingStack = availableStack.copyWithCount(Math.min(availableStack.getCount(), 64));
             var extractedAmount = source.extract(extractingStack, false);
             if (extractedAmount <= 0) continue;
 
-            var id = (short) world.getRandom().nextIntBetweenInclusive(Short.MIN_VALUE, Short.MAX_VALUE);
+            var id = (short) level.getRandom().nextIntBetweenInclusive(Short.MIN_VALUE, Short.MAX_VALUE);
             movingItems.addFirst(new BeltItem(id, extractingStack.copyWithCount(extractedAmount)));
             setChanged();
             networkDirty = true;
@@ -227,13 +228,13 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         }
     }
     
-    private boolean stackMatchesFilter(ItemStack stack, Level world) {
+    private boolean stackMatchesFilter(ItemStack stack) {
         if (filteredItem.isEmpty()) return true;
         
         if (Platform.isModLoaded("ftbfiltersystem")) {
             var filterAPI = FTBFilterSystemAPI.api();
             if (filterAPI.isFilterItem(filteredItem))
-                return filterAPI.doesFilterMatch(filteredItem, stack, world.registryAccess());
+                return filterAPI.doesFilterMatch(filteredItem, stack, level.registryAccess());
         }
         
         return stack.getItem().equals(filteredItem.getItem());
