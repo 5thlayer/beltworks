@@ -6,6 +6,7 @@
   "client": [
   ],
   "mixins": [
+    "EntityCollisionMixin"
   ],
   "injectors": {
     "defaultRequire": 1

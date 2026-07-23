@@ -29,6 +29,7 @@ import rearth.belts.BlockContent;
 import rearth.belts.BlockEntitiesContent;
 import rearth.belts.ItemContent;
 import rearth.belts.api.item.ItemApi;
+import rearth.belts.collision.BeltCollisionRegistry;
 import rearth.belts.util.SplineUtil;
 
 import java.util.ArrayDeque;
@@ -82,6 +83,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     @Override
     public void tick(Level level, BlockPos pos, BlockState state, ChuteBlockEntity blockEntity) {
         if (target == null || target.equals(BlockPos.ZERO)) {
+            BeltCollisionRegistry.unregister(this);
             if (!level.isClientSide() && !movingItems.isEmpty()) {
                 dropContent(level, pos);
             }
@@ -95,10 +97,13 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         }
         
         if (beltData == null) {
+            BeltCollisionRegistry.unregister(this);
             target = null;
             midPoints = new ArrayList<>();
             return;
         }
+
+        BeltCollisionRegistry.register(this);
         
         if (level.isClientSide()) return;
         
@@ -118,6 +123,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     }
     
     public void dropContent(Level level, BlockPos pos) {
+        BeltCollisionRegistry.unregister(this);
         
         // notify source to be reset
         if (level.getGameTime() - this.lastTargetedTime < 20 && !this.sourceBeltPos.equals(BlockPos.ZERO) && level instanceof ServerLevel serverWorld) {
@@ -353,6 +359,12 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         
         if (level instanceof ServerLevel serverWorld)
             serverWorld.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
+    }
+
+    @Override
+    public void setRemoved() {
+        BeltCollisionRegistry.unregister(this);
+        super.setRemoved();
     }
 
     private static int clampBeltTier(int tier) {

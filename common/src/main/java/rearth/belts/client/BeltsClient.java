@@ -1,14 +1,20 @@
 package rearth.belts.client;
 
+import dev.architectury.event.events.client.ClientTickEvent;
+import net.minecraft.client.Minecraft;
 import dev.architectury.registry.client.rendering.BlockEntityRendererRegistry;
 import rearth.belts.BlockEntitiesContent;
 import rearth.belts.client.renderers.ChuteBeltRenderer;
+import rearth.belts.collision.BeltCollisionRegistry;
 
 public final class BeltsClient {
     
     public static void init() {
         System.out.println("Hello from belt client!");
-        
+        ClientTickEvent.CLIENT_LEVEL_PRE.register(level -> {
+            var player = Minecraft.getInstance().player;
+            if (player != null) BeltCollisionRegistry.moveLocalPlayer(level, player);
+        });
     }
     
     public static void registerRenderers() {
