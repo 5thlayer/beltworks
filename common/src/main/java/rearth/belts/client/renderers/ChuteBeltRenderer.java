@@ -195,7 +195,7 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
             poseStack.mulPose(Axis.YP.rotationDegrees(item.yaw));
             poseStack.mulPose(Axis.ZP.rotationDegrees(item.pitch));
             poseStack.mulPose(Axis.XP.rotationDegrees(90));
-            poseStack.scale(0.6f, 0.6f, 0.6f);
+            poseStack.scale(0.5f, 0.5f, 0.5f);
             item.itemState.submit(poseStack, collector, item.lightCoords, OverlayTexture.NO_OVERLAY, 0);
             poseStack.popPose();
         }
