@@ -7,6 +7,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.ExtractBlockOutlineRenderStateEvent;
 import rearth.belts.Belts;
+import rearth.belts.BlockEntitiesContent;
 import rearth.belts.client.BeltsClient;
 import rearth.belts.client.renderers.BeltOutlineRenderer;
 
@@ -20,7 +21,7 @@ public final class BeltsModClientNeoForge {
     }
 
     private void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
-        BeltsClient.registerRenderers();
+        event.registerBlockEntityRenderer(BlockEntitiesContent.CHUTE_BLOCK.get(), context -> new NeoForgeChuteBeltRenderer());
     }
 
     private void extractOutline(ExtractBlockOutlineRenderStateEvent event) {

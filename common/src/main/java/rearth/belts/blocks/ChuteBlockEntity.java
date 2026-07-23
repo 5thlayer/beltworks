@@ -29,7 +29,6 @@ import rearth.belts.BlockContent;
 import rearth.belts.BlockEntitiesContent;
 import rearth.belts.ItemContent;
 import rearth.belts.api.item.ItemApi;
-import rearth.belts.client.renderers.ChuteBeltRenderer;
 import rearth.belts.util.SplineUtil;
 
 import java.util.*;
@@ -59,8 +58,8 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     public ItemStack filteredItem = ItemStack.EMPTY;
     
     // client only data, used for rendering
-    public ChuteBeltRenderer.Quad[] renderedModel;
     public Map<Short, Vec3> lastRenderedPositions = new HashMap<>();
+    public Map<Long, Integer> cachedLightCoords = new HashMap<>();
     
     private boolean networkDirty = false;
     
@@ -267,7 +266,6 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         }
     }
     
-    @SuppressWarnings("OptionalIsPresent")
     @Override
     protected void loadAdditional(ValueInput input) {
         super.loadAdditional(input);
@@ -276,28 +274,18 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         midPoints = new ArrayList<>(input.read("midpoints", BlockPos.CODEC.listOf()).orElse(List.of()));
         filteredItem = input.read("filter", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY);
 
-        var previousProgress = new HashMap<Short, Float>();
-        for (var movingItem : movingItems) {
-            previousProgress.put(movingItem.id, movingItem.progress);
-        }
-
         movingItems.clear();
         movingItems.addAll(input.childrenListOrEmpty("moving").stream().map(item -> {
             var progress = item.getFloatOr("progress", 0);
             var id = (short) item.getShortOr("id", (short) 0);
             var stack = item.read("stack", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY);
-            var beltItem = new BeltItem(progress, id, stack);
-            beltItem.previousProgress = previousProgress.getOrDefault(id, progress);
-            return beltItem;
+            return new BeltItem(progress, id, stack);
         }).toList());
         
         if (level == null) return;
         
         beltData = BeltData.create(this);
         
-        if (level.isClientSide()) {
-            renderedModel = null;
-        }
     }
     
     @Override
@@ -376,21 +364,18 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     
     public static class BeltItem {
         public float progress;
-        public float previousProgress;
         public final short id;
         public final ItemStack stack;
         
         public BeltItem(short id, ItemStack stack) {
             this.id = id;
             this.stack = stack;
-            this.previousProgress = this.progress;
         }
         
         public BeltItem(float progress, short id, ItemStack stack) {
             this.id = id;
             this.stack = stack;
             this.progress = progress;
-            this.previousProgress = progress;
         }
     }
     
