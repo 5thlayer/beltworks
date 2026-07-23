@@ -40,6 +40,8 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
     private static final Vec3 UP = new Vec3(0, 1, 0);
     private static final RenderType BELT_RENDER_TYPE =
             RenderTypes.entityCutout(Belts.id("textures/block/conveyorbelt.png"));
+    private static final RenderType IMPROVED_BELT_RENDER_TYPE =
+            RenderTypes.entityCutout(Belts.id("textures/block/improved_conveyorbelt.png"));
 
     private final Map<ChuteBlockEntity, CachedMesh> meshCache = new WeakHashMap<>();
 
@@ -73,6 +75,7 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
         state.items.clear();
         state.filter = null;
         state.beltFrame = 0;
+        state.beltRenderType = BELT_RENDER_TYPE;
 
         var level = entity.getLevel();
         var targetPos = entity.getTarget();
@@ -115,6 +118,7 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
         }
 
         state.quads = cachedMesh.quads;
+        state.beltRenderType = entity.getBeltTier() >= 2 ? IMPROVED_BELT_RENDER_TYPE : BELT_RENDER_TYPE;
         var activeLightPositions = new HashSet<>(cachedMesh.lightPositions);
         var animationTime = (gameTime + partialTicks) * entity.getBeltSpeedMultiplier();
         state.beltFrame = Math.floorMod((int) Math.floor(animationTime), BELT_FRAME_COUNT);
@@ -174,7 +178,7 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
         if (!state.quads.isEmpty()) {
             poseStack.pushPose();
             poseStack.translate(0, -2 / 16f + 0.08f, 0);
-            collector.submitCustomGeometry(poseStack, BELT_RENDER_TYPE, (pose, consumer) -> {
+            collector.submitCustomGeometry(poseStack, state.beltRenderType, (pose, consumer) -> {
                 for (var quad : state.quads) {
                     addVertex(consumer, pose, quad.a, quad.lightA, state.beltFrame);
                     addVertex(consumer, pose, quad.b, quad.lightB, state.beltFrame);
@@ -335,6 +339,7 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
         private List<Quad> quads = List.of();
         private final List<RenderedItem> items = new ArrayList<>();
         private int beltFrame;
+        private RenderType beltRenderType = BELT_RENDER_TYPE;
         private ItemStackRenderState filter;
         private Direction filterFacing = Direction.NORTH;
     }

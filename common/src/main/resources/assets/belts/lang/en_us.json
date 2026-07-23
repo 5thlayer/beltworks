@@ -21,5 +21,10 @@
   "item.belts.belt.tooltip.1": "Click existing chutes to mark them as start/end. Click conveyor supports to add optional midpoints.",
   "item.belts.belt.tooltip.2": "[Shift] + [Right-Click] without targeting a block to reset.",
   "item.belts.belt.tooltip.3": "Existing connected chutes can be clicked with an item to enable filtering.",
+  "item.belts.improved_belt": "Improved Conveyor Belt",
+  "item.belts.improved_belt.tooltip.0": "A Mark 2 conveyor belt with twice the movement speed and transport capacity.",
+  "item.belts.improved_belt.tooltip.1": "Connects to the same Item Chutes and Conveyor Supports as a standard belt.",
+  "item.belts.improved_belt.tooltip.2": "[Shift] + [Right-Click] without targeting a block to reset.",
+  "item.belts.improved_belt.tooltip.3": "Existing connected chutes can be clicked with an item to enable filtering.",
   "message.belts.show_extra": "Hold [ctrl] for more info."
 }

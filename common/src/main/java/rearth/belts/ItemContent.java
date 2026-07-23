@@ -15,7 +15,8 @@ public class ItemContent {
     
     public static final RegistrySupplier<Item> CHUTE = ITEMS.register("chute", () -> new TooltipBlockItem(BlockContent.CHUTE_BLOCK.get(), properties("chute")));
     public static final RegistrySupplier<Item> CONVEYOR_SUPPORT = ITEMS.register("conveyor_support", () -> new TooltipBlockItem(BlockContent.CONVEYOR_SUPPORT_BLOCK.get(), properties("conveyor_support")));
-    public static final RegistrySupplier<Item> BELT = ITEMS.register("belt", () -> new BeltItem(properties("belt")));
+    public static final RegistrySupplier<Item> BELT = ITEMS.register("belt", () -> new BeltItem(properties("belt"), 1));
+    public static final RegistrySupplier<Item> IMPROVED_BELT = ITEMS.register("improved_belt", () -> new BeltItem(properties("improved_belt"), 2));
 
     private static Item.Properties properties(String path) {
         return new Item.Properties().arch$tab(ItemGroupContent.BELTS_GROUP).setId(ResourceKey.create(Registries.ITEM, Belts.id(path)));

@@ -45,11 +45,13 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     private static final float BASE_BELT_SPEED = 0.9f;
     private static final int EXTRACTION_INTERVAL = 26;
     private static final float ITEM_QUEUE_SPACING = 0.8f;
-    public static final int BELT_SPEED_MULTIPLIER = 1;
+    private static final int DEFAULT_BELT_TIER = 1;
+    private static final int MAX_BELT_TIER = 2;
     
     // everything in this section is synced to the client
     private BlockPos target;
     private List<BlockPos> midPoints = new ArrayList<>();
+    private int beltTier = DEFAULT_BELT_TIER;
     // items that are in transit, and not in the queue yet. Key is the progress [0-1] along the current path;
     // first = at begin of transit path, near extraction point. Last = near target.
     private final Deque<BeltItem> movingItems = new ArrayDeque<>();
@@ -137,7 +139,8 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         
         if (!movingItems.isEmpty() || (target != null && !target.equals(BlockPos.ZERO))) {
             // pretend to drop an actual belt
-            var stack = new ItemStack(ItemContent.BELT.get(), 1);
+            var beltItem = beltTier >= 2 ? ItemContent.IMPROVED_BELT.get() : ItemContent.BELT.get();
+            var stack = new ItemStack(beltItem, 1);
             level.addFreshEntity(new ItemEntity(level, spawnAt.x, spawnAt.y, spawnAt.z, stack));
         }
         
@@ -206,7 +209,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     private void loadItemsOnBelt() {
         var extractionOffset = worldPosition.asLong();
         
-        if ((level.getGameTime() + extractionOffset) % EXTRACTION_INTERVAL != 0) return;
+        if ((level.getGameTime() + extractionOffset) % getExtractionInterval() != 0) return;
         if (getPotentialQueueStart() < 0) return;
         
         var source = ItemApi.BLOCK.find(level, worldPosition.relative(getOwnFacing().getOpposite()), null, null, getOwnFacing());
@@ -241,7 +244,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     }
     
     private float getPotentialQueueStart() {
-        return (float) (1 - outputQueue * ITEM_QUEUE_SPACING / beltData.totalLength());
+        return (float) (1 - outputQueue * getItemQueueSpacing() / beltData.totalLength());
     }
     
     @Override
@@ -250,6 +253,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         output.storeNullable("target", BlockPos.CODEC, target);
         output.store("midpoints", BlockPos.CODEC.listOf(), midPoints);
         output.store("filter", ItemStack.OPTIONAL_CODEC, filteredItem);
+        output.putInt("beltTier", beltTier);
 
         var positions = output.childrenList("moving");
         for (var pair : movingItems) {
@@ -271,6 +275,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         target = loadedTarget;
         midPoints = loadedMidPoints;
         filteredItem = input.read("filter", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY);
+        beltTier = clampBeltTier(input.getIntOr("beltTier", DEFAULT_BELT_TIER));
 
         movingItems.clear();
         movingItems.addAll(input.childrenListOrEmpty("moving").stream().map(item -> {
@@ -313,11 +318,23 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     }
 
     public int getBeltSpeedMultiplier() {
-        return BELT_SPEED_MULTIPLIER;
+        return beltTier;
     }
 
     public float getBeltSpeed() {
         return BASE_BELT_SPEED * getBeltSpeedMultiplier();
+    }
+
+    public int getBeltTier() {
+        return beltTier;
+    }
+
+    private int getExtractionInterval() {
+        return Math.max(1, EXTRACTION_INTERVAL / beltTier);
+    }
+
+    private float getItemQueueSpacing() {
+        return ITEM_QUEUE_SPACING / beltTier;
     }
     
     public boolean isUsed() {
@@ -326,15 +343,20 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         return usedAsTarget || usedAsSource;
     }
     
-    public void assignFromBeltItem(BlockPos target, List<BlockPos> midpoints) {
+    public void assignFromBeltItem(BlockPos target, List<BlockPos> midpoints, int beltTier) {
         this.target = target;
         this.midPoints = midpoints;
+        this.beltTier = clampBeltTier(beltTier);
         beltData = BeltData.create(this);
         networkDirty = true;
         this.setChanged();
         
         if (level instanceof ServerLevel serverWorld)
             serverWorld.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
+    }
+
+    private static int clampBeltTier(int tier) {
+        return Math.clamp(tier, DEFAULT_BELT_TIER, MAX_BELT_TIER);
     }
     
     public List<Pair<BlockPos, Direction>> getMidPointsWithTangents() {

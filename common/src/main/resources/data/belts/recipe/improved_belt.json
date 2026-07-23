@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "b": "belts:belt",
+    "r": "minecraft:redstone"
+  },
+  "pattern": [
+    "bbb",
+    "brb",
+    "bbb"
+  ],
+  "result": {
+    "count": 8,
+    "id": "belts:improved_belt"
+  }
+}

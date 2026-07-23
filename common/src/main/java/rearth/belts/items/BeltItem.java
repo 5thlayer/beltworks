@@ -28,11 +28,12 @@ import java.util.List;
 import java.util.function.Consumer;
 
 public class BeltItem extends Item {
+
+    private final int beltTier;
     
-    public static boolean invalidCurve = false;
-    
-    public BeltItem(Properties settings) {
+    public BeltItem(Properties settings, int beltTier) {
         super(settings);
+        this.beltTier = beltTier;
     }
     
     @Override
@@ -188,7 +189,7 @@ public class BeltItem extends Item {
         // create belt in block entity
         if (startCandidate.isPresent() && endCandidate.isPresent()) {
             var startEntity = startCandidate.get();
-            startEntity.assignFromBeltItem(end, supports);
+            startEntity.assignFromBeltItem(end, supports, beltTier);
         }
         
         // optionally consume chutes in inventory
@@ -227,7 +228,7 @@ public class BeltItem extends Item {
         var showExtra = Minecraft.getInstance().hasControlDown();
         if (showExtra) {
             for (int i = 0; i < 4; i++) {
-                tooltip.accept(Component.translatable("item.belts.belt.tooltip." + i).withStyle(ChatFormatting.GRAY));
+                tooltip.accept(Component.translatable(getDescriptionId() + ".tooltip." + i).withStyle(ChatFormatting.GRAY));
             }
         } else {
             tooltip.accept(Component.translatable("message.belts.show_extra").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
