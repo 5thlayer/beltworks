@@ -1,2 +1,4 @@
-- Fix crash when placing conveyor chute block on floors
-- Fix potential crash when invalid conveyors are destroyed
+- Update / migrate to 26.1.2
+- Add mk2 belt (twice as fast)
+- Add entity & player collisions to belts
+- Add entity movement to belts
