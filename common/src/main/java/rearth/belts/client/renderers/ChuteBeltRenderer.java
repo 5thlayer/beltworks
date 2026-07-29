@@ -5,17 +5,19 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.Sheets;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState;
 import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
-import net.minecraft.client.renderer.rendertype.RenderType;
-import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.data.AtlasIds;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.phys.Vec3;
@@ -38,10 +40,8 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
     private static final int LIGHT_REFRESH_INTERVAL = 82;
     private static final double ITEM_POSITION_LERP = 0.06;
     private static final Vec3 UP = new Vec3(0, 1, 0);
-    private static final RenderType BELT_RENDER_TYPE =
-            RenderTypes.entityCutout(Belts.id("textures/block/conveyorbelt.png"));
-    private static final RenderType IMPROVED_BELT_RENDER_TYPE =
-            RenderTypes.entityCutout(Belts.id("textures/block/improved_conveyorbelt.png"));
+    private static final Identifier[] BELT_FRAME_SPRITES = createFrameSpriteIds("conveyorbelt");
+    private static final Identifier[] IMPROVED_BELT_FRAME_SPRITES = createFrameSpriteIds("improved_conveyorbelt");
 
     private final Map<ChuteBlockEntity, CachedMesh> meshCache = new WeakHashMap<>();
 
@@ -74,8 +74,7 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
         state.quads = List.of();
         state.items.clear();
         state.filter = null;
-        state.beltFrame = 0;
-        state.beltRenderType = BELT_RENDER_TYPE;
+        state.beltSprite = null;
 
         var level = entity.getLevel();
         var targetPos = entity.getTarget();
@@ -118,12 +117,17 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
         }
 
         state.quads = cachedMesh.quads;
-        state.beltRenderType = entity.getBeltTier() >= 2 ? IMPROVED_BELT_RENDER_TYPE : BELT_RENDER_TYPE;
         var activeLightPositions = new HashSet<>(cachedMesh.lightPositions);
         var animationTime = (gameTime + partialTicks) * entity.getBeltSpeedMultiplier();
-        state.beltFrame = Math.floorMod((int) Math.floor(animationTime), BELT_FRAME_COUNT);
+        var beltFrame = Math.floorMod((int) Math.floor(animationTime), BELT_FRAME_COUNT);
 
         var minecraft = Minecraft.getInstance();
+        // Separate atlas sprites keep UVs conventional for optimized render pipelines. We select
+        // the frame ourselves because belt tiers can animate at different, sub-tick rates (at doing this with sprites causes issues with some over-eager optimization mods)
+        var frameSprites = entity.getBeltTier() >= 2 ? IMPROVED_BELT_FRAME_SPRITES : BELT_FRAME_SPRITES;
+        state.beltSprite = minecraft.getAtlasManager()
+                .getAtlasOrThrow(AtlasIds.BLOCKS)
+                .getSprite(frameSprites[beltFrame]);
         var activeItemIds = new HashSet<Short>();
         var originCenter = entity.getBlockPos().getCenter();
         var progressPerTick = entity.getBeltSpeed() / beltData.totalLength() / 20f;
@@ -175,15 +179,16 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
 
     @Override
     public void submit(RenderState state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState cameraRenderState) {
-        if (!state.quads.isEmpty()) {
+        if (!state.quads.isEmpty() && state.beltSprite != null) {
             poseStack.pushPose();
             poseStack.translate(0, -2 / 16f + 0.08f, 0);
-            collector.submitCustomGeometry(poseStack, state.beltRenderType, (pose, consumer) -> {
+            var beltSprite = state.beltSprite;
+            collector.submitCustomGeometry(poseStack, Sheets.cutoutBlockSheet(), (pose, consumer) -> {
                 for (var quad : state.quads) {
-                    addVertex(consumer, pose, quad.a, quad.lightA, state.beltFrame);
-                    addVertex(consumer, pose, quad.b, quad.lightB, state.beltFrame);
-                    addVertex(consumer, pose, quad.c, quad.lightC, state.beltFrame);
-                    addVertex(consumer, pose, quad.d, quad.lightD, state.beltFrame);
+                    addVertex(consumer, pose, beltSprite, quad.a, quad.lightA);
+                    addVertex(consumer, pose, beltSprite, quad.b, quad.lightB);
+                    addVertex(consumer, pose, beltSprite, quad.c, quad.lightC);
+                    addVertex(consumer, pose, beltSprite, quad.d, quad.lightD);
                 }
             });
             poseStack.popPose();
@@ -316,10 +321,20 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
         entity.cachedLightCoords.clear();
     }
 
-    private static void addVertex(VertexConsumer consumer, PoseStack.Pose pose, Vertex vertex, int light, int frame) {
+    private static Identifier[] createFrameSpriteIds(String textureName) {
+        var result = new Identifier[BELT_FRAME_COUNT];
+        for (int frame = 0; frame < BELT_FRAME_COUNT; frame++) {
+            var frameName = frame < 10 ? "0" + frame : Integer.toString(frame);
+            result[frame] = Belts.id("block/" + textureName + "/frame_" + frameName);
+        }
+        return result;
+    }
+
+    private static void addVertex(VertexConsumer consumer, PoseStack.Pose pose, TextureAtlasSprite sprite,
+                                  Vertex vertex, int light) {
         consumer.addVertex(pose.pose(), vertex.x, vertex.y, vertex.z)
           .setColor(255, 255, 255, 255)
-          .setUv(vertex.u, (frame + vertex.v) / BELT_FRAME_COUNT)
+          .setUv(sprite.getU(vertex.u), sprite.getV(vertex.v))
           .setOverlay(OverlayTexture.NO_OVERLAY)
           .setLight(light)
           .setNormal(pose, 0, 1, 0);
@@ -338,8 +353,7 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
     public static class RenderState extends BlockEntityRenderState {
         private List<Quad> quads = List.of();
         private final List<RenderedItem> items = new ArrayList<>();
-        private int beltFrame;
-        private RenderType beltRenderType = BELT_RENDER_TYPE;
+        private TextureAtlasSprite beltSprite;
         private ItemStackRenderState filter;
         private Direction filterFacing = Direction.NORTH;
     }
