@@ -11,10 +11,6 @@ plugins {
     id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
 }
 
-if (JavaVersion.current() < JavaVersion.VERSION_25) {
-    throw new IllegalStateException("Please run Gradle with Java 25 or newer.")
-}
-
 rootProject.name = 'belts'
 
 include 'common'
