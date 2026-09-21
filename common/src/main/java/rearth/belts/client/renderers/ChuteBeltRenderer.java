@@ -30,11 +30,13 @@ import rearth.belts.model.BeltTier;
 import rearth.belts.util.SplineUtil;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.stream.Collectors;
 
 public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, ChuteBeltRenderer.RenderState> {
 
@@ -47,11 +49,8 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
     // (FFF-393). Minecraft has no tint for an item draw, so the shade is taken off its light.
     private static final int MAX_SHADE_LEVELS = 3;
     private static final Vec3 UP = new Vec3(0, 1, 0);
-    private static final Map<BeltTier, Identifier[]> BELT_FRAME_SPRITES = Map.of(
-            BeltTier.BELT, createFrameSpriteIds("conveyorbelt"),
-            BeltTier.IMPROVED, createFrameSpriteIds("improved_conveyorbelt"),
-            BeltTier.EXPRESS, createFrameSpriteIds("express_conveyorbelt"),
-            BeltTier.TURBO, createFrameSpriteIds("turbo_conveyorbelt"));
+    private static final Map<BeltTier, Identifier[]> BELT_FRAME_SPRITES = Arrays.stream(BeltTier.values())
+            .collect(Collectors.toMap(tier -> tier, tier -> createFrameSpriteIds(tier.beltTexture())));
 
     private final Map<ChuteBlockEntity, CachedMesh> meshCache = new WeakHashMap<>();
 
@@ -128,7 +127,7 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
 
         state.quads = cachedMesh.quads;
         var activeLightPositions = new HashSet<>(cachedMesh.lightPositions);
-        var animationTime = (gameTime + partialTicks) * entity.getBeltTier().number();
+        var animationTime = (gameTime + partialTicks) * entity.getBeltTier().blocksPerSecond() / BeltTier.BELT.blocksPerSecond();
         var beltFrame = Math.floorMod((int) Math.floor(animationTime), BELT_FRAME_COUNT);
 
         var minecraft = Minecraft.getInstance();

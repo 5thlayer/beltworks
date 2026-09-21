@@ -15,7 +15,6 @@ class BeltTierTest {
         var delivered = new int[1];
 
         for (int tick = 0; tick < 20 * 60; tick++) belt.tick(8, speed, () -> "item", item -> true);
-        delivered[0] = 0;
         for (int tick = 0; tick < 20 * 60; tick++) {
             belt.tick(8, speed, () -> "item", item -> {
                 delivered[0]++;

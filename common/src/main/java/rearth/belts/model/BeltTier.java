@@ -6,18 +6,20 @@ package rearth.belts.model;
  * second at {@link BeltContents#SPACING}.
  */
 public enum BeltTier {
-    BELT(1, "belt", 0.03125),
-    IMPROVED(2, "improved_belt", 0.0625),
-    EXPRESS(3, "express_belt", 0.09375),
-    TURBO(4, "turbo_belt", 0.125);
+    BELT(1, "belt", "conveyorbelt", 0.03125),
+    IMPROVED(2, "improved_belt", "improved_conveyorbelt", 0.0625),
+    EXPRESS(3, "express_belt", "express_conveyorbelt", 0.09375),
+    TURBO(4, "turbo_belt", "turbo_conveyorbelt", 0.125);
 
     private final int number;
     private final String beltItem;
+    private final String beltTexture;
     private final double factorioSpeed;
 
-    BeltTier(int number, String beltItem, double factorioSpeed) {
+    BeltTier(int number, String beltItem, String beltTexture, double factorioSpeed) {
         this.number = number;
         this.beltItem = beltItem;
+        this.beltTexture = beltTexture;
         this.factorioSpeed = factorioSpeed;
     }
 
@@ -34,6 +36,11 @@ public enum BeltTier {
     /** The belt item's registry path in the {@code belts} namespace. */
     public String beltItem() {
         return beltItem;
+    }
+
+    /** The directory of the belt's animation frames under {@code textures/block}. */
+    public String beltTexture() {
+        return beltTexture;
     }
 
     public double blocksPerSecond() {
