@@ -31,6 +31,7 @@ import rearth.belts.ItemContent;
 import rearth.belts.api.item.ItemApi;
 import rearth.belts.collision.BeltCollisionRegistry;
 import rearth.belts.model.BeltContents;
+import rearth.belts.model.BeltCost;
 import rearth.belts.model.BeltTier;
 import rearth.belts.util.SplineUtil;
 
@@ -42,10 +43,14 @@ import java.util.Objects;
 
 public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<ChuteBlockEntity> {
 
+    private static final long NEVER_TARGETED = Long.MIN_VALUE / 2;
+
     // everything in this section is synced to the client
     private BlockPos target;
     private List<BlockPos> midPoints = new ArrayList<>();
     private BeltTier beltTier = BeltTier.BELT;
+    // What placing the belt charged, which is what removing it pays back; a re-path keeps it (#346).
+    private int cost;
     private final BeltContents<BeltItem> contents = new BeltContents<>();
     // Sequential rather than random: the renderer keys each item's lerp by id, and a full belt
     // holds 512 (#344).
@@ -56,7 +61,8 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     private BeltData beltData;
     
     // used to check if a belt is used as target. Periodically updated on belt ends from the belt starts.
-    private long lastTargetedTime;
+    // Far in the past rather than 0, which reads as targeted for a young world's first 40 ticks.
+    private long lastTargetedTime = NEVER_TARGETED;
     private BlockPos sourceBeltPos = BlockPos.ZERO;
     
     // used for filtering. Optionally works with create and ftb filters.
@@ -78,8 +84,8 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     public void tick(Level level, BlockPos pos, BlockState state, ChuteBlockEntity blockEntity) {
         if (target == null || target.equals(BlockPos.ZERO)) {
             BeltCollisionRegistry.unregister(this);
-            if (!level.isClientSide() && !contents.isEmpty()) {
-                dropContent(level, pos);
+            if (!level.isClientSide() && (!contents.isEmpty() || cost > 0)) {
+                releaseBelt(null, pos);
             }
             return;
         }
@@ -126,34 +132,62 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         
     }
     
-    public void dropContent(Level level, BlockPos pos) {
+    /**
+     * Removes the belt this loader starts or ends, handing its items and its cost to the player
+     * who broke it, or dropping them here when nobody did. The loader at the other end stays.
+     */
+    public void releaseBelts(@Nullable Player player) {
+        if (level == null || level.isClientSide()) return;
+        if (target != null && !target.equals(BlockPos.ZERO)) releaseBelt(player, worldPosition);
+        var source = level.getBlockEntity(sourceBeltPos, BlockEntitiesContent.CHUTE_BLOCK.get());
+        if (source.isPresent() && source.get() != this && worldPosition.equals(source.get().target)) {
+            source.get().releaseBelt(player, worldPosition);
+        }
+        sourceBeltPos = BlockPos.ZERO;
+    }
+
+    private void releaseBelt(@Nullable Player player, BlockPos dropAt) {
         BeltCollisionRegistry.unregister(this);
-        
-        // notify source to be reset
-        if (level.getGameTime() - this.lastTargetedTime < 20 && !this.sourceBeltPos.equals(BlockPos.ZERO) && level instanceof ServerLevel serverWorld) {
-            var sourceEntityCandidate = level.getBlockEntity(this.sourceBeltPos, BlockEntitiesContent.CHUTE_BLOCK.get());
-            if (sourceEntityCandidate.isPresent() && sourceEntityCandidate.get() != this) {
-                var source = sourceEntityCandidate.get();
-                source.dropContent(level, pos);
-                source.target = null;
-                serverWorld.sendBlockUpdated(this.sourceBeltPos, source.getBlockState(), source.getBlockState(), Block.UPDATE_ALL);
-                source.networkDirty = true;
-                source.setChanged();
+
+        var returned = new ArrayList<ItemStack>();
+        for (var entry : contents.entries()) returned.add(entry.payload().stack());
+        var belt = ItemContent.beltFor(beltTier);
+        for (var left = cost; left > 0; ) {
+            var stack = new ItemStack(belt, Math.min(left, belt.getDefaultMaxStackSize()));
+            left -= stack.getCount();
+            returned.add(stack);
+        }
+
+        if (target != null) {
+            level.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get()).ifPresent(end -> {
+                end.lastTargetedTime = NEVER_TARGETED;
+                end.sourceBeltPos = BlockPos.ZERO;
+            });
+        }
+        contents.clear();
+        target = null;
+        midPoints = new ArrayList<>();
+        beltData = null;
+        cost = 0;
+        setChanged();
+        if (level instanceof ServerLevel serverWorld)
+            serverWorld.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
+
+        var spawnAt = dropAt.getCenter();
+        for (var stack : returned) {
+            if (player != null) {
+                player.getInventory().placeItemBackInInventory(stack);
+            } else {
+                level.addFreshEntity(new ItemEntity(level, spawnAt.x, spawnAt.y, spawnAt.z, stack));
             }
         }
-        
-        var spawnAt = pos.getCenter();
-        for (var entry : contents.entries()) {
-            level.addFreshEntity(new ItemEntity(level, spawnAt.x, spawnAt.y, spawnAt.z, entry.payload().stack()));
-        }
-        
-        if (!contents.isEmpty() || (target != null && !target.equals(BlockPos.ZERO))) {
-            // pretend to drop an actual belt
-            var stack = new ItemStack(ItemContent.beltFor(beltTier), 1);
-            level.addFreshEntity(new ItemEntity(level, spawnAt.x, spawnAt.y, spawnAt.z, stack));
-        }
-        
-        contents.clear();
+    }
+
+    // Catches every removal a player's break did not, so an explosion or a command loses nothing.
+    @Override
+    public void preRemoveSideEffects(BlockPos pos, BlockState state) {
+        super.preRemoveSideEffects(pos, state);
+        releaseBelts(null);
     }
     
     // notifies the belt end entity that the current entity is the sender to it
@@ -217,6 +251,9 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         output.store("midpoints", BlockPos.CODEC.listOf(), midPoints);
         output.store("filter", ItemStack.OPTIONAL_CODEC, filteredItem);
         output.putInt("beltTier", beltTier.number());
+        output.putInt("cost", cost);
+        // Saved so breaking the end straight after a load still finds the belt it ends.
+        output.store("source", BlockPos.CODEC, sourceBeltPos);
 
         var positions = output.childrenList("moving");
         for (var entry : contents.entries()) {
@@ -239,6 +276,8 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         midPoints = loadedMidPoints;
         filteredItem = input.read("filter", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY);
         beltTier = BeltTier.of(input.getIntOr("beltTier", BeltTier.BELT.number()));
+        cost = input.getIntOr("cost", 0);
+        sourceBeltPos = input.read("source", BlockPos.CODEC).orElse(BlockPos.ZERO);
 
         contents.clear();
         if (level != null && level.isClientSide()) contentsReceivedAt = System.nanoTime();
@@ -286,10 +325,13 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         return (float) beltTier.blocksPerSecond();
     }
 
-    // Rounded to whole slots: a spline's length carries float error, and a straight 64-block belt
-    // must hold 512 (#344).
     public double getBeltLength() {
-        return Math.round(beltData.totalLength() / BeltContents.SPACING) * BeltContents.SPACING;
+        return BeltCost.slots(beltData.totalLength()) * BeltContents.SPACING;
+    }
+
+    /** The belt items removing this belt pays back. */
+    public int getCost() {
+        return cost;
     }
 
     public BeltTier getBeltTier() {
@@ -302,11 +344,14 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         return usedAsTarget || usedAsSource;
     }
     
-    public void assignFromBeltItem(BlockPos target, List<BlockPos> midpoints, BeltTier beltTier) {
+    public void assignFromBeltItem(BlockPos target, List<BlockPos> midpoints, BeltTier beltTier, int cost) {
         this.target = target;
         this.midPoints = midpoints;
         this.beltTier = beltTier;
+        this.cost = cost;
         beltData = BeltData.create(this);
+        // At once rather than on the next refresh, so breaking the end straight away finds the belt.
+        if (level != null) assignTargetState(level);
         needsFit = true;
         networkDirty = true;
         this.setChanged();
@@ -365,13 +410,15 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             var targetCandidate = entity.getLevel().getBlockEntity(entity.getTarget(), BlockEntitiesContent.CHUTE_BLOCK.get());
             if (targetCandidate.isEmpty()) return null;
             
-            var conveyorStartPoint = entity.getBlockPos();
-            var conveyorEndPoint = entity.getTarget();
-            var conveyorStartDir = Vec3.atLowerCornerOf(entity.getOwnFacing().getUnitVec3i());
-            var conveyorFacing = targetCandidate.get().getOwnFacing();
-            var conveyorEndDir = Vec3.atLowerCornerOf(conveyorFacing.getOpposite().getUnitVec3i());
+            return of(entity.getBlockPos(), entity.getOwnFacing(), entity.getMidPointsWithTangents(),
+              entity.getTarget(), targetCandidate.get().getOwnFacing());
+        }
+        
+        /** The path between two loaders' positions and facings, whether or not they are placed yet. */
+        public static BeltData of(BlockPos conveyorStartPoint, Direction startFacing, List<Pair<BlockPos, Direction>> conveyorMidPointsVisual, BlockPos conveyorEndPoint, Direction endFacing) {
+            var conveyorStartDir = Vec3.atLowerCornerOf(startFacing.getUnitVec3i());
+            var conveyorEndDir = Vec3.atLowerCornerOf(endFacing.getOpposite().getUnitVec3i());
             
-            var conveyorMidPointsVisual = entity.getMidPointsWithTangents();
             var conveyorStartPointVisual = conveyorStartPoint.getCenter().add(conveyorStartDir.scale(-0.5f));
             var conveyorEndPointVisual = conveyorEndPoint.getCenter().add(conveyorEndDir.scale(0.5f));
             

@@ -138,10 +138,7 @@ public class ChuteBlock extends HorizontalDirectionalBlock implements EntityBloc
         
         if (world.isClientSide()) return super.playerWillDestroy(world, pos, state, player);
         
-        var chuteEntity = world.getBlockEntity(pos, BlockEntitiesContent.CHUTE_BLOCK.get());
-        if (chuteEntity.isEmpty()) return super.playerWillDestroy(world, pos, state, player);
-        
-        chuteEntity.get().dropContent(world, pos);
+        world.getBlockEntity(pos, BlockEntitiesContent.CHUTE_BLOCK.get()).ifPresent(chute -> chute.releaseBelts(player));
         
         return super.playerWillDestroy(world, pos, state, player);
     }

@@ -22,7 +22,11 @@ import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import rearth.belts.ItemContent;
+import rearth.belts.model.BeltCost;
 import rearth.belts.model.BeltTier;
+import rearth.belts.blocks.ChuteBlockEntity;
+import net.minecraft.world.ContainerHelper;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -153,12 +157,31 @@ public class BeltItem extends Item {
     // creates optional chute entities at start and end
     private void createBelt(BlockPos start, Direction startDir, List<BlockPos> supports, BlockPos end, Direction endDir, Level world, ItemStack stack, Player player) {
         
+        var startChute = world.getBlockEntity(start, BlockEntitiesContent.CHUTE_BLOCK.get());
+        if (startChute.isPresent() && startChute.get().isUsed()) {
+            player.sendSystemMessage(Component.translatable("message.belts.chute_used"));
+            return;
+        }
+        
+        var startSite = siteFacing(world, start, startDir);
+        var endSite = siteFacing(world, end, endDir);
+        if (startSite == null || endSite == null) {
+            player.sendSystemMessage(Component.translatable("message.belts.blocked"));
+            return;
+        }
+        
+        var path = ChuteBlockEntity.BeltData.of(start, startSite, getStoredMidpoints(stack, world), end, endSite);
+        var cost = player.isCreative() ? 0 : BeltCost.of(path.totalLength());
+        var held = ContainerHelper.clearOrCountMatchingItems(player.getInventory(), this::isThisBelt, 0, true);
+        if (held < cost) {
+            player.sendSystemMessage(Component.translatable("message.belts.not_enough_belts", cost, held));
+            return;
+        }
+        
         stack.remove(ComponentContent.MIDPOINTS.get());
         stack.remove(ComponentContent.BELT_START.get());
         stack.remove(ComponentContent.BELT_DIR.get());
-        
-        if (!player.isCreative())
-            stack.shrink(1);
+        ContainerHelper.clearOrCountMatchingItems(player.getInventory(), this::isThisBelt, cost, false);
         
         player.sendSystemMessage(Component.translatable("message.belts.belt_created"));
         
@@ -169,29 +192,18 @@ public class BeltItem extends Item {
         var playfrom = distStart < distEnd ? start : end;
         world.playSound(null, playfrom, SoundEvents.BREEZE_WIND_CHARGE_BURST.value(), SoundSource.PLAYERS, 1f, 0.5f);
         
-        // optionally create start entity
-        var startState = world.getBlockState(start);
-        var startCandidate = world.getBlockEntity(start, BlockEntitiesContent.CHUTE_BLOCK.get());
-        if (startCandidate.isEmpty() && (startState.canBeReplaced() || startState.isAir())) {
+        if (world.getBlockEntity(start, BlockEntitiesContent.CHUTE_BLOCK.get()).isEmpty()) {
             world.setBlockAndUpdate(start, BlockContent.CHUTE_BLOCK.get().defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, startDir));
-            startCandidate = world.getBlockEntity(start, BlockEntitiesContent.CHUTE_BLOCK.get());
             createdChutes++;
         }
         
-        // optionally create end entity
-        var endState = world.getBlockState(end);
-        var endCandidate = world.getBlockEntity(end, BlockEntitiesContent.CHUTE_BLOCK.get());
-        if (endCandidate.isEmpty() && (endState.canBeReplaced() || endState.isAir())) {
+        if (world.getBlockEntity(end, BlockEntitiesContent.CHUTE_BLOCK.get()).isEmpty()) {
             world.setBlockAndUpdate(end, BlockContent.CHUTE_BLOCK.get().defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, endDir));
-            endCandidate = world.getBlockEntity(end, BlockEntitiesContent.CHUTE_BLOCK.get());
             createdChutes++;
         }
         
-        // create belt in block entity
-        if (startCandidate.isPresent() && endCandidate.isPresent()) {
-            var startEntity = startCandidate.get();
-            startEntity.assignFromBeltItem(end, supports, beltTier);
-        }
+        world.getBlockEntity(start, BlockEntitiesContent.CHUTE_BLOCK.get())
+          .ifPresent(startEntity -> startEntity.assignFromBeltItem(end, supports, beltTier, cost));
         
         // optionally consume chutes in inventory
         if (createdChutes > 0) {
@@ -209,6 +221,18 @@ public class BeltItem extends Item {
                 }
             }
         }
+    }
+    
+    private boolean isThisBelt(ItemStack candidate) {
+        return candidate.is(this);
+    }
+    
+    /** The facing a belt end at this position has, or null when nothing can stand there. */
+    private static @Nullable Direction siteFacing(Level world, BlockPos pos, Direction placedFacing) {
+        var chute = world.getBlockEntity(pos, BlockEntitiesContent.CHUTE_BLOCK.get());
+        if (chute.isPresent()) return chute.get().getOwnFacing();
+        var state = world.getBlockState(pos);
+        return state.canBeReplaced() || state.isAir() ? placedFacing : null;
     }
     
     @Override
