@@ -22,6 +22,7 @@ import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import rearth.belts.ItemContent;
+import rearth.belts.model.BeltTier;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,9 +30,9 @@ import java.util.function.Consumer;
 
 public class BeltItem extends Item {
 
-    private final int beltTier;
+    private final BeltTier beltTier;
     
-    public BeltItem(Properties settings, int beltTier) {
+    public BeltItem(Properties settings, BeltTier beltTier) {
         super(settings);
         this.beltTier = beltTier;
     }

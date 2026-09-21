@@ -26,6 +26,7 @@ import rearth.belts.Belts;
 import rearth.belts.BlockEntitiesContent;
 import rearth.belts.blocks.ChuteBlockEntity;
 import rearth.belts.model.BeltContents;
+import rearth.belts.model.BeltTier;
 import rearth.belts.util.SplineUtil;
 
 import java.util.ArrayList;
@@ -46,8 +47,11 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
     // (FFF-393). Minecraft has no tint for an item draw, so the shade is taken off its light.
     private static final int MAX_SHADE_LEVELS = 3;
     private static final Vec3 UP = new Vec3(0, 1, 0);
-    private static final Identifier[] BELT_FRAME_SPRITES = createFrameSpriteIds("conveyorbelt");
-    private static final Identifier[] IMPROVED_BELT_FRAME_SPRITES = createFrameSpriteIds("improved_conveyorbelt");
+    private static final Map<BeltTier, Identifier[]> BELT_FRAME_SPRITES = Map.of(
+            BeltTier.BELT, createFrameSpriteIds("conveyorbelt"),
+            BeltTier.IMPROVED, createFrameSpriteIds("improved_conveyorbelt"),
+            BeltTier.EXPRESS, createFrameSpriteIds("express_conveyorbelt"),
+            BeltTier.TURBO, createFrameSpriteIds("turbo_conveyorbelt"));
 
     private final Map<ChuteBlockEntity, CachedMesh> meshCache = new WeakHashMap<>();
 
@@ -124,13 +128,13 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
 
         state.quads = cachedMesh.quads;
         var activeLightPositions = new HashSet<>(cachedMesh.lightPositions);
-        var animationTime = (gameTime + partialTicks) * entity.getBeltSpeedMultiplier();
+        var animationTime = (gameTime + partialTicks) * entity.getBeltTier().number();
         var beltFrame = Math.floorMod((int) Math.floor(animationTime), BELT_FRAME_COUNT);
 
         var minecraft = Minecraft.getInstance();
         // Separate atlas sprites keep UVs conventional for optimized render pipelines. We select
         // the frame ourselves because belt tiers can animate at different, sub-tick rates (at doing this with sprites causes issues with some over-eager optimization mods)
-        var frameSprites = entity.getBeltTier() >= 2 ? IMPROVED_BELT_FRAME_SPRITES : BELT_FRAME_SPRITES;
+        var frameSprites = BELT_FRAME_SPRITES.get(entity.getBeltTier());
         state.beltSprite = minecraft.getAtlasManager()
                 .getAtlasOrThrow(AtlasIds.BLOCKS)
                 .getSprite(frameSprites[beltFrame]);

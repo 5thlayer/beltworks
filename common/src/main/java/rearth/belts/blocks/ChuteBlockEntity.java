@@ -31,6 +31,7 @@ import rearth.belts.ItemContent;
 import rearth.belts.api.item.ItemApi;
 import rearth.belts.collision.BeltCollisionRegistry;
 import rearth.belts.model.BeltContents;
+import rearth.belts.model.BeltTier;
 import rearth.belts.util.SplineUtil;
 
 import java.util.ArrayList;
@@ -41,15 +42,10 @@ import java.util.Objects;
 
 public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<ChuteBlockEntity> {
 
-    // Factorio's transport-belt, 1.875 blocks a second, per Minecraft tick (#344).
-    private static final double BASE_BELT_SPEED = 0.09375;
-    private static final int DEFAULT_BELT_TIER = 1;
-    private static final int MAX_BELT_TIER = 2;
-    
     // everything in this section is synced to the client
     private BlockPos target;
     private List<BlockPos> midPoints = new ArrayList<>();
-    private int beltTier = DEFAULT_BELT_TIER;
+    private BeltTier beltTier = BeltTier.BELT;
     private final BeltContents<BeltItem> contents = new BeltContents<>();
     // Sequential rather than random: the renderer keys each item's lerp by id, and a full belt
     // holds 512 (#344).
@@ -113,7 +109,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             needsFit = false;
         }
         
-        if (contents.tick(getBeltLength(), getBeltSpeedPerTick(), this::extractOne, this::insertIntoTarget)) {
+        if (contents.tick(getBeltLength(), beltTier.blocksPerTick(), this::extractOne, this::insertIntoTarget)) {
             networkDirty = true;
             setChanged();
         }
@@ -153,8 +149,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         
         if (!contents.isEmpty() || (target != null && !target.equals(BlockPos.ZERO))) {
             // pretend to drop an actual belt
-            var beltItem = beltTier >= 2 ? ItemContent.IMPROVED_BELT.get() : ItemContent.BELT.get();
-            var stack = new ItemStack(beltItem, 1);
+            var stack = new ItemStack(ItemContent.beltFor(beltTier), 1);
             level.addFreshEntity(new ItemEntity(level, spawnAt.x, spawnAt.y, spawnAt.z, stack));
         }
         
@@ -221,7 +216,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         output.storeNullable("target", BlockPos.CODEC, target);
         output.store("midpoints", BlockPos.CODEC.listOf(), midPoints);
         output.store("filter", ItemStack.OPTIONAL_CODEC, filteredItem);
-        output.putInt("beltTier", beltTier);
+        output.putInt("beltTier", beltTier.number());
 
         var positions = output.childrenList("moving");
         for (var entry : contents.entries()) {
@@ -243,7 +238,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         target = loadedTarget;
         midPoints = loadedMidPoints;
         filteredItem = input.read("filter", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY);
-        beltTier = clampBeltTier(input.getIntOr("beltTier", DEFAULT_BELT_TIER));
+        beltTier = BeltTier.of(input.getIntOr("beltTier", BeltTier.BELT.number()));
 
         contents.clear();
         if (level != null && level.isClientSide()) contentsReceivedAt = System.nanoTime();
@@ -286,17 +281,9 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         return getBlockState().getValue(HorizontalDirectionalBlock.FACING);
     }
 
-    public int getBeltSpeedMultiplier() {
-        return beltTier;
-    }
-
     /** Blocks per second. */
     public float getBeltSpeed() {
-        return (float) (getBeltSpeedPerTick() * 20);
-    }
-
-    private double getBeltSpeedPerTick() {
-        return BASE_BELT_SPEED * beltTier;
+        return (float) beltTier.blocksPerSecond();
     }
 
     // Rounded to whole slots: a spline's length carries float error, and a straight 64-block belt
@@ -305,7 +292,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         return Math.round(beltData.totalLength() / BeltContents.SPACING) * BeltContents.SPACING;
     }
 
-    public int getBeltTier() {
+    public BeltTier getBeltTier() {
         return beltTier;
     }
 
@@ -315,10 +302,10 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         return usedAsTarget || usedAsSource;
     }
     
-    public void assignFromBeltItem(BlockPos target, List<BlockPos> midpoints, int beltTier) {
+    public void assignFromBeltItem(BlockPos target, List<BlockPos> midpoints, BeltTier beltTier) {
         this.target = target;
         this.midPoints = midpoints;
-        this.beltTier = clampBeltTier(beltTier);
+        this.beltTier = beltTier;
         beltData = BeltData.create(this);
         needsFit = true;
         networkDirty = true;
@@ -334,10 +321,6 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         super.setRemoved();
     }
 
-    private static int clampBeltTier(int tier) {
-        return Math.clamp(tier, DEFAULT_BELT_TIER, MAX_BELT_TIER);
-    }
-    
     public List<Pair<BlockPos, Direction>> getMidPointsWithTangents() {
         return midPoints.stream()
                  .filter(point -> level.getBlockState(point).getBlock().equals(BlockContent.CONVEYOR_SUPPORT_BLOCK.get()))

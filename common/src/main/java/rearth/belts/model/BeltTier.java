@@ -1,0 +1,46 @@
+package rearth.belts.model;
+
+/**
+ * The belt ladder, typed from Factorio's belt prototypes: {@code speed} is tiles per Factorio
+ * tick, so a belt moves {@code speed × 60} blocks a second and carries {@code speed × 480} items a
+ * second at {@link BeltContents#SPACING}.
+ */
+public enum BeltTier {
+    BELT(1, "belt", 0.03125),
+    IMPROVED(2, "improved_belt", 0.0625),
+    EXPRESS(3, "express_belt", 0.09375),
+    TURBO(4, "turbo_belt", 0.125);
+
+    private final int number;
+    private final String beltItem;
+    private final double factorioSpeed;
+
+    BeltTier(int number, String beltItem, double factorioSpeed) {
+        this.number = number;
+        this.beltItem = beltItem;
+        this.factorioSpeed = factorioSpeed;
+    }
+
+    /** The tier a saved number names, clamped to the ladder so an old or hand-edited save still loads. */
+    public static BeltTier of(int number) {
+        var tiers = values();
+        return tiers[Math.clamp(number, 1, tiers.length) - 1];
+    }
+
+    public int number() {
+        return number;
+    }
+
+    /** The belt item's registry path in the {@code belts} namespace. */
+    public String beltItem() {
+        return beltItem;
+    }
+
+    public double blocksPerSecond() {
+        return factorioSpeed * 60;
+    }
+
+    public double blocksPerTick() {
+        return blocksPerSecond() / 20;
+    }
+}
