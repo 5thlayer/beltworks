@@ -21,15 +21,18 @@ import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
-import rearth.belts.ItemContent;
 import rearth.belts.model.BeltCost;
 import rearth.belts.model.BeltTier;
+import rearth.belts.model.LoaderChoice;
 import rearth.belts.blocks.ChuteBlockEntity;
 import net.minecraft.world.ContainerHelper;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 public class BeltItem extends Item {
@@ -187,6 +190,14 @@ public class BeltItem extends Item {
             player.sendSystemMessage(Component.translatable("message.belts.not_enough_belts", cost, held));
             return;
         }
+
+        var openEnds = (startChute.isEmpty() ? 1 : 0) + (endChute.isEmpty() ? 1 : 0);
+        var loaders = LoaderChoice.of(beltTier, openEnds, player.isCreative() ? Map.of(beltTier, openEnds) : heldLoaders(player));
+        if (loaders.isEmpty()) {
+            player.sendSystemMessage(Component.translatable("message.belts.not_enough_loaders", openEnds, beltTier.number()));
+            return;
+        }
+        var chosen = new ArrayDeque<>(loaders.get());
         
         stack.remove(ComponentContent.MIDPOINTS.get());
         stack.remove(ComponentContent.BELT_START.get());
@@ -195,42 +206,33 @@ public class BeltItem extends Item {
         
         player.sendSystemMessage(Component.translatable("message.belts.belt_created"));
         
-        var createdChutes = 0;
-        
         var distStart = start.distToCenterSqr(player.position());
         var distEnd = end.distToCenterSqr(player.position());
         var playfrom = distStart < distEnd ? start : end;
         world.playSound(null, playfrom, SoundEvents.BREEZE_WIND_CHARGE_BURST.value(), SoundSource.PLAYERS, 1f, 0.5f);
         
-        if (world.getBlockEntity(start, BlockEntitiesContent.CHUTE_BLOCK.get()).isEmpty()) {
-            world.setBlockAndUpdate(start, BlockContent.CHUTE_BLOCK.get().defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, startDir));
-            createdChutes++;
-        }
-        
-        if (world.getBlockEntity(end, BlockEntitiesContent.CHUTE_BLOCK.get()).isEmpty()) {
-            world.setBlockAndUpdate(end, BlockContent.CHUTE_BLOCK.get().defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, endDir));
-            createdChutes++;
-        }
+        if (startChute.isEmpty()) placeLoader(world, start, startDir, chosen.pop(), player);
+        if (endChute.isEmpty()) placeLoader(world, end, endDir, chosen.pop(), player);
         
         world.getBlockEntity(start, BlockEntitiesContent.CHUTE_BLOCK.get())
           .ifPresent(startEntity -> startEntity.assignFromBeltItem(end, supports, beltTier, cost));
-        
-        // optionally consume chutes in inventory
-        if (createdChutes > 0) {
-            var taken = 0;
-            for (var playerItem : player.getInventory().getNonEquipmentItems()) {
-                if (playerItem.is(ItemContent.CHUTE.get())) {
-                    
-                    var count = playerItem.getCount();
-                    var removed = Math.min(count, createdChutes);
-                    
-                    playerItem.shrink(removed);
-                    
-                    taken += removed;
-                    if (taken >= createdChutes) break;
-                }
-            }
+    }
+    
+    private static void placeLoader(Level world, BlockPos pos, Direction facing, BeltTier tier, Player player) {
+        world.setBlockAndUpdate(pos, BlockContent.loaderFor(tier).defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, facing));
+        if (!player.isCreative()) {
+            var item = BlockContent.loaderFor(tier).asItem();
+            ContainerHelper.clearOrCountMatchingItems(player.getInventory(), stack -> stack.is(item), 1, false);
         }
+    }
+    
+    private static Map<BeltTier, Integer> heldLoaders(Player player) {
+        var held = new EnumMap<BeltTier, Integer>(BeltTier.class);
+        for (var tier : BeltTier.values()) {
+            var item = BlockContent.loaderFor(tier).asItem();
+            held.put(tier, ContainerHelper.clearOrCountMatchingItems(player.getInventory(), stack -> stack.is(item), 0, true));
+        }
+        return held;
     }
     
     private boolean isThisBelt(ItemStack candidate) {
