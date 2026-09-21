@@ -72,7 +72,9 @@ public class ChuteBlock extends HorizontalDirectionalBlock implements EntityBloc
         var candidate = world.getBlockEntity(pos, BlockEntitiesContent.CHUTE_BLOCK.get());
         if (candidate.isPresent()) {
             var entity = candidate.get();
-            if (!entity.isUsed()) return super.useItemOn(stack, state, world, pos, player, hand, hit);
+            // An empty hand is a reset, and only the main hand's reaches useWithoutItem; an empty
+            // off hand tried after the main hand set a filter must not undo it.
+            if (!entity.isUsed() || stack.isEmpty()) return super.useItemOn(stack, state, world, pos, player, hand, hit);
             if (!world.isClientSide())
                 entity.assignFilterItem(stack, player);
             return InteractionResult.SUCCESS;

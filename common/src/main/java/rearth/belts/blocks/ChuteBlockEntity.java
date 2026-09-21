@@ -44,8 +44,6 @@ import java.util.Objects;
 
 public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<ChuteBlockEntity> {
 
-    private static final long NEVER_TARGETED = Long.MIN_VALUE / 2;
-
     // everything in this section is synced to the client
     private BlockPos target;
     private List<BlockPos> midPoints = new ArrayList<>();
@@ -61,9 +59,8 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     // this is calculated on both the client and server
     private BeltData beltData;
     
-    // used to check if a belt is used as target. Periodically updated on belt ends from the belt starts.
-    // Far in the past rather than 0, which reads as targeted for a young world's first 40 ticks.
-    private long lastTargetedTime = NEVER_TARGETED;
+    // The loader whose belt ends here. Synced, so the client agrees this end is in use and
+    // consumes a filter click rather than going on to the off hand.
     private BlockPos sourceBeltPos = BlockPos.ZERO;
     
     // used for filtering. Optionally works with create and ftb filters.
@@ -164,10 +161,8 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         }
 
         if (target != null) {
-            level.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get()).ifPresent(end -> {
-                end.lastTargetedTime = NEVER_TARGETED;
-                end.sourceBeltPos = BlockPos.ZERO;
-            });
+            level.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get())
+              .ifPresent(end -> end.linkSource(BlockPos.ZERO));
         }
         contents.clear();
         target = null;
@@ -199,8 +194,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     private void assignTargetState(Level level) {
         var beltTargetCandidate = level.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get());
         if (beltTargetCandidate.isPresent()) {
-            beltTargetCandidate.get().lastTargetedTime = level.getGameTime();
-            beltTargetCandidate.get().sourceBeltPos = worldPosition;
+            beltTargetCandidate.get().linkSource(worldPosition);
         } else {
             target = null;
             midPoints = new ArrayList<>();
@@ -348,9 +342,17 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     }
 
     public boolean isUsed() {
-        var usedAsTarget = level.getGameTime() - lastTargetedTime < 40;
+        var usedAsTarget = !sourceBeltPos.equals(BlockPos.ZERO);
         var usedAsSource = target != null && !target.equals(BlockPos.ZERO);
         return usedAsTarget || usedAsSource;
+    }
+
+    private void linkSource(BlockPos source) {
+        if (sourceBeltPos.equals(source)) return;
+        sourceBeltPos = source;
+        setChanged();
+        if (level instanceof ServerLevel serverWorld)
+            serverWorld.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
     }
     
     public void assignFromBeltItem(BlockPos target, List<BlockPos> midpoints, BeltTier beltTier, int cost) {
