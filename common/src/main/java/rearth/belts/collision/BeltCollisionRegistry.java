@@ -11,6 +11,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import org.jetbrains.annotations.Nullable;
 import rearth.belts.blocks.ChuteBlockEntity;
 import rearth.belts.util.SplineUtil;
 
@@ -32,6 +33,7 @@ public final class BeltCollisionRegistry {
     private static final double CONTACT_HEIGHT_BELOW = 0.08;
     private static final double CONTACT_HEIGHT_ABOVE = 0.12;
     private static final Vec3 UP = new Vec3(0, 1, 0);
+    private static final double ITEM_HEIGHT = 0.25;
 
     private static final Map<Level, LevelCollisionData> LEVEL_DATA = new WeakHashMap<>();
 
@@ -114,6 +116,32 @@ public final class BeltCollisionRegistry {
         if (closest != null) applyPlayerVelocity(player, closest);
     }
 
+    /** The nearest belt a ray from {@code from} to {@code to} meets, and where along its curve. */
+    public static @Nullable BeltHit raycast(Level level, Vec3 from, Vec3 to) {
+        var levelData = LEVEL_DATA.get(level);
+        if (levelData == null) return null;
+
+        var ray = new AABB(from, to);
+        BeltHit nearest = null;
+        for (var belt : levelData.belts.entrySet()) {
+            if (!belt.getValue().bounds.intersects(ray)) continue;
+            for (var segment : belt.getValue().segments) {
+                // Raised so aiming at an item riding the belt counts as aiming at the belt.
+                var hit = segment.bounds.expandTowards(0, ITEM_HEIGHT, 0).clip(from, to);
+                if (hit.isEmpty()) continue;
+                var distance = from.distanceTo(hit.get());
+                if (nearest == null || distance < nearest.distance) {
+                    nearest = new BeltHit(belt.getKey(), segment.progressAt(hit.get()), distance);
+                }
+            }
+        }
+        return nearest;
+    }
+
+    /** @param progress the fraction of the belt's curve from its start */
+    public record BeltHit(BlockPos source, double progress, double distance) {
+    }
+
     private static boolean canBeMoved(Entity entity) {
         return entity.isAlive()
                 && !entity.isSpectator()
@@ -161,7 +189,7 @@ public final class BeltCollisionRegistry {
             var slabBounds = boundsAroundSegment(from, to, right);
             var slab = new CollisionSlab(slabBounds, Shapes.create(slabBounds));
             slabs.add(slab);
-            segments.add(new PathSegment(from, to, normalizedTangent));
+            segments.add(new PathSegment(from, to, normalizedTangent, slabBounds, (double) i / segmentCount, (i + 1d) / segmentCount));
             bounds = bounds == null ? slabBounds : bounds.minmax(slabBounds);
             from = to;
         }
@@ -196,7 +224,13 @@ public final class BeltCollisionRegistry {
     private record CollisionSlab(AABB bounds, VoxelShape shape) {
     }
 
-    private record PathSegment(Vec3 from, Vec3 to, Vec3 tangent) {
+    private record PathSegment(Vec3 from, Vec3 to, Vec3 tangent, AABB bounds, double fromProgress, double toProgress) {
+
+        private double progressAt(Vec3 point) {
+            var segment = to.subtract(from);
+            var along = Math.clamp(point.subtract(from).dot(segment) / segment.lengthSqr(), 0, 1);
+            return fromProgress + along * (toProgress - fromProgress);
+        }
 
         private BeltContact findContact(Entity entity, double speed) {
             var feet = new Vec3(entity.getX(), entity.getBoundingBox().minY, entity.getZ());

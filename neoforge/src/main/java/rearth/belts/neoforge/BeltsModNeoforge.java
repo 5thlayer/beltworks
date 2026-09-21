@@ -8,6 +8,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import rearth.belts.BlockEntitiesContent;
 import rearth.belts.Belts;
 import rearth.belts.api.item.ItemApi;
@@ -24,9 +25,14 @@ public final class BeltsModNeoforge {
         
         ItemApi.BLOCK = new NeoforgeItemApiImpl();
         modBus.addListener(BeltsModNeoforge::registerCapabilities);
+        modBus.addListener(BeltsModNeoforge::registerPayloads);
         
         // Run our common setup.
         Belts.init();
+    }
+
+    private static void registerPayloads(RegisterPayloadHandlersEvent event) {
+        event.registrar("1").playToServer(BeltHandPayload.TYPE, BeltHandPayload.STREAM_CODEC, BeltHandPayload::handle);
     }
 
     // A tier-1 loader has no face, so a pole does not count it as a machine.

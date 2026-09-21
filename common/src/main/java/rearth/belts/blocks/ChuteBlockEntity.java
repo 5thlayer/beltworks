@@ -12,6 +12,7 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -79,6 +80,10 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
 
     private static boolean tearingDownSplitter;
 
+    // The client resends a hold every tick the button is down, so a hold it stopped sending lapses.
+    private static final int HAND_LAPSE_TICKS = 5;
+    private @Nullable HeldHand heldHand;
+
     // A loader either loads its own belt or unloads another's, never both, so one limit serves.
     private final FlowLimit flow;
     private final LoaderEnergy energy;
@@ -141,7 +146,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             needsFit = false;
         }
         
-        if (contents.tick(getBeltLength(), beltTier.blocksPerTick(), this::extractOne, this::insertIntoTarget)) {
+        if (contents.tick(getBeltLength(), beltTier.blocksPerTick(), this::extractOne, this::insertIntoTarget, hand(level))) {
             networkDirty = true;
             setChanged();
         }
@@ -158,6 +163,51 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         
     }
     
+    /**
+     * Makes the point at this fraction of the belt's curve the player's end for the belt, until
+     * they release it or it lapses. Once their inventory refuses an item the hand stops taking
+     * until it is released, and the belt runs on to its end past it (#350).
+     */
+    public void holdHand(ServerPlayer player, double progress) {
+        if (beltData == null || !(progress >= 0 && progress <= 1)) return;
+        var reach = player.blockInteractionRange() + 1;
+        if (player.getEyePosition().distanceToSqr(SplineUtil.getPositionOnSpline(beltData, progress)) > reach * reach) return;
+        var taking = heldHand == null || heldHand.player != player || heldHand.taking;
+        heldHand = new HeldHand(player, handPoint(progress), level.getGameTime() + HAND_LAPSE_TICKS, taking);
+    }
+
+    /** The entry position a hand at this fraction of the curve holds. */
+    public double handPoint(double progress) {
+        // Less half an entry, since an entry is drawn at the middle of the belt it occupies.
+        return progress * getBeltLength() - BeltContents.SPACING / 2;
+    }
+
+    public void releaseHand(Player player) {
+        if (heldHand != null && heldHand.player == player) heldHand = null;
+    }
+
+    private BeltContents.@Nullable Hand<BeltItem> hand(Level level) {
+        if (heldHand == null) return null;
+        var held = heldHand;
+        var player = held.player;
+        if (level.getGameTime() > held.until || player.isRemoved() || !player.isAlive() || player.level() != level) {
+            heldHand = null;
+            return null;
+        }
+        if (!held.taking) return null;
+        return new BeltContents.Hand<>(held.point, item -> {
+            // Asked first: a creative inventory's add answers true when full and voids the item.
+            var inventory = player.getInventory();
+            if ((inventory.getSlotWithRemainingSpace(item.stack()) >= 0 || inventory.getFreeSlot() >= 0)
+                  && inventory.add(item.stack().copy())) return true;
+            heldHand = new HeldHand(player, held.point, held.until, false);
+            return false;
+        });
+    }
+
+    private record HeldHand(ServerPlayer player, double point, long until, boolean taking) {
+    }
+
     // One model for both halves, so the two inputs and two outputs alternate as one splitter (#349).
     private void tickSplitter(Level level, BlockPos pos, BlockState state) {
         var right = level.getBlockEntity(SplitterBlock.partner(pos, state), BlockEntitiesContent.CHUTE_BLOCK.get());

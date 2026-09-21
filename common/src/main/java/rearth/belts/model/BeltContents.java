@@ -1,5 +1,7 @@
 package rearth.belts.model;
 
+import org.jetbrains.annotations.Nullable;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -21,26 +23,50 @@ public final class BeltContents<T> {
 
     private final Deque<Entry<T>> entries = new ArrayDeque<>();
 
+    public boolean tick(double length, double speed, Supplier<T> source, Predicate<T> sink) {
+        return tick(length, speed, source, sink, null);
+    }
+
     /**
      * Delivers what reaches the end, moves the rest, then loads at the head while the source has
      * items and the head has room. Both ends can pass several entries in one tick.
      *
+     * <p>A hand is a second end at its point for the entries behind it: they are offered to it as
+     * they reach the point and back up behind it when it refuses, while the entries past it carry
+     * on to the real end.
+     *
      * @param source the next entry to load, or null when there is none
      * @param sink   whether the entry at the end was taken; a refusal backs the belt up
-     * @return whether any entry was delivered, moved or loaded
+     * @return whether any entry was delivered, taken, moved or loaded
      */
-    public boolean tick(double length, double speed, Supplier<T> source, Predicate<T> sink) {
+    public boolean tick(double length, double speed, Supplier<T> source, Predicate<T> sink, @Nullable Hand<T> hand) {
         var changed = false;
         var limit = length - SPACING;
+        // Below every position when there is no hand, so every entry is past it.
+        var point = hand == null ? -1 : Math.clamp(hand.point, 0, limit);
 
-        while (!entries.isEmpty() && entries.peekLast().position + speed >= limit
-                   && sink.test(entries.peekLast().payload)) {
+        while (!entries.isEmpty() && entries.peekLast().position > point
+                   && entries.peekLast().position + speed >= limit && sink.test(entries.peekLast().payload)) {
             entries.pollLast();
             changed = true;
         }
 
+        var handTaking = hand != null;
+        var behindHand = false;
         for (var iterator = entries.descendingIterator(); iterator.hasNext(); ) {
             var entry = iterator.next();
+            if (!behindHand && entry.position <= point) {
+                behindHand = true;
+                limit = Math.min(limit, point);
+            }
+            if (behindHand && handTaking && entry.position + speed >= point) {
+                if (hand.taker.test(entry.payload)) {
+                    iterator.remove();
+                    changed = true;
+                    continue;
+                }
+                handTaking = false;
+            }
             var moved = Math.min(entry.position + speed, limit);
             changed |= moved != entry.position;
             entry.position = moved;
@@ -130,6 +156,15 @@ public final class BeltContents<T> {
 
     public void clear() {
         entries.clear();
+    }
+
+    /**
+     * A player's hand held on the belt at a point, in the same blocks from the start as an entry's
+     * position.
+     *
+     * @param taker whether the hand took the entry; a refusal stops it until the next tick
+     */
+    public record Hand<T>(double point, Predicate<T> taker) {
     }
 
     public static final class Entry<T> {

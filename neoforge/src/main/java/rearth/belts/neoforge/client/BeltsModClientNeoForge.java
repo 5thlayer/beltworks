@@ -18,6 +18,8 @@ public final class BeltsModClientNeoForge {
         BeltsClient.init();
         eventBus.addListener(this::registerRenderers);
         NeoForge.EVENT_BUS.addListener(this::extractOutline);
+        NeoForge.EVENT_BUS.addListener(BeltHandClient::tick);
+        NeoForge.EVENT_BUS.addListener(BeltHandClient::interact);
     }
 
     private void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
