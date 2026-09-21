@@ -64,35 +64,3 @@ jar {
 }
 
 assemble.dependsOn shadowJar
-
-publishMods {
-    file = shadowJar.archiveFile
-    changelog = file("../CHANGELOG.md").getText()
-    type = BETA
-    modLoaders.add("neoforge")
-
-    modrinth {
-        accessToken = providers.environmentVariable("MODRINTH_API_KEY")
-        projectId = "kNthsBTM"
-        minecraftVersions.add("26.1.2")
-
-        requires("architectury-api")
-
-        announcementTitle = "Neoforge Version on Modrinth"
-    }
-
-    curseforge {
-        accessToken = providers.environmentVariable("CURSEFORGE_API_KEY")
-        projectId = "1292980"
-        projectSlug = "simple-conveyor-belts"
-        minecraftVersions.add("26.1.2")
-
-        requires("architectury-api")
-
-        javaVersions.add(JavaVersion.VERSION_25)
-        clientRequired = true
-        serverRequired = true
-
-        announcementTitle = "Neoforge Version on CurseForge"
-    }
-}

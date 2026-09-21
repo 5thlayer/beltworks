@@ -1,15 +1,15 @@
 modLoader = "javafml"
 loaderVersion = "[4,)"
 #issueTrackerURL = ""
-license = "Insert License Here"
+license = "CC-BY-4.0"
 
 [[mods]]
 modId = "belts"
 version = "${version}"
 displayName = "Simple Belts"
-authors = "Me!"
+authors = "Rearth; Planetary Factory fork"
 description = '''
-This is an example description! Tell everyone what your mod is about!
+Spline conveyor belts. Planetary Factory's fork of Rearth's SimpleBelts.
 '''
 #logoFile = ""
 

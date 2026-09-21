@@ -14,5 +14,4 @@ plugins {
 rootProject.name = 'belts'
 
 include 'common'
-include 'fabric'
 include 'neoforge'
