@@ -25,6 +25,7 @@ import org.jspecify.annotations.Nullable;
 import rearth.belts.Belts;
 import rearth.belts.BlockEntitiesContent;
 import rearth.belts.blocks.ChuteBlockEntity;
+import rearth.belts.model.BeltContents;
 import rearth.belts.util.SplineUtil;
 
 import java.util.ArrayList;
@@ -130,18 +131,20 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
                 .getSprite(frameSprites[beltFrame]);
         var activeItemIds = new HashSet<Short>();
         var originCenter = entity.getBlockPos().getCenter();
-        var progressPerTick = entity.getBeltSpeed() / beltData.totalLength() / 20f;
-        for (var beltItem : entity.getMovingItems()) {
-            var nextProgress = Math.min(1, beltItem.progress + progressPerTick);
-            var worldPoint = SplineUtil.getPositionOnSpline(beltData, beltItem.progress);
+        var progressPerTick = entity.getBeltSpeed() / entity.getBeltLength() / 20f;
+        for (var entry : entity.getBeltEntries()) {
+            var beltItem = entry.payload();
+            var progress = (entry.position() + BeltContents.SPACING / 2) / entity.getBeltLength();
+            var nextProgress = Math.min(1, progress + progressPerTick);
+            var worldPoint = SplineUtil.getPositionOnSpline(beltData, progress);
             var nextWorldPoint = SplineUtil.getPositionOnSpline(beltData, nextProgress);
             var localPoint = worldPoint.subtract(originCenter);
             var renderPosition = entity.lastRenderedPositions
-                    .getOrDefault(beltItem.id, localPoint)
+                    .getOrDefault(beltItem.id(), localPoint)
                     .lerp(localPoint, ITEM_POSITION_LERP);
 
-            activeItemIds.add(beltItem.id);
-            entity.lastRenderedPositions.put(beltItem.id, renderPosition);
+            activeItemIds.add(beltItem.id());
+            entity.lastRenderedPositions.put(beltItem.id(), renderPosition);
             var itemLight = getLightCoords(
               entity,
               BlockPos.containing(renderPosition.add(originCenter)),
@@ -149,7 +152,7 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
               rebuildMesh
             );
 
-            if (!(beltItem.stack.getItem() instanceof BlockItem)) {
+            if (!(beltItem.stack().getItem() instanceof BlockItem)) {
                 renderPosition = renderPosition.add(0, -0.12, 0);
             }
 
@@ -160,7 +163,7 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
 
             var itemState = new ItemStackRenderState();
             minecraft.getItemModelResolver().updateForTopItem(
-              itemState, beltItem.stack, ItemDisplayContext.FIXED, level, null, 0
+              itemState, beltItem.stack(), ItemDisplayContext.FIXED, level, null, 0
             );
             state.items.add(new RenderedItem(renderPosition, yaw, pitch, itemLight, itemState));
         }
