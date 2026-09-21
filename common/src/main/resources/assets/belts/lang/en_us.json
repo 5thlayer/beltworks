@@ -3,7 +3,7 @@
   "message.belts.started": "Stored Start!",
   "message.belts.belt_created": "Created Belt!",
   "message.belts.not_enough_belts": "This belt needs %s belt items, and you have %s.",
-  "message.belts.not_enough_loaders": "This belt needs %s loaders of tier %s or lower.",
+  "message.belts.not_enough_loaders": "This belt needs %s loaders, of tier %s or any other.",
   "message.belts.blocked": "A block stands where the belt would end.",
   "message.belts.midpoint_added": "Stored Midpoint!",
   "message.belts.midpoint_duplicate": "Midpoint is already stored.",

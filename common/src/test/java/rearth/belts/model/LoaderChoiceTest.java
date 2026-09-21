@@ -18,14 +18,21 @@ class LoaderChoiceTest {
     }
 
     @Test
-    void anEndFallsBackToTheHighestLowerTierHeld() {
+    void anEndFallsBackToTheNearestLowerTierWhenNoHigherIsHeld() {
         assertEquals(Optional.of(List.of(BeltTier.EXPRESS, BeltTier.IMPROVED)),
           LoaderChoice.of(BeltTier.EXPRESS, 2, held(Map.of(BeltTier.EXPRESS, 1, BeltTier.IMPROVED, 1, BeltTier.BELT, 3))));
     }
 
     @Test
-    void aHigherTierIsNeverTaken() {
-        assertEquals(Optional.empty(), LoaderChoice.of(BeltTier.BELT, 1, held(Map.of(BeltTier.TURBO, 9))));
+    void aHigherTierComesBeforeALowerOne() {
+        assertEquals(Optional.of(List.of(BeltTier.EXPRESS, BeltTier.TURBO)),
+          LoaderChoice.of(BeltTier.EXPRESS, 2, held(Map.of(BeltTier.EXPRESS, 1, BeltTier.TURBO, 1, BeltTier.IMPROVED, 1))));
+    }
+
+    @Test
+    void theNearestHigherTierComesFirst() {
+        assertEquals(Optional.of(List.of(BeltTier.IMPROVED, BeltTier.TURBO)),
+          LoaderChoice.of(BeltTier.BELT, 2, held(Map.of(BeltTier.TURBO, 1, BeltTier.IMPROVED, 1))));
     }
 
     @Test
