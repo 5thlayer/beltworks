@@ -1,8 +1,9 @@
 # /// script
 # dependencies = ["pillow"]
 # ///
-"""Derive the express and turbo belt textures from the improved belt's, recoloured to Factorio's
-blue and green. Run with `uv run scripts/build-tier-textures.py`; `--check` fails on drift."""
+"""Recolour the belt textures to Factorio's yellow, red, blue and green tiers, from SimpleBelts'
+original art in `scripts/belt-art/`. Run with `uv run scripts/build-tier-textures.py`; `--check`
+fails on drift."""
 import colorsys
 import io
 import sys
@@ -11,7 +12,15 @@ from pathlib import Path
 from PIL import Image
 
 TEXTURES = Path(__file__).resolve().parent.parent / "common/src/main/resources/assets/belts/textures"
-TIERS = {"express": 0.58, "turbo": 0.33}
+ART = Path(__file__).resolve().parent / "belt-art"
+# Tier -> (texture prefix, source art, hue). The written textures are not read back: recolouring
+# a recoloured image drifts by rounding, so every tier starts from upstream's art.
+TIERS = {
+    "belt": ("", "belt", 0.14),
+    "improved": ("improved_", "improved", 0.0),
+    "express": ("express_", "improved", 0.58),
+    "turbo": ("turbo_", "improved", 0.33),
+}
 # The accent stripes are the only saturated pixels; the rubber and frame are grey.
 MIN_SATURATION = 0.3
 
@@ -32,10 +41,10 @@ def recolour(source: Path, hue: float) -> bytes:
 
 
 def outputs():
-    for tier, hue in TIERS.items():
-        yield TEXTURES / f"item/{tier}_belt.png", recolour(TEXTURES / "item/improved_belt.png", hue)
-        for frame in sorted((TEXTURES / "block/improved_conveyorbelt").glob("frame_*.png")):
-            yield (TEXTURES / f"block/{tier}_conveyorbelt/{frame.name}", recolour(frame, hue))
+    for prefix, art, hue in TIERS.values():
+        yield TEXTURES / f"item/{prefix}belt.png", recolour(ART / art / "item.png", hue)
+        for frame in sorted((ART / art / "frames").glob("frame_*.png")):
+            yield TEXTURES / f"block/{prefix}conveyorbelt/{frame.name}", recolour(frame, hue)
 
 
 def main():
