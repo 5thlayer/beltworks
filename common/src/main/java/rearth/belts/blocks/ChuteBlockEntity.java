@@ -67,8 +67,10 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     public ItemStack filteredItem = ItemStack.EMPTY;
     
     // client only data, used for rendering
-    public final Map<Short, Vec3> lastRenderedPositions = new HashMap<>();
     public final Map<Long, Integer> cachedLightCoords = new HashMap<>();
+    // When the belt's contents last arrived, in System.nanoTime, for the renderer to extrapolate
+    // from. Not the game time: the server resyncs the client's every second, and each jump shows.
+    public long contentsReceivedAt;
     
     private boolean networkDirty = false;
     
@@ -244,6 +246,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         beltTier = clampBeltTier(input.getIntOr("beltTier", DEFAULT_BELT_TIER));
 
         contents.clear();
+        if (level != null && level.isClientSide()) contentsReceivedAt = System.nanoTime();
         for (var item : input.childrenListOrEmpty("moving")) {
             var id = (short) item.getShortOr("id", (short) 0);
             var stack = item.read("stack", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY);

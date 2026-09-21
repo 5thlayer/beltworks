@@ -39,7 +39,12 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
 
     private static final int BELT_FRAME_COUNT = 16;
     private static final int LIGHT_REFRESH_INTERVAL = 82;
-    private static final double ITEM_POSITION_LERP = 0.06;
+    // Past this many ticks without an update the items stop rather than run ahead of the server.
+    private static final float MAX_EXTRAPOLATED_TICKS = 1.5f;
+    private static final float NANOS_PER_TICK = 50_000_000f;
+    // Factorio shades each item on a belt at random so a full, fast belt still reads as moving
+    // (FFF-393). Minecraft has no tint for an item draw, so the shade is taken off its light.
+    private static final int MAX_SHADE_LEVELS = 3;
     private static final Vec3 UP = new Vec3(0, 1, 0);
     private static final Identifier[] BELT_FRAME_SPRITES = createFrameSpriteIds("conveyorbelt");
     private static final Identifier[] IMPROVED_BELT_FRAME_SPRITES = createFrameSpriteIds("improved_conveyorbelt");
@@ -55,7 +60,7 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
     public record Quad(Vertex a, Vertex b, Vertex c, Vertex d, int lightA, int lightB, int lightC, int lightD) {
     }
 
-    public record RenderedItem(Vec3 position, float yaw, float pitch, int lightCoords, ItemStackRenderState itemState) {
+    public record RenderedItem(Vec3 position, float yaw, float pitch, float scale, int lightCoords, ItemStackRenderState itemState) {
     }
 
     private record CachedMesh(ChuteBlockEntity.BeltData beltData, Direction startFacing, Direction endFacing,
@@ -129,28 +134,24 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
         state.beltSprite = minecraft.getAtlasManager()
                 .getAtlasOrThrow(AtlasIds.BLOCKS)
                 .getSprite(frameSprites[beltFrame]);
-        var activeItemIds = new HashSet<Short>();
         var originCenter = entity.getBlockPos().getCenter();
         var progressPerTick = entity.getBeltSpeed() / entity.getBeltLength() / 20f;
-        for (var entry : entity.getBeltEntries()) {
-            var beltItem = entry.payload();
-            var progress = (entry.position() + BeltContents.SPACING / 2) / entity.getBeltLength();
+        var entries = entity.getBeltEntries();
+        var positions = extrapolatedPositions(entity, entries,
+                (System.nanoTime() - entity.contentsReceivedAt) / NANOS_PER_TICK);
+        for (int index = 0; index < entries.size(); index++) {
+            var beltItem = entries.get(index).payload();
+            var progress = (positions[index] + BeltContents.SPACING / 2) / entity.getBeltLength();
             var nextProgress = Math.min(1, progress + progressPerTick);
             var worldPoint = SplineUtil.getPositionOnSpline(beltData, progress);
             var nextWorldPoint = SplineUtil.getPositionOnSpline(beltData, nextProgress);
-            var localPoint = worldPoint.subtract(originCenter);
-            var renderPosition = entity.lastRenderedPositions
-                    .getOrDefault(beltItem.id(), localPoint)
-                    .lerp(localPoint, ITEM_POSITION_LERP);
-
-            activeItemIds.add(beltItem.id());
-            entity.lastRenderedPositions.put(beltItem.id(), renderPosition);
-            var itemLight = getLightCoords(
+            var renderPosition = worldPoint.subtract(originCenter);
+            var itemLight = shaded(getLightCoords(
               entity,
               BlockPos.containing(renderPosition.add(originCenter)),
               activeLightPositions,
               rebuildMesh
-            );
+            ), beltItem.id());
 
             if (!(beltItem.stack().getItem() instanceof BlockItem)) {
                 renderPosition = renderPosition.add(0, -0.12, 0);
@@ -158,6 +159,11 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
 
             var forward = nextWorldPoint.subtract(worldPoint);
             var flatForward = new Vec3(forward.x, 0, forward.z).normalize();
+            // Drawn in two lanes of four per block, by id parity, so items at a readable size do not
+            // overlap and z-fight. The belt itself has one lane (#344).
+            var lane = (beltItem.id() & 1) == 0 ? 0.125 : -0.125;
+            renderPosition = renderPosition.add(flatForward.cross(UP).scale(lane));
+            var scale = beltItem.stack().getItem() instanceof BlockItem ? 0.5f : 0.35f;
             var yaw = (float) Math.toDegrees(Math.atan2(-flatForward.z, flatForward.x));
             var pitch = (float) Math.toDegrees(Math.atan2(forward.y, Math.sqrt(forward.x * forward.x + forward.z * forward.z)));
 
@@ -165,9 +171,8 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
             minecraft.getItemModelResolver().updateForTopItem(
               itemState, beltItem.stack(), ItemDisplayContext.FIXED, level, null, 0
             );
-            state.items.add(new RenderedItem(renderPosition, yaw, pitch, itemLight, itemState));
+            state.items.add(new RenderedItem(renderPosition, yaw, pitch, scale, itemLight, itemState));
         }
-        entity.lastRenderedPositions.keySet().removeIf(id -> !activeItemIds.contains(id));
         entity.cachedLightCoords.keySet().removeIf(pos -> !activeLightPositions.contains(pos));
 
         if (!entity.filteredItem.isEmpty()) {
@@ -203,7 +208,7 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
             poseStack.mulPose(Axis.YP.rotationDegrees(item.yaw));
             poseStack.mulPose(Axis.ZP.rotationDegrees(item.pitch));
             poseStack.mulPose(Axis.XP.rotationDegrees(90));
-            poseStack.scale(0.5f, 0.5f, 0.5f);
+            poseStack.scale(item.scale, item.scale, item.scale);
             item.itemState.submit(poseStack, collector, item.lightCoords, OverlayTexture.NO_OVERLAY, 0);
             poseStack.popPose();
         }
@@ -301,6 +306,14 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
         ));
     }
 
+    /** Takes a fixed, id-scattered 0 to {@link #MAX_SHADE_LEVELS} off both light channels. */
+    private static int shaded(int lightCoords, short id) {
+        var shade = ((id * 0x9E3779B1) >>> 16) % (MAX_SHADE_LEVELS + 1);
+        var block = Math.max(0, ((lightCoords >> 4) & 0xF) - shade);
+        var sky = Math.max(0, ((lightCoords >> 20) & 0xF) - shade);
+        return (block << 4) | (sky << 20);
+    }
+
     private static int getLightCoords(ChuteBlockEntity entity, BlockPos pos, Set<Long> activePositions, boolean refresh) {
         var key = pos.asLong();
         var firstSample = activePositions.add(key);
@@ -318,9 +331,26 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
         return cachedLight;
     }
 
+    /**
+     * Where each entry is between two server updates: moved on at the belt's speed and held back
+     * behind the entry ahead and at the end, as {@link BeltContents#tick} backs a belt up. Drawing
+     * the last update's positions instead moves items in one step per tick.
+     */
+    private static double[] extrapolatedPositions(ChuteBlockEntity entity, List<BeltContents.Entry<ChuteBlockEntity.BeltItem>> entries,
+                                                  float sinceUpdate) {
+        var elapsed = Math.clamp(sinceUpdate, 0, MAX_EXTRAPOLATED_TICKS);
+        var advance = entity.getBeltSpeed() / 20f * elapsed;
+        var positions = new double[entries.size()];
+        var limit = entity.getBeltLength() - BeltContents.SPACING;
+        for (int index = entries.size() - 1; index >= 0; index--) {
+            positions[index] = Math.min(entries.get(index).position() + advance, limit);
+            limit = positions[index] - BeltContents.SPACING;
+        }
+        return positions;
+    }
+
     private void clearCaches(ChuteBlockEntity entity) {
         meshCache.remove(entity);
-        entity.lastRenderedPositions.clear();
         entity.cachedLightCoords.clear();
     }
 
