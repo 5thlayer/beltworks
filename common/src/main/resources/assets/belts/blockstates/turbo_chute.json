@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "belts:block/turbo_chute",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "belts:block/turbo_chute"
+    },
+    "facing=south": {
+      "model": "belts:block/turbo_chute",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "belts:block/turbo_chute",
+      "y": 270
+    }
+  }
+}

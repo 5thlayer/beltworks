@@ -13,7 +13,8 @@ public class BlockEntitiesContent {
     
     public static final RegistrySupplier<BlockEntityType<ChuteBlockEntity>> CHUTE_BLOCK = TYPES.register(
             "chute",
-            () -> PlatformBlockEntityTypes.create(ChuteBlockEntity::new, BlockContent.CHUTE_BLOCK.get())
+            () -> PlatformBlockEntityTypes.create(ChuteBlockEntity::new, BlockContent.CHUTE_BLOCK.get(),
+                    BlockContent.IMPROVED_CHUTE_BLOCK.get(), BlockContent.EXPRESS_CHUTE_BLOCK.get(), BlockContent.TURBO_CHUTE_BLOCK.get())
     );
     
 }

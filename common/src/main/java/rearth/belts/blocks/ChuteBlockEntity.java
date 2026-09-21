@@ -33,6 +33,7 @@ import rearth.belts.collision.BeltCollisionRegistry;
 import rearth.belts.model.BeltContents;
 import rearth.belts.model.BeltCost;
 import rearth.belts.model.BeltTier;
+import rearth.belts.model.FlowLimit;
 import rearth.belts.util.SplineUtil;
 
 import java.util.ArrayList;
@@ -75,9 +76,13 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     public long contentsReceivedAt;
     
     private boolean networkDirty = false;
-    
+
+    // A loader either loads its own belt or unloads another's, never both, so one limit serves.
+    private final FlowLimit flow;
+
     public ChuteBlockEntity(BlockPos pos, BlockState state) {
         super(BlockEntitiesContent.CHUTE_BLOCK.get(), pos, state);
+        flow = new FlowLimit(((ChuteBlock) state.getBlock()).tier().itemsPerTick());
     }
     
     @Override
@@ -206,17 +211,20 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         var conveyorEndEntityCandidate = level.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get());
         if (conveyorEndEntityCandidate.isEmpty()) return false;
         var conveyorEndEntity = conveyorEndEntityCandidate.get();
+        if (!conveyorEndEntity.flow.ready(level.getGameTime())) return false;
         var targetInv = ItemApi.BLOCK.find(level, target.relative(conveyorEndEntity.getOwnFacing().getOpposite()), null, null, conveyorEndEntity.getOwnFacing());
         if (targetInv == null) return false;
         
         if (targetInv.insert(item.stack(), true) != item.stack().getCount()) return false;
         targetInv.insert(item.stack(), false);
+        conveyorEndEntity.flow.pass();
         return true;
     }
     
     // One item per entry, as a Factorio loader puts one item in each belt slot (#344).
     @SuppressWarnings("DataFlowIssue")
     private @Nullable BeltItem extractOne() {
+        if (!flow.ready(level.getGameTime())) return null;
         var source = ItemApi.BLOCK.find(level, worldPosition.relative(getOwnFacing().getOpposite()), null, null, getOwnFacing());
         if (source == null) return null;
 
@@ -227,6 +235,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             var extractingStack = availableStack.copyWithCount(1);
             if (source.extract(extractingStack, false) <= 0) continue;
 
+            flow.pass();
             return new BeltItem(nextItemId++, extractingStack);
         }
         return null;

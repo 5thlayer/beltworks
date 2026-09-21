@@ -1,0 +1,7 @@
+{
+  "parent": "belts:block/chute",
+  "textures": {
+    "0": "belts:block/express_chute",
+    "particle": "belts:block/express_chute"
+  }
+}

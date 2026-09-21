@@ -34,6 +34,7 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 import rearth.belts.BlockEntitiesContent;
+import rearth.belts.model.BeltTier;
 import rearth.belts.util.MathHelpers;
 
 import java.util.HashMap;
@@ -52,11 +53,19 @@ public class ChuteBlock extends HorizontalDirectionalBlock implements EntityBloc
         ).optimize();
     }
     
-    public ChuteBlock(BlockBehaviour.Properties settings) {
+    private final BeltTier tier;
+
+    public ChuteBlock(BlockBehaviour.Properties settings, BeltTier tier) {
         super(settings);
+        this.tier = tier;
         registerDefaultState(defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH));
     }
     
+    /** The tier whose items a second this loader moves, whatever belt it is on (ADR-0076). */
+    public BeltTier tier() {
+        return tier;
+    }
+
     @Override
     protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         
@@ -110,7 +119,7 @@ public class ChuteBlock extends HorizontalDirectionalBlock implements EntityBloc
     
     @Override
     protected MapCodec<? extends HorizontalDirectionalBlock> codec() {
-        return simpleCodec(ChuteBlock::new);
+        return simpleCodec(settings -> new ChuteBlock(settings, tier));
     }
     
     @Override

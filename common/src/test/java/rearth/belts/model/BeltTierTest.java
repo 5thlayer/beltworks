@@ -38,6 +38,18 @@ class BeltTierTest {
     }
 
     @ParameterizedTest
+    @CsvSource({"1, chute", "2, improved_chute", "3, express_chute", "4, turbo_chute"})
+    void eachTierNamesItsLoader(int tier, String loader) {
+        assertEquals(loader, BeltTier.of(tier).loader());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"1, 15", "2, 30", "3, 45", "4, 60"})
+    void aTiersLoaderMovesItsBeltsItemsPerSecond(int tier, double itemsPerSecond) {
+        assertEquals(itemsPerSecond, BeltTier.of(tier).itemsPerSecond());
+    }
+
+    @ParameterizedTest
     @CsvSource({"0, 1", "5, 4"})
     void anOutOfRangeTierClampsToTheLadder(int saved, int tier) {
         assertEquals(tier, BeltTier.of(saved).number());

@@ -9,12 +9,16 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
 
 public class ItemContent {
     
     public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(Belts.MOD_ID, Registries.ITEM);
     
-    public static final RegistrySupplier<Item> CHUTE = ITEMS.register("chute", () -> new TooltipBlockItem(BlockContent.CHUTE_BLOCK.get(), properties("chute")));
+    public static final RegistrySupplier<Item> CHUTE = loader(BeltTier.BELT, BlockContent.CHUTE_BLOCK);
+    public static final RegistrySupplier<Item> IMPROVED_CHUTE = loader(BeltTier.IMPROVED, BlockContent.IMPROVED_CHUTE_BLOCK);
+    public static final RegistrySupplier<Item> EXPRESS_CHUTE = loader(BeltTier.EXPRESS, BlockContent.EXPRESS_CHUTE_BLOCK);
+    public static final RegistrySupplier<Item> TURBO_CHUTE = loader(BeltTier.TURBO, BlockContent.TURBO_CHUTE_BLOCK);
     public static final RegistrySupplier<Item> CONVEYOR_SUPPORT = ITEMS.register("conveyor_support", () -> new TooltipBlockItem(BlockContent.CONVEYOR_SUPPORT_BLOCK.get(), properties("conveyor_support")));
     public static final RegistrySupplier<Item> BELT = belt(BeltTier.BELT);
     public static final RegistrySupplier<Item> IMPROVED_BELT = belt(BeltTier.IMPROVED);
@@ -28,6 +32,10 @@ public class ItemContent {
             case EXPRESS -> EXPRESS_BELT.get();
             case TURBO -> TURBO_BELT.get();
         };
+    }
+
+    private static RegistrySupplier<Item> loader(BeltTier tier, RegistrySupplier<Block> block) {
+        return ITEMS.register(tier.loader(), () -> new TooltipBlockItem(block.get(), properties(tier.loader())));
     }
 
     private static RegistrySupplier<Item> belt(BeltTier tier) {

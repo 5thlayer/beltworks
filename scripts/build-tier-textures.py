@@ -1,8 +1,8 @@
 # /// script
 # dependencies = ["pillow"]
 # ///
-"""Recolour the belt textures to Factorio's yellow, red, blue and green tiers, from SimpleBelts'
-original art in `scripts/belt-art/`. Run with `uv run scripts/build-tier-textures.py`; `--check`
+"""Recolour the belt and loader textures to Factorio's yellow, red, blue and green tiers, from
+SimpleBelts' original art in `scripts/belt-art/`. Run with `uv run scripts/build-tier-textures.py`; `--check`
 fails on drift."""
 import colorsys
 import io
@@ -23,16 +23,18 @@ TIERS = {
 }
 # The accent stripes are the only saturated pixels; the rubber and frame are grey.
 MIN_SATURATION = 0.3
+# The loader's body is blue and its trim yellow; only the body takes the tier's colour.
+LOADER_BODY_HUES = (0.5, 0.75)
 
 
-def recolour(source: Path, hue: float) -> bytes:
+def recolour(source: Path, hue: float, only_hues=(0.0, 1.0)) -> bytes:
     image = Image.open(source).convert("RGBA")
     pixels = image.load()
     for x in range(image.width):
         for y in range(image.height):
             r, g, b, a = pixels[x, y]
             h, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
-            if a and s >= MIN_SATURATION:
+            if a and s >= MIN_SATURATION and only_hues[0] <= h <= only_hues[1]:
                 r, g, b = (round(c * 255) for c in colorsys.hsv_to_rgb(hue, s, v))
                 pixels[x, y] = (r, g, b, a)
     out = io.BytesIO()
@@ -43,6 +45,7 @@ def recolour(source: Path, hue: float) -> bytes:
 def outputs():
     for prefix, art, hue in TIERS.values():
         yield TEXTURES / f"item/{prefix}belt.png", recolour(ART / art / "item.png", hue)
+        yield TEXTURES / f"block/{prefix}chute.png", recolour(ART / "chute/block.png", hue, LOADER_BODY_HUES)
         for frame in sorted((ART / art / "frames").glob("frame_*.png")):
             yield TEXTURES / f"block/{prefix}conveyorbelt/{frame.name}", recolour(frame, hue)
 
