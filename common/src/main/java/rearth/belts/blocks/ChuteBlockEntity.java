@@ -34,6 +34,7 @@ import rearth.belts.model.BeltContents;
 import rearth.belts.model.BeltCost;
 import rearth.belts.model.BeltTier;
 import rearth.belts.model.FlowLimit;
+import rearth.belts.model.LoaderEnergy;
 import rearth.belts.util.SplineUtil;
 
 import java.util.ArrayList;
@@ -76,14 +77,23 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
 
     // A loader either loads its own belt or unloads another's, never both, so one limit serves.
     private final FlowLimit flow;
+    private final LoaderEnergy energy;
 
     public ChuteBlockEntity(BlockPos pos, BlockState state) {
         super(BlockEntitiesContent.CHUTE_BLOCK.get(), pos, state);
-        flow = new FlowLimit(((ChuteBlock) state.getBlock()).tier().itemsPerTick());
+        var tier = ((ChuteBlock) state.getBlock()).tier();
+        flow = new FlowLimit(tier.itemsPerTick());
+        energy = new LoaderEnergy(tier);
     }
     
     @Override
     public void tick(Level level, BlockPos pos, BlockState state, ChuteBlockEntity blockEntity) {
+        // Before the early returns: an unloading end does not run its own belt, and drains all the same.
+        if (!level.isClientSide() && energy.joules() > 0) {
+            energy.drain();
+            setChanged();
+        }
+
         if (target == null || target.equals(BlockPos.ZERO)) {
             BeltCollisionRegistry.unregister(this);
             if (!level.isClientSide() && (!contents.isEmpty() || cost > 0)) {
@@ -205,20 +215,22 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         var conveyorEndEntityCandidate = level.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get());
         if (conveyorEndEntityCandidate.isEmpty()) return false;
         var conveyorEndEntity = conveyorEndEntityCandidate.get();
-        if (!conveyorEndEntity.flow.ready(level.getGameTime())) return false;
+        if (!conveyorEndEntity.flow.ready(level.getGameTime()) || !conveyorEndEntity.energy.canMove()) return false;
         var targetInv = ItemApi.BLOCK.find(level, target.relative(conveyorEndEntity.getOwnFacing().getOpposite()), null, null, conveyorEndEntity.getOwnFacing());
         if (targetInv == null) return false;
         
         if (targetInv.insert(item.stack(), true) != item.stack().getCount()) return false;
         targetInv.insert(item.stack(), false);
         conveyorEndEntity.flow.pass();
+        conveyorEndEntity.energy.move();
+        conveyorEndEntity.setChanged();
         return true;
     }
     
     // One item per entry, as a Factorio loader puts one item in each belt slot (#344).
     @SuppressWarnings("DataFlowIssue")
     private @Nullable BeltItem extractOne() {
-        if (!flow.ready(level.getGameTime())) return null;
+        if (!flow.ready(level.getGameTime()) || !energy.canMove()) return null;
         var source = ItemApi.BLOCK.find(level, worldPosition.relative(getOwnFacing().getOpposite()), null, null, getOwnFacing());
         if (source == null) return null;
 
@@ -230,6 +242,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             if (source.extract(extractingStack, false) <= 0) continue;
 
             flow.pass();
+            energy.move();
             return new BeltItem(nextItemId++, extractingStack);
         }
         return null;
@@ -255,6 +268,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         output.store("filter", ItemStack.OPTIONAL_CODEC, filteredItem);
         output.putInt("beltTier", beltTier.number());
         output.putInt("cost", cost);
+        output.putLong("energy", energy.joules());
         // Saved so breaking the end straight after a load still finds the belt it ends.
         output.store("source", BlockPos.CODEC, sourceBeltPos);
 
@@ -280,6 +294,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         filteredItem = input.read("filter", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY);
         beltTier = BeltTier.of(input.getIntOr("beltTier", BeltTier.BELT.number()));
         cost = input.getIntOr("cost", 0);
+        energy.setJoules(input.getLongOr("energy", 0));
         sourceBeltPos = input.read("source", BlockPos.CODEC).orElse(BlockPos.ZERO);
 
         contents.clear();
@@ -335,6 +350,11 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     /** The belt items removing this belt pays back. */
     public int getCost() {
         return cost;
+    }
+
+    /** The FE buffer a tier-2 to tier-4 loader pays each item from; tier 1's is never charged. */
+    public LoaderEnergy getEnergy() {
+        return energy;
     }
 
     public BeltTier getBeltTier() {
