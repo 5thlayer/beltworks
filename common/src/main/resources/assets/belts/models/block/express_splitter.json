@@ -1,151 +1,212 @@
 {
   "parent": "minecraft:block/block",
   "textures": {
-    "belt": "belts:block/splitter_belt",
-    "side": "belts:block/splitter_side",
-    "bar": "belts:block/express_chute",
-    "particle": "belts:block/splitter_side"
+    "belt": "belts:block/express_splitter_belt",
+    "particle": "belts:block/express_splitter_belt",
+    "support": "belts:block/conveyor_support"
   },
   "elements": [
     {
       "from": [
         0,
-        0,
-        0
+        7.28,
+        6.5
       ],
       "to": [
         16,
-        4,
-        16
+        9.280000000000001,
+        9.5
       ],
       "faces": {
         "north": {
           "uv": [
             0,
-            12,
-            16,
-            16
+            4,
+            1,
+            5
           ],
-          "texture": "#side",
-          "cullface": "north"
+          "texture": "#belt"
         },
         "south": {
           "uv": [
             0,
-            12,
-            16,
-            16
+            4,
+            1,
+            5
           ],
-          "texture": "#side",
-          "cullface": "south"
+          "texture": "#belt"
         },
         "east": {
           "uv": [
             0,
-            12,
-            16,
-            16
+            4,
+            1,
+            5
           ],
-          "texture": "#side",
-          "cullface": "east"
+          "texture": "#belt"
         },
         "west": {
           "uv": [
             0,
-            12,
-            16,
-            16
+            4,
+            1,
+            5
           ],
-          "texture": "#side",
-          "cullface": "west"
+          "texture": "#belt"
         },
         "up": {
           "uv": [
             0,
-            0,
-            16,
-            16
+            4,
+            1,
+            5
           ],
-          "texture": "#belt",
-          "rotation": 180
+          "texture": "#belt"
         },
         "down": {
           "uv": [
             0,
-            0,
-            16,
-            16
+            4,
+            1,
+            5
           ],
-          "texture": "#side",
-          "cullface": "down"
+          "texture": "#belt"
         }
       }
     },
     {
       "from": [
         0,
-        4,
-        7
+        0,
+        6.5
       ],
       "to": [
-        16,
-        8,
-        9
+        2.72,
+        7.28,
+        9.5
       ],
       "faces": {
         "north": {
           "uv": [
-            4,
+            2,
             0,
-            12,
-            2
+            3,
+            1
           ],
-          "texture": "#bar"
+          "texture": "#support"
         },
         "south": {
           "uv": [
-            4,
+            2,
             0,
-            12,
-            2
+            3,
+            1
           ],
-          "texture": "#bar"
+          "texture": "#support"
         },
         "east": {
           "uv": [
-            4,
+            2,
             0,
-            12,
-            2
+            3,
+            1
           ],
-          "texture": "#bar"
+          "texture": "#support"
         },
         "west": {
           "uv": [
-            4,
+            2,
             0,
-            12,
-            2
+            3,
+            1
           ],
-          "texture": "#bar"
+          "texture": "#support"
         },
         "up": {
           "uv": [
-            4,
+            2,
             0,
-            12,
-            2
+            3,
+            1
           ],
-          "texture": "#bar"
+          "texture": "#support"
         },
         "down": {
           "uv": [
-            4,
+            2,
             0,
-            12,
-            2
+            3,
+            1
           ],
-          "texture": "#bar"
+          "texture": "#support"
+        }
+      }
+    },
+    {
+      "from": [
+        13.28,
+        0,
+        6.5
+      ],
+      "to": [
+        16,
+        7.28,
+        9.5
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            2,
+            0,
+            3,
+            1
+          ],
+          "texture": "#support"
+        },
+        "south": {
+          "uv": [
+            2,
+            0,
+            3,
+            1
+          ],
+          "texture": "#support"
+        },
+        "east": {
+          "uv": [
+            2,
+            0,
+            3,
+            1
+          ],
+          "texture": "#support"
+        },
+        "west": {
+          "uv": [
+            2,
+            0,
+            3,
+            1
+          ],
+          "texture": "#support"
+        },
+        "up": {
+          "uv": [
+            2,
+            0,
+            3,
+            1
+          ],
+          "texture": "#support"
+        },
+        "down": {
+          "uv": [
+            2,
+            0,
+            3,
+            1
+          ],
+          "texture": "#support"
         }
       }
     }

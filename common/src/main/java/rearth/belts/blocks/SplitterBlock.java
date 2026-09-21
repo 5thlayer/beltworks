@@ -35,7 +35,7 @@ public class SplitterBlock extends ChuteBlock {
 
     public static final EnumProperty<Side> SIDE = EnumProperty.create("side", Side.class);
 
-    private static final VoxelShape SHAPE = Shapes.box(0, 0, 0, 1, 8 / 16f, 1);
+    private static final VoxelShape SHAPE = Shapes.box(0, 0, 0, 1, 9.28 / 16f, 1);
 
     public SplitterBlock(Properties settings, BeltTier tier) {
         super(settings, tier);

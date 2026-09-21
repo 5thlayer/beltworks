@@ -24,6 +24,7 @@ import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 import rearth.belts.Belts;
 import rearth.belts.BlockEntitiesContent;
+import rearth.belts.blocks.ChuteBlock;
 import rearth.belts.blocks.ChuteBlockEntity;
 import rearth.belts.model.BeltContents;
 import rearth.belts.model.BeltTier;
@@ -41,6 +42,8 @@ import java.util.stream.Collectors;
 public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, ChuteBeltRenderer.RenderState> {
 
     private static final int BELT_FRAME_COUNT = 16;
+    private static final double TEXTURE_REPEAT = 0.75;
+    private static final float LINE_WIDTH = 0.33f;
     private static final int LIGHT_REFRESH_INTERVAL = 82;
     // Past this many ticks without an update the items stop rather than run ahead of the server.
     private static final float MAX_EXTRAPOLATED_TICKS = 1.5f;
@@ -81,14 +84,26 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
         BlockEntityRenderer.super.extractRenderState(entity, state, partialTicks, cameraPosition, breakProgress);
 
         state.quads = List.of();
+        state.splitterQuads = List.of();
         state.items.clear();
         state.filter = null;
         state.beltSprite = null;
+        state.splitterSprite = null;
 
         var level = entity.getLevel();
+        if (level == null) return;
+        var gameTime = level.getGameTime();
+        var minecraft = Minecraft.getInstance();
+        state.beltSprite = beltSprite(entity.getBeltTier(), gameTime + partialTicks);
+        if (entity.isSplitter()) {
+            // The belt's tier is the belt item's; the splitter's own surface is its block's.
+            state.splitterSprite = beltSprite(((ChuteBlock) entity.getBlockState().getBlock()).tier(), gameTime + partialTicks);
+            state.splitterQuads = createSplitterSurface(entity, state.lightCoords);
+        }
+
         var targetPos = entity.getTarget();
         var beltData = entity.getBeltData();
-        if (level == null || targetPos == null || beltData == null || targetPos.distManhattan(entity.getBlockPos()) < 1) {
+        if (targetPos == null || beltData == null || targetPos.distManhattan(entity.getBlockPos()) < 1) {
             clearCaches(entity);
             return;
         }
@@ -101,7 +116,6 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
 
         var startFacing = entity.getOwnFacing();
         var endFacing = targetCandidate.get().beltEndFacing().getOpposite();
-        var gameTime = level.getGameTime();
         var cachedMesh = meshCache.get(entity);
         var rebuildMesh = cachedMesh == null
                 || cachedMesh.beltData != beltData
@@ -127,16 +141,6 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
 
         state.quads = cachedMesh.quads;
         var activeLightPositions = new HashSet<>(cachedMesh.lightPositions);
-        var animationTime = (gameTime + partialTicks) * entity.getBeltTier().blocksPerSecond() / BeltTier.BELT.blocksPerSecond();
-        var beltFrame = Math.floorMod((int) Math.floor(animationTime), BELT_FRAME_COUNT);
-
-        var minecraft = Minecraft.getInstance();
-        // Separate atlas sprites keep UVs conventional for optimized render pipelines. We select
-        // the frame ourselves because belt tiers can animate at different, sub-tick rates (at doing this with sprites causes issues with some over-eager optimization mods)
-        var frameSprites = BELT_FRAME_SPRITES.get(entity.getBeltTier());
-        state.beltSprite = minecraft.getAtlasManager()
-                .getAtlasOrThrow(AtlasIds.BLOCKS)
-                .getSprite(frameSprites[beltFrame]);
         var originCenter = entity.getBlockPos().getCenter();
         var progressPerTick = entity.getBeltSpeed() / entity.getBeltLength() / 20f;
         var entries = entity.getBeltEntries();
@@ -190,20 +194,8 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
 
     @Override
     public void submit(RenderState state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState cameraRenderState) {
-        if (!state.quads.isEmpty() && state.beltSprite != null) {
-            poseStack.pushPose();
-            poseStack.translate(0, -2 / 16f + 0.08f, 0);
-            var beltSprite = state.beltSprite;
-            collector.submitCustomGeometry(poseStack, Sheets.cutoutBlockSheet(), (pose, consumer) -> {
-                for (var quad : state.quads) {
-                    addVertex(consumer, pose, beltSprite, quad.a, quad.lightA);
-                    addVertex(consumer, pose, beltSprite, quad.b, quad.lightB);
-                    addVertex(consumer, pose, beltSprite, quad.c, quad.lightC);
-                    addVertex(consumer, pose, beltSprite, quad.d, quad.lightD);
-                }
-            });
-            poseStack.popPose();
-        }
+        submitQuads(poseStack, collector, state.quads, state.beltSprite);
+        submitQuads(poseStack, collector, state.splitterQuads, state.splitterSprite);
 
         for (var item : state.items) {
             poseStack.pushPose();
@@ -229,18 +221,47 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
         }
     }
 
+    private static void submitQuads(PoseStack poseStack, SubmitNodeCollector collector, List<Quad> quads,
+                                    @Nullable TextureAtlasSprite sprite) {
+        if (quads.isEmpty() || sprite == null) return;
+        poseStack.pushPose();
+        poseStack.translate(0, -2 / 16f + 0.08f, 0);
+        collector.submitCustomGeometry(poseStack, Sheets.cutoutBlockSheet(), (pose, consumer) -> {
+            for (var quad : quads) {
+                addVertex(consumer, pose, sprite, quad.a, quad.lightA);
+                addVertex(consumer, pose, sprite, quad.b, quad.lightB);
+                addVertex(consumer, pose, sprite, quad.c, quad.lightC);
+                addVertex(consumer, pose, sprite, quad.d, quad.lightD);
+            }
+        });
+        poseStack.popPose();
+    }
+
+    /**
+     * The tier's frame at this time, picked here rather than animated by the atlas so every belt
+     * and splitter of a tier shows the same frame, and because tiers animate at sub-tick rates.
+     */
+    private static TextureAtlasSprite beltSprite(BeltTier tier, float time) {
+        var animationTime = time * tier.blocksPerSecond() / BeltTier.BELT.blocksPerSecond();
+        var frame = Math.floorMod((int) Math.floor(animationTime), BELT_FRAME_COUNT);
+        return Minecraft.getInstance().getAtlasManager()
+                .getAtlasOrThrow(AtlasIds.BLOCKS)
+                .getSprite(BELT_FRAME_SPRITES.get(tier)[frame]);
+    }
+
     private static List<Quad> createSplineModel(ChuteBlockEntity.BeltData beltData, BlockPos origin,
                                                 Direction startFacing,
                                                 Direction endFacing,
                                                 java.util.function.ToIntFunction<BlockPos> lightResolver) {
         var result = new ArrayList<Quad>();
-        var segmentCount = Math.max(1, (int) Math.ceil(beltData.totalLength() / 0.75f));
-        var lineWidth = 0.33f;
+        var segmentCount = segmentCount(beltData.totalLength());
+        var lineWidth = LINE_WIDTH;
         var startDirection = Vec3.atLowerCornerOf(startFacing.getUnitVec3i());
         var endDirection = Vec3.atLowerCornerOf(endFacing.getUnitVec3i());
         var beginRight = startDirection.cross(UP).normalize();
         var originCenter = origin.getCenter();
-        var localStart = new Vec3(0.5, 0.5, 0.5).add(startDirection.scale(-0.5));
+        // Not the block's own back face: a splitter's belt starts at its front face (#349).
+        var localStart = SplineUtil.getPositionOnSpline(beltData, 0).subtract(originCenter).add(0.5, 0.5, 0.5);
         var lastRight = localStart.add(beginRight.scale(lineWidth));
         var lastLeft = localStart.add(beginRight.scale(-lineWidth));
 
@@ -281,6 +302,51 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
         }
 
         return result;
+    }
+
+    private static int segmentCount(double beltLength) {
+        return Math.max(1, (int) Math.ceil(beltLength / TEXTURE_REPEAT));
+    }
+
+    /** The world length one texture repeat covers on a belt, which fits a whole number of repeats into it. */
+    private static double textureRepeat(ChuteBlockEntity.@Nullable BeltData beltData) {
+        return beltData == null ? TEXTURE_REPEAT : beltData.totalLength() / segmentCount(beltData.totalLength());
+    }
+
+    /**
+     * A splitter half's belt surface, back face to front face. The back half carries on the belt
+     * that ends here and the front half leads into the one that starts here, at each belt's own
+     * texture density, so the only break in the pattern is under the strut (#349).
+     */
+    private static List<Quad> createSplitterSurface(ChuteBlockEntity entity, int light) {
+        var result = new ArrayList<Quad>();
+        var forward = Vec3.atLowerCornerOf(entity.getOwnFacing().getUnitVec3i());
+        var right = forward.cross(UP).scale(LINE_WIDTH);
+        var back = new Vec3(0.5, 0.5, 0.5).add(forward.scale(-0.5));
+        var incoming = entity.incomingBelt();
+        addStraightStrip(result, back, forward, right, 0.5, 0,
+          textureRepeat(incoming == null ? null : incoming.getBeltData()), light);
+        var outRepeat = textureRepeat(entity.getBeltData());
+        var outStartV = (1 - (0.5 / outRepeat) % 1) % 1;
+        addStraightStrip(result, back.add(forward.scale(0.5)), forward, right, 0.5, outStartV, outRepeat, light);
+        return result;
+    }
+
+    /** A straight run of belt, cut wherever the texture wraps, since an atlas sprite cannot repeat. */
+    private static void addStraightStrip(List<Quad> result, Vec3 start, Vec3 forward, Vec3 right, double length,
+                                         double startV, double repeat, int light) {
+        var travelled = 0d;
+        var v = startV;
+        while (travelled < length - 1e-6) {
+            var step = Math.min(length - travelled, (1 - v) * repeat);
+            var nextV = v + step / repeat;
+            var from = start.add(forward.scale(travelled));
+            var to = start.add(forward.scale(travelled + step));
+            addSegmentVertices(to.add(right), from.add(right), to.subtract(right), from.subtract(right), result,
+              (float) v, (float) nextV, light, light);
+            travelled += step;
+            v = nextV >= 1 - 1e-6 ? 0 : nextV;
+        }
     }
 
     private static void addSegmentVertices(Vec3 nextRight, Vec3 lastRight, Vec3 nextLeft, Vec3 lastLeft,
@@ -388,8 +454,10 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
 
     public static class RenderState extends BlockEntityRenderState {
         private List<Quad> quads = List.of();
+        private List<Quad> splitterQuads = List.of();
         private final List<RenderedItem> items = new ArrayList<>();
         private TextureAtlasSprite beltSprite;
+        private TextureAtlasSprite splitterSprite;
         private ItemStackRenderState filter;
         private Direction filterFacing = Direction.NORTH;
     }

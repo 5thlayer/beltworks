@@ -6,6 +6,8 @@ SimpleBelts' original art in `scripts/belt-art/`. Run with `uv run scripts/build
 fails on drift."""
 import colorsys
 import io
+import json
+import math
 import sys
 from pathlib import Path
 
@@ -42,12 +44,29 @@ def recolour(source: Path, hue: float, only_hues=(0.0, 1.0)) -> bytes:
     return out.getvalue()
 
 
+def splitter_belt(prefix, frames, step):
+    """The tier's belt frames as one animated strip, since a block model cannot pick a frame the way
+    the belt renderer does. A tier-n belt advances n frames a tick there, so the strip does too."""
+    images = [Image.open(io.BytesIO(frame)) for frame in frames]
+    strip = Image.new("RGBA", (16, 16 * len(images)))
+    for index, image in enumerate(images):
+        strip.paste(image, (0, 16 * index))
+    out = io.BytesIO()
+    strip.save(out, format="PNG")
+    yield TEXTURES / f"block/{prefix}splitter_belt.png", out.getvalue()
+    order = [(index * step) % len(images) for index in range(len(images) // math.gcd(step, len(images)))]
+    meta = {"animation": {"frametime": 1, "frames": order}}
+    yield TEXTURES / f"block/{prefix}splitter_belt.png.mcmeta", (json.dumps(meta, indent=2) + "\n").encode()
+
+
 def outputs():
-    for prefix, art, hue in TIERS.values():
+    for step, (prefix, art, hue) in enumerate(TIERS.values(), start=1):
         yield TEXTURES / f"item/{prefix}belt.png", recolour(ART / art / "item.png", hue)
         yield TEXTURES / f"block/{prefix}chute.png", recolour(ART / "chute/block.png", hue, LOADER_BODY_HUES)
-        for frame in sorted((ART / art / "frames").glob("frame_*.png")):
+        frames = sorted((ART / art / "frames").glob("frame_*.png"))
+        for frame in frames:
             yield TEXTURES / f"block/{prefix}conveyorbelt/{frame.name}", recolour(frame, hue)
+        yield from splitter_belt(prefix, [recolour(frame, hue) for frame in frames], step)
 
 
 def main():

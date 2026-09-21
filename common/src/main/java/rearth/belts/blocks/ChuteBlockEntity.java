@@ -174,7 +174,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     }
 
     /** The loader or splitter half whose belt ends here, if its belt is laid out. */
-    private @Nullable ChuteBlockEntity incomingBelt() {
+    public @Nullable ChuteBlockEntity incomingBelt() {
         if (sourceBeltPos.equals(BlockPos.ZERO)) return null;
         var source = level.getBlockEntity(sourceBeltPos, BlockEntitiesContent.CHUTE_BLOCK.get());
         if (source.isEmpty() || !worldPosition.equals(source.get().target) || source.get().beltData == null) return null;
@@ -418,6 +418,10 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     /** The FE buffer a tier-2 to tier-4 loader pays each item from; tier 1's is never charged. */
     public LoaderEnergy getEnergy() {
         return energy;
+    }
+
+    public boolean isSplitter() {
+        return splitter;
     }
 
     public BeltTier getBeltTier() {
