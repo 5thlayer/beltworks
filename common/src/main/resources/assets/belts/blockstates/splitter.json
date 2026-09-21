@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "facing=north,side=left": {
+      "model": "belts:block/splitter"
+    },
+    "facing=north,side=right": {
+      "model": "belts:block/splitter"
+    },
+    "facing=east,side=left": {
+      "model": "belts:block/splitter",
+      "y": 90
+    },
+    "facing=east,side=right": {
+      "model": "belts:block/splitter",
+      "y": 90
+    },
+    "facing=south,side=left": {
+      "model": "belts:block/splitter",
+      "y": 180
+    },
+    "facing=south,side=right": {
+      "model": "belts:block/splitter",
+      "y": 180
+    },
+    "facing=west,side=left": {
+      "model": "belts:block/splitter",
+      "y": 270
+    },
+    "facing=west,side=right": {
+      "model": "belts:block/splitter",
+      "y": 270
+    }
+  }
+}

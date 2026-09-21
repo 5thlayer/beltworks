@@ -57,6 +57,34 @@ public final class BeltContents<T> {
         }
     }
 
+    /** Whether the entry at the end is within one tick of it, so a splitter may take it this tick. */
+    public boolean endReady(double length, double speed) {
+        return !entries.isEmpty() && entries.peekLast().position + speed >= length - SPACING;
+    }
+
+    /** Removes the entry at the end, after {@link #endReady} said there is one. */
+    public T takeEnd() {
+        return entries.pollLast().payload;
+    }
+
+    /** Whether {@link #offer} would place an entry at the head. */
+    public boolean canOffer(double length, double speed) {
+        var at = offerAt(speed);
+        return at >= 0 && at <= length - SPACING;
+    }
+
+    /**
+     * Places an entry at the head, at most one tick's travel along it, so a splitter can hand on
+     * more than one entry a tick without an entry jumping ahead to a sparse belt's last one.
+     */
+    public void offer(T payload, double speed) {
+        entries.addFirst(new Entry<>(payload, offerAt(speed)));
+    }
+
+    private double offerAt(double speed) {
+        return entries.isEmpty() ? 0 : Math.min(entries.peekFirst().position - SPACING, speed);
+    }
+
     /**
      * Packs the entries back from the end of a belt of this length and removes the ones that no
      * longer fit, head first, for a belt that was re-pathed shorter or restored from a save.

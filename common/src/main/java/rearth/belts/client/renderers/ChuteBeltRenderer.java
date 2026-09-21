@@ -100,7 +100,7 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
         }
 
         var startFacing = entity.getOwnFacing();
-        var endFacing = targetCandidate.get().getOwnFacing().getOpposite();
+        var endFacing = targetCandidate.get().beltEndFacing().getOpposite();
         var gameTime = level.getGameTime();
         var cachedMesh = meshCache.get(entity);
         var rebuildMesh = cachedMesh == null

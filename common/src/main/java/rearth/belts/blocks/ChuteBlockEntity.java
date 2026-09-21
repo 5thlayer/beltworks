@@ -17,6 +17,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
@@ -35,6 +36,7 @@ import rearth.belts.model.BeltCost;
 import rearth.belts.model.BeltTier;
 import rearth.belts.model.FlowLimit;
 import rearth.belts.model.LoaderEnergy;
+import rearth.belts.model.Splitter;
 import rearth.belts.util.SplineUtil;
 
 import java.util.ArrayList;
@@ -75,15 +77,23 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     
     private boolean networkDirty = false;
 
+    private static boolean tearingDownSplitter;
+
     // A loader either loads its own belt or unloads another's, never both, so one limit serves.
     private final FlowLimit flow;
     private final LoaderEnergy energy;
+    private final boolean splitter;
+    // Run by the left half only (#349).
+    private final @Nullable Splitter<BeltItem> splitterModel;
 
     public ChuteBlockEntity(BlockPos pos, BlockState state) {
         super(BlockEntitiesContent.CHUTE_BLOCK.get(), pos, state);
         var tier = ((ChuteBlock) state.getBlock()).tier();
+        splitter = state.getBlock() instanceof SplitterBlock;
         flow = new FlowLimit(tier.itemsPerTick());
-        energy = new LoaderEnergy(tier);
+        // Splitters draw no power (ADR-0076).
+        energy = new LoaderEnergy(splitter ? BeltTier.BELT : tier);
+        splitterModel = splitter ? new Splitter<>(tier.itemsPerTick()) : null;
     }
     
     @Override
@@ -92,6 +102,10 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         if (!level.isClientSide() && energy.joules() > 0) {
             energy.drain();
             setChanged();
+        }
+
+        if (splitter && !level.isClientSide() && state.getValue(SplitterBlock.SIDE) == SplitterBlock.Side.LEFT) {
+            tickSplitter(level, pos, state);
         }
 
         if (target == null || target.equals(BlockPos.ZERO)) {
@@ -144,6 +158,38 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         
     }
     
+    // One model for both halves, so the two inputs and two outputs alternate as one splitter (#349).
+    private void tickSplitter(Level level, BlockPos pos, BlockState state) {
+        var right = level.getBlockEntity(SplitterBlock.partner(pos, state), BlockEntitiesContent.CHUTE_BLOCK.get());
+        if (right.isEmpty() || !right.get().splitter) return;
+        var inLeft = incomingBelt();
+        var inRight = right.get().incomingBelt();
+        if (splitterModel.tick(level.getGameTime(), lane(inLeft), lane(inRight), outgoingLane(), right.get().outgoingLane())) {
+            for (var changed : new ChuteBlockEntity[] {inLeft, inRight, this, right.get()}) {
+                if (changed == null) continue;
+                changed.networkDirty = true;
+                changed.setChanged();
+            }
+        }
+    }
+
+    /** The loader or splitter half whose belt ends here, if its belt is laid out. */
+    private @Nullable ChuteBlockEntity incomingBelt() {
+        if (sourceBeltPos.equals(BlockPos.ZERO)) return null;
+        var source = level.getBlockEntity(sourceBeltPos, BlockEntitiesContent.CHUTE_BLOCK.get());
+        if (source.isEmpty() || !worldPosition.equals(source.get().target) || source.get().beltData == null) return null;
+        return source.get();
+    }
+
+    private @Nullable Splitter.Lane<BeltItem> outgoingLane() {
+        if (target == null || target.equals(BlockPos.ZERO) || beltData == null) return null;
+        return lane(this);
+    }
+
+    private static @Nullable Splitter.Lane<BeltItem> lane(@Nullable ChuteBlockEntity belt) {
+        return belt == null ? null : new Splitter.Lane<>(belt.contents, belt.getBeltLength(), belt.beltTier.blocksPerTick());
+    }
+
     /**
      * Removes the belt this loader starts or ends, handing its items and its cost to the player
      * who broke it, or dropping them here when nobody did. The loader at the other end stays.
@@ -198,6 +244,20 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     public void preRemoveSideEffects(BlockPos pos, BlockState state) {
         super.preRemoveSideEffects(pos, state);
         releaseBelts(null);
+        removeOtherHalf(pos, state);
+    }
+
+    // Without drops: the half removed first pays the splitter's one item through its loot table (#349).
+    private void removeOtherHalf(BlockPos pos, BlockState state) {
+        if (!splitter || level == null || level.isClientSide() || tearingDownSplitter) return;
+        var partner = SplitterBlock.partner(pos, state);
+        if (!SplitterBlock.isPartner(state, level.getBlockState(partner))) return;
+        tearingDownSplitter = true;
+        try {
+            level.setBlock(partner, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+        } finally {
+            tearingDownSplitter = false;
+        }
     }
     
     // notifies the belt end entity that the current entity is the sender to it
@@ -215,6 +275,8 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         var conveyorEndEntityCandidate = level.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get());
         if (conveyorEndEntityCandidate.isEmpty()) return false;
         var conveyorEndEntity = conveyorEndEntityCandidate.get();
+        // The splitter pulls from this belt's end, so its two inputs alternate (#349).
+        if (conveyorEndEntity.splitter) return false;
         if (!conveyorEndEntity.flow.ready(level.getGameTime()) || !conveyorEndEntity.energy.canMove()) return false;
         var targetInv = ItemApi.BLOCK.find(level, target.relative(conveyorEndEntity.getOwnFacing().getOpposite()), null, null, conveyorEndEntity.getOwnFacing());
         if (targetInv == null) return false;
@@ -230,6 +292,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     // One item per entry, as a Factorio loader puts one item in each belt slot (#344).
     @SuppressWarnings("DataFlowIssue")
     private @Nullable BeltItem extractOne() {
+        if (splitter) return null;
         if (!flow.ready(level.getGameTime()) || !energy.canMove()) return null;
         var source = ItemApi.BLOCK.find(level, worldPosition.relative(getOwnFacing().getOpposite()), null, null, getOwnFacing());
         if (source == null) return null;
@@ -361,6 +424,33 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         return beltTier;
     }
 
+    /** Whether a belt may start here: a loader is one belt's end, a splitter half one belt in and one out. */
+    public boolean canStartBelt() {
+        return splitter ? target == null || target.equals(BlockPos.ZERO) : !isUsed();
+    }
+
+    public boolean canEndBelt() {
+        return splitter ? sourceBeltPos.equals(BlockPos.ZERO) : !isUsed();
+    }
+
+    /**
+     * Where a belt starting here begins, as the position of a loader that would start it. A
+     * splitter's belt leaves from its front face, so from where a loader in front of it would stand.
+     */
+    public BlockPos beltStartPos() {
+        return splitter ? worldPosition.relative(getOwnFacing()) : worldPosition;
+    }
+
+    /** Where a belt ending here ends, as the position of a loader that would end it: a splitter's back face. */
+    public BlockPos beltEndPos() {
+        return splitter ? worldPosition.relative(getOwnFacing().getOpposite()) : worldPosition;
+    }
+
+    /** The facing a loader ending the belt at {@link #beltEndPos} would have: back towards the belt. */
+    public Direction beltEndFacing() {
+        return splitter ? getOwnFacing().getOpposite() : getOwnFacing();
+    }
+
     public boolean isUsed() {
         var usedAsTarget = !sourceBeltPos.equals(BlockPos.ZERO);
         var usedAsSource = target != null && !target.equals(BlockPos.ZERO);
@@ -441,8 +531,9 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             var targetCandidate = entity.getLevel().getBlockEntity(entity.getTarget(), BlockEntitiesContent.CHUTE_BLOCK.get());
             if (targetCandidate.isEmpty()) return null;
             
-            return of(entity.getBlockPos(), entity.getOwnFacing(), entity.getMidPointsWithTangents(),
-              entity.getTarget(), targetCandidate.get().getOwnFacing());
+            var end = targetCandidate.get();
+            return of(entity.beltStartPos(), entity.getOwnFacing(), entity.getMidPointsWithTangents(),
+              end.beltEndPos(), end.beltEndFacing());
         }
         
         /** The path between two loaders' positions and facings, whether or not they are placed yet. */

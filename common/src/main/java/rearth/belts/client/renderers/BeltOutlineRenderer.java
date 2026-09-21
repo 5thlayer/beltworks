@@ -17,6 +17,7 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
 import rearth.belts.BlockContent;
 import rearth.belts.BlockEntitiesContent;
+import rearth.belts.blocks.ChuteBlockEntity;
 import rearth.belts.ComponentContent;
 import rearth.belts.items.BeltItem;
 import rearth.belts.util.MathHelpers;
@@ -74,7 +75,8 @@ public final class BeltOutlineRenderer {
         var startFacing = stack.get(ComponentContent.BELT_DIR.get());
         if (startBlockPos == null || startBlockPos.equals(BlockPos.ZERO) || startFacing == null) return List.of();
 
-        var startPos = startBlockPos.getCenter();
+        var startChute = level.getBlockEntity(startBlockPos, BlockEntitiesContent.CHUTE_BLOCK.get());
+        var startPos = startChute.map(ChuteBlockEntity::beltStartPos).orElse(startBlockPos).getCenter();
         var startDir = startFacing.getUnitVec3i();
         var midPoints = BeltItem.getStoredMidpoints(stack, level);
 
@@ -82,8 +84,8 @@ public final class BeltOutlineRenderer {
         Direction endDir;
         var endChute = level.getBlockEntity(blockHit.getBlockPos(), BlockEntitiesContent.CHUTE_BLOCK.get());
         if (endChute.isPresent()) {
-            endBlockPos = blockHit.getBlockPos();
-            endDir = endChute.get().getOwnFacing().getOpposite();
+            endBlockPos = endChute.get().beltEndPos();
+            endDir = endChute.get().beltEndFacing().getOpposite();
         } else if (level.getBlockState(blockHit.getBlockPos()).is(BlockContent.CONVEYOR_SUPPORT_BLOCK.get())) {
             var conveyorPos = blockHit.getBlockPos();
             var conveyorFacing = level.getBlockState(conveyorPos).getValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING);

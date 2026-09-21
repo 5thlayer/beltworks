@@ -47,5 +47,13 @@
   "item.belts.turbo_belt.tooltip.1": "Connects to the same Item Chutes and Conveyor Supports as a standard belt.",
   "item.belts.turbo_belt.tooltip.2": "[Shift] + [Right-Click] without targeting a block to reset.",
   "item.belts.turbo_belt.tooltip.3": "Existing connected chutes can be clicked with an item to enable filtering.",
-  "message.belts.show_extra": "Hold [ctrl] for more info."
+  "message.belts.show_extra": "Hold [ctrl] for more info.",
+  "block.belts.splitter": "Splitter",
+  "item.belts.splitter": "Splitter",
+  "block.belts.improved_splitter": "Fast splitter",
+  "item.belts.improved_splitter": "Fast splitter",
+  "block.belts.express_splitter": "Express splitter",
+  "item.belts.express_splitter": "Express splitter",
+  "block.belts.turbo_splitter": "Turbo splitter",
+  "item.belts.turbo_splitter": "Turbo splitter"
 }

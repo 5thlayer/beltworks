@@ -2,6 +2,7 @@ package rearth.belts;
 
 import rearth.belts.blocks.ChuteBlock;
 import rearth.belts.blocks.ConveyorSupportBlock;
+import rearth.belts.blocks.SplitterBlock;
 import rearth.belts.model.BeltTier;
 import dev.architectury.registry.registries.DeferredRegister;
 import dev.architectury.registry.registries.RegistrySupplier;
@@ -20,6 +21,10 @@ public class BlockContent {
     public static final RegistrySupplier<Block> IMPROVED_CHUTE_BLOCK = loader(BeltTier.IMPROVED);
     public static final RegistrySupplier<Block> EXPRESS_CHUTE_BLOCK = loader(BeltTier.EXPRESS);
     public static final RegistrySupplier<Block> TURBO_CHUTE_BLOCK = loader(BeltTier.TURBO);
+    public static final RegistrySupplier<Block> SPLITTER_BLOCK = splitter(BeltTier.BELT);
+    public static final RegistrySupplier<Block> IMPROVED_SPLITTER_BLOCK = splitter(BeltTier.IMPROVED);
+    public static final RegistrySupplier<Block> EXPRESS_SPLITTER_BLOCK = splitter(BeltTier.EXPRESS);
+    public static final RegistrySupplier<Block> TURBO_SPLITTER_BLOCK = splitter(BeltTier.TURBO);
     public static final RegistrySupplier<Block> CONVEYOR_MODEL = BLOCKS.register("conveyor_model", () -> new Block(
       BlockBehaviour.Properties.ofLegacyCopy(Blocks.GLASS).noOcclusion().setId(ResourceKey.create(Registries.BLOCK, Belts.id("conveyor_model")))));
     public static final RegistrySupplier<Block> CONVEYOR_SUPPORT_BLOCK = BLOCKS.register("conveyor_support", () -> new ConveyorSupportBlock(
@@ -32,6 +37,20 @@ public class BlockContent {
             case EXPRESS -> EXPRESS_CHUTE_BLOCK.get();
             case TURBO -> TURBO_CHUTE_BLOCK.get();
         };
+    }
+
+    public static Block splitterFor(BeltTier tier) {
+        return switch (tier) {
+            case BELT -> SPLITTER_BLOCK.get();
+            case IMPROVED -> IMPROVED_SPLITTER_BLOCK.get();
+            case EXPRESS -> EXPRESS_SPLITTER_BLOCK.get();
+            case TURBO -> TURBO_SPLITTER_BLOCK.get();
+        };
+    }
+
+    private static RegistrySupplier<Block> splitter(BeltTier tier) {
+        return BLOCKS.register(tier.splitter(), () -> new SplitterBlock(
+          BlockBehaviour.Properties.ofLegacyCopy(Blocks.GLASS).sound(SoundType.POINTED_DRIPSTONE).noOcclusion().setId(ResourceKey.create(Registries.BLOCK, Belts.id(tier.splitter()))), tier));
     }
 
     private static RegistrySupplier<Block> loader(BeltTier tier) {

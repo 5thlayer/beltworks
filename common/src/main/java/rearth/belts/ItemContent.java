@@ -1,6 +1,7 @@
 package rearth.belts;
 
 import rearth.belts.items.BeltItem;
+import rearth.belts.items.SplitterItem;
 import rearth.belts.items.TooltipBlockItem;
 import rearth.belts.model.BeltTier;
 import dev.architectury.registry.registries.DeferredRegister;
@@ -19,6 +20,10 @@ public class ItemContent {
     public static final RegistrySupplier<Item> IMPROVED_CHUTE = loader(BeltTier.IMPROVED, BlockContent.IMPROVED_CHUTE_BLOCK);
     public static final RegistrySupplier<Item> EXPRESS_CHUTE = loader(BeltTier.EXPRESS, BlockContent.EXPRESS_CHUTE_BLOCK);
     public static final RegistrySupplier<Item> TURBO_CHUTE = loader(BeltTier.TURBO, BlockContent.TURBO_CHUTE_BLOCK);
+    public static final RegistrySupplier<Item> SPLITTER = splitter(BeltTier.BELT, BlockContent.SPLITTER_BLOCK);
+    public static final RegistrySupplier<Item> IMPROVED_SPLITTER = splitter(BeltTier.IMPROVED, BlockContent.IMPROVED_SPLITTER_BLOCK);
+    public static final RegistrySupplier<Item> EXPRESS_SPLITTER = splitter(BeltTier.EXPRESS, BlockContent.EXPRESS_SPLITTER_BLOCK);
+    public static final RegistrySupplier<Item> TURBO_SPLITTER = splitter(BeltTier.TURBO, BlockContent.TURBO_SPLITTER_BLOCK);
     public static final RegistrySupplier<Item> CONVEYOR_SUPPORT = ITEMS.register("conveyor_support", () -> new TooltipBlockItem(BlockContent.CONVEYOR_SUPPORT_BLOCK.get(), properties("conveyor_support")));
     public static final RegistrySupplier<Item> BELT = belt(BeltTier.BELT);
     public static final RegistrySupplier<Item> IMPROVED_BELT = belt(BeltTier.IMPROVED);
@@ -36,6 +41,10 @@ public class ItemContent {
 
     private static RegistrySupplier<Item> loader(BeltTier tier, RegistrySupplier<Block> block) {
         return ITEMS.register(tier.loader(), () -> new TooltipBlockItem(block.get(), properties(tier.loader())));
+    }
+
+    private static RegistrySupplier<Item> splitter(BeltTier tier, RegistrySupplier<Block> block) {
+        return ITEMS.register(tier.splitter(), () -> new SplitterItem(block.get(), properties(tier.splitter())));
     }
 
     private static RegistrySupplier<Item> belt(BeltTier tier) {

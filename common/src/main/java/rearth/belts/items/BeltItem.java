@@ -69,7 +69,7 @@ public class BeltItem extends Item {
         var chuteCandidate = context.getLevel().getBlockEntity(targetBlockPos, BlockEntitiesContent.CHUTE_BLOCK.get());
         if (chuteCandidate.isPresent()) {
             var chuteEntity = chuteCandidate.get();
-            if (chuteEntity.isUsed()) {
+            if (hasStart ? !chuteEntity.canEndBelt() : !chuteEntity.canStartBelt()) {
                 context.getPlayer().sendSystemMessage(Component.translatable("message.belts.chute_used"));
                 return InteractionResult.FAIL;
             }
@@ -158,11 +158,18 @@ public class BeltItem extends Item {
     private void createBelt(BlockPos start, Direction startDir, List<BlockPos> supports, BlockPos end, Direction endDir, Level world, ItemStack stack, Player player) {
         
         var startChute = world.getBlockEntity(start, BlockEntitiesContent.CHUTE_BLOCK.get());
-        if (startChute.isPresent() && startChute.get().isUsed()) {
+        if (startChute.isPresent() && !startChute.get().canStartBelt()) {
             player.sendSystemMessage(Component.translatable("message.belts.chute_used"));
             return;
         }
         
+        // A splitter half is free at both ends, and a belt from its front to its own back would
+        // hand its end straight to its head (#349).
+        if (start.equals(end)) {
+            player.sendSystemMessage(Component.translatable("message.belts.chute_used"));
+            return;
+        }
+
         var startSite = siteFacing(world, start, startDir);
         var endSite = siteFacing(world, end, endDir);
         if (startSite == null || endSite == null) {
@@ -170,7 +177,10 @@ public class BeltItem extends Item {
             return;
         }
         
-        var path = ChuteBlockEntity.BeltData.of(start, startSite, getStoredMidpoints(stack, world), end, endSite);
+        var endChute = world.getBlockEntity(end, BlockEntitiesContent.CHUTE_BLOCK.get());
+        var path = ChuteBlockEntity.BeltData.of(startChute.map(ChuteBlockEntity::beltStartPos).orElse(start), startSite,
+          getStoredMidpoints(stack, world), endChute.map(ChuteBlockEntity::beltEndPos).orElse(end),
+          endChute.map(ChuteBlockEntity::beltEndFacing).orElse(endSite));
         var cost = player.isCreative() ? 0 : BeltCost.of(path.totalLength());
         var held = ContainerHelper.clearOrCountMatchingItems(player.getInventory(), this::isThisBelt, 0, true);
         if (held < cost) {
