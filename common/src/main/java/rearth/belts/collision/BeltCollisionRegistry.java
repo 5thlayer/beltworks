@@ -133,6 +133,22 @@ public final class BeltCollisionRegistry {
         if (closest != null) applyPlayerVelocity(player, closest);
     }
 
+    /**
+     * The blocks whose belts may pass through this block, found by their drawn surface; a
+     * splitter half's own block of belt is not one (PlanetaryFactory #361).
+     */
+    public static List<BlockPos> beltSourcesAt(Level level, BlockPos pos) {
+        var levelData = LEVEL_DATA.get(level);
+        if (levelData == null) return List.of();
+        var block = new AABB(pos);
+        var sources = new ArrayList<BlockPos>();
+        for (var belt : levelData.belts.entrySet()) {
+            if (belt.getKey().half || !belt.getValue().bounds.intersects(block)) continue;
+            if (belt.getValue().slabs.stream().anyMatch(slab -> slab.bounds.intersects(block))) sources.add(belt.getKey().pos);
+        }
+        return sources;
+    }
+
     /** The nearest belt a ray from {@code from} to {@code to} meets, and where along its curve. */
     public static @Nullable BeltHit raycast(Level level, Vec3 from, Vec3 to) {
         var levelData = LEVEL_DATA.get(level);

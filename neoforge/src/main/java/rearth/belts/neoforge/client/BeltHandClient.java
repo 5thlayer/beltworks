@@ -8,6 +8,7 @@ import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import org.jetbrains.annotations.Nullable;
 import rearth.belts.collision.BeltCollisionRegistry;
+import rearth.belts.items.SplitterItem;
 import rearth.belts.neoforge.BeltHandPayload;
 
 /** Holding the use button on a belt's curve sends where the ray meets it, every tick (#350). */
@@ -41,10 +42,13 @@ final class BeltHandClient {
         event.setCanceled(true);
     }
 
-    /** The belt under the crosshair within reach, unless a block or an entity is nearer. */
+    /**
+     * The belt under the crosshair within reach, unless a block or an entity is nearer, or a held
+     * splitter is placed across it (PlanetaryFactory #361).
+     */
     private static BeltCollisionRegistry.@Nullable BeltHit aim(Minecraft minecraft) {
         var player = minecraft.player;
-        if (player == null || minecraft.level == null) return null;
+        if (player == null || minecraft.level == null || player.getMainHandItem().getItem() instanceof SplitterItem) return null;
         var eye = player.getEyePosition();
         var reach = eye.add(player.getViewVector(1).scale(player.blockInteractionRange()));
         var hit = BeltCollisionRegistry.raycast(minecraft.level, eye, reach);

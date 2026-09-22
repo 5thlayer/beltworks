@@ -35,6 +35,7 @@ import rearth.belts.api.item.ItemApi;
 import rearth.belts.collision.BeltCollisionRegistry;
 import rearth.belts.model.BeltContents;
 import rearth.belts.model.BeltCost;
+import rearth.belts.model.BeltCut;
 import rearth.belts.model.BeltPath;
 import rearth.belts.model.BeltTier;
 import rearth.belts.model.FlowLimit;
@@ -694,6 +695,71 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         if (level instanceof ServerLevel serverWorld)
             serverWorld.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
         return Optional.empty();
+    }
+
+    /** This end's belt's curve, or null when it has none laid out. */
+    public @Nullable BeltPath path() {
+        if (level == null || target == null || target.equals(BlockPos.ZERO) || beltData == null) return null;
+        return level.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get())
+                 .map(end -> BeltData.path(this, getMidPointsWithTangents(), end)).orElse(null);
+    }
+
+    /**
+     * Cuts this end's belt at a splitter half just placed across it (PlanetaryFactory #361). The
+     * refund, and any entry that fits nowhere, goes to the placing player or drops at the half.
+     */
+    public void cut(ChuteBlockEntity splitterHalf, BeltPath.Crossing.Cut cut, @Nullable Player player) {
+        var path = path();
+        var end = level.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get());
+        if (path == null || end.isEmpty() || !splitterHalf.splitter) return;
+
+        var halfPos = splitterHalf.worldPosition;
+        var facing = splitterHalf.getOwnFacing();
+        var halves = path.cut(cut, halfPos.getX(), halfPos.getY(), halfPos.getZ(), facing.getStepX(), facing.getStepZ());
+        var supports = getMidPointsWithTangents().stream().map(Pair::getFirst).toList();
+        // Along the entries, whose belt is its curve rounded to whole slots.
+        var at = cut.at() / path.length() * getBeltLength();
+        var costs = BeltCut.Costs.of(cost, halves.upstream().length());
+
+        handOver(splitterHalf, at);
+        var returned = new ArrayList<>(BeltCut.cut(contents, at, slotsLength(halves.upstream()), splitterHalf.half,
+          splitterHalf.contents, slotsLength(halves.downstream())));
+
+        splitterHalf.target = target;
+        splitterHalf.midPoints = new ArrayList<>(supports.subList(cut.span(), supports.size()));
+        splitterHalf.beltTier = beltTier;
+        splitterHalf.cost = costs.downstream();
+        splitterHalf.beltData = BeltData.create(splitterHalf);
+        end.get().linkSource(halfPos);
+        splitterHalf.linkPassing(splitterHalf.midPoints, halfPos);
+
+        target = halfPos;
+        midPoints = new ArrayList<>(supports.subList(0, cut.span()));
+        cost = costs.upstream();
+        beltData = BeltData.create(this);
+        splitterHalf.linkSource(worldPosition);
+
+        for (var changed : List.of(this, splitterHalf)) {
+            changed.setChanged();
+            if (level instanceof ServerLevel serverWorld)
+                serverWorld.sendBlockUpdated(changed.worldPosition, changed.getBlockState(), changed.getBlockState(), Block.UPDATE_ALL);
+        }
+        if (costs.refund() > 0) returned.add(new ItemStack(ItemContent.beltFor(beltTier), costs.refund()));
+        giveBack(player, returned, halfPos);
+    }
+
+    private static double slotsLength(BeltPath path) {
+        return BeltCost.slots(path.length()) * BeltContents.SPACING;
+    }
+
+    // Its hold stays where it was on the belt, now on whichever belt, or the half, holds that point.
+    private void handOver(ChuteBlockEntity splitterHalf, double at) {
+        if (heldHand == null || heldHand.onHalf) return;
+        var place = BeltCut.locate(heldHand.point, at);
+        if (place.section() == BeltCut.Section.UPSTREAM) return;
+        splitterHalf.heldHand = new HeldHand(heldHand.player, place.section() == BeltCut.Section.SPLITTER, place.position(),
+          heldHand.until, heldHand.taking);
+        heldHand = null;
     }
 
     @Override

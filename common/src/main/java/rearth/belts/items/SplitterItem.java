@@ -1,6 +1,7 @@
 package rearth.belts.items;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.BlockItem;
@@ -9,11 +10,21 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.phys.shapes.CollisionContext;
+import org.jetbrains.annotations.Nullable;
+import rearth.belts.BlockEntitiesContent;
 import rearth.belts.blocks.SplitterBlock;
+import rearth.belts.collision.BeltCollisionRegistry;
+import rearth.belts.model.BeltPath;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 
-/** Places both halves of a splitter, the clicked one on the left looking the way items flow, or neither. */
+/**
+ * Places both halves of a splitter, the clicked one on the left looking the way items flow, or
+ * neither. A half placed across a running belt cuts it in two (PlanetaryFactory #361). The click
+ * executes the plan the preview draws (ADR-0069).
+ */
 public class SplitterItem extends BlockItem {
 
     public SplitterItem(Block block, Properties settings) {
@@ -42,23 +53,78 @@ public class SplitterItem extends BlockItem {
         return true;
     }
 
-    @Override
-    public InteractionResult place(BlockPlaceContext context) {
-        if (!context.canPlace()) return InteractionResult.FAIL;
+    /**
+     * What a click in this context would do, or null where it would do nothing: both halves, and
+     * each belt a half cuts, or the reason it places neither.
+     */
+    public @Nullable Plan plan(BlockPlaceContext context) {
+        if (!context.canPlace()) return null;
         var halves = halves(context);
-        if (!fits(context, halves)) return InteractionResult.FAIL;
+        if (!fits(context, halves)) return new Plan(halves, List.of(), true, null);
 
         var level = context.getLevel();
-        for (var half : halves) level.setBlock(half.pos(), half.state(), Block.UPDATE_ALL);
+        var cuts = new ArrayList<Cut>();
+        var sources = new HashSet<BlockPos>();
+        for (var half : halves) {
+            var facing = half.state().getValue(SplitterBlock.FACING);
+            for (var source : BeltCollisionRegistry.beltSourcesAt(level, half.pos())) {
+                var path = level.getBlockEntity(source, BlockEntitiesContent.CHUTE_BLOCK.get()).map(chute -> chute.path()).orElse(null);
+                if (path == null) continue;
+                var crossing = path.crossing(half.pos().getX(), half.pos().getY(), half.pos().getZ(), facing.getStepX(), facing.getStepZ());
+                if (crossing.isEmpty()) continue;
+                if (crossing.get() instanceof BeltPath.Crossing.Refused refused) return new Plan(halves, List.of(), false, refused.reason());
+                // One belt through both halves crosses the splitter rather than running into it.
+                if (!sources.add(source)) return new Plan(halves, List.of(), false, BeltPath.CrossingRefusal.NOT_CUT);
+                cuts.add(new Cut(half.pos(), source, (BeltPath.Crossing.Cut) crossing.get()));
+            }
+        }
+        return new Plan(halves, cuts, false, null);
+    }
 
+    @Override
+    public InteractionResult place(BlockPlaceContext context) {
+        var plan = plan(context);
+        if (plan == null) return InteractionResult.FAIL;
+        var level = context.getLevel();
         var player = context.getPlayer();
-        var left = halves.getFirst();
+        if (plan.refused()) {
+            if (plan.crossing() != null && player != null && !level.isClientSide()) {
+                player.sendSystemMessage(Component.translatable(plan.crossing().messageKey()));
+            }
+            return InteractionResult.FAIL;
+        }
+
+        for (var half : plan.halves()) level.setBlock(half.pos(), half.state(), Block.UPDATE_ALL);
+        if (!level.isClientSide()) {
+            for (var cut : plan.cuts()) {
+                var half = level.getBlockEntity(cut.half(), BlockEntitiesContent.CHUTE_BLOCK.get());
+                level.getBlockEntity(cut.source(), BlockEntitiesContent.CHUTE_BLOCK.get())
+                  .ifPresent(source -> half.ifPresent(splitterHalf -> source.cut(splitterHalf, cut.crossing(), player)));
+            }
+        }
+
+        var left = plan.halves().getFirst();
         var sound = left.state().getSoundType();
         level.playSound(player, left.pos(), sound.getPlaceSound(), SoundSource.BLOCKS,
           (sound.getVolume() + 1.0F) / 2.0F, sound.getPitch() * 0.8F);
         level.gameEvent(GameEvent.BLOCK_PLACE, left.pos(), GameEvent.Context.of(player, left.state()));
         context.getItemInHand().consume(1, player);
         return InteractionResult.SUCCESS;
+    }
+
+    /**
+     * @param blocked  whether a half's block is not free, so neither goes down
+     * @param crossing why a belt through a half is not cut, so neither goes down
+     */
+    public record Plan(List<Half> halves, List<Cut> cuts, boolean blocked, BeltPath.@Nullable CrossingRefusal crossing) {
+
+        public boolean refused() {
+            return blocked || crossing != null;
+        }
+    }
+
+    /** A belt, named by the block it starts at, that the half at {@code half} cuts. */
+    public record Cut(BlockPos half, BlockPos source, BeltPath.Crossing.Cut crossing) {
     }
 
     public record Half(BlockPos pos, BlockState state) {

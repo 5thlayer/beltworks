@@ -148,6 +148,17 @@ public final class BeltContents<T> {
         return Math.min(placed, length - SPACING);
     }
 
+    /** Removes the entries at or past this position, head first, as a belt cut short there loses them. */
+    public List<Entry<T>> takeFrom(double position) {
+        var taken = new ArrayList<Entry<T>>();
+        while (!entries.isEmpty() && entries.peekLast().position >= position) {
+            var entry = entries.pollLast();
+            removed(entry);
+            taken.addFirst(entry);
+        }
+        return taken;
+    }
+
     /**
      * Packs the entries back from the end of a belt of this length and removes the ones that no
      * longer fit, head first, for a belt that was re-pathed shorter or restored from a save.

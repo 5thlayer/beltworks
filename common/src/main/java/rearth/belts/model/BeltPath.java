@@ -19,6 +19,8 @@ public final class BeltPath {
     public static final double MAX_SLOPE = Math.tan(Math.toRadians(35));
 
     private static final double TANGENT_SCALE = 1.5;
+    // The collision surface's half-width, which is how wide a belt stands in the world.
+    private static final double HALF_WIDTH = 0.33;
     private static final int SAMPLES = 512;
 
     /**
@@ -50,6 +52,30 @@ public final class BeltPath {
     }
 
     public record Refusal(Bound bound, int span) {
+    }
+
+    /** Why a splitter half placed across a belt does not cut it (PlanetaryFactory #361). */
+    public enum CrossingRefusal {
+        AGAINST_FACING, AT_ANGLE, THROUGH_SIDE, CURVED, NOT_CUT;
+
+        public String messageKey() {
+            return "message.belts.splitter_" + name().toLowerCase(Locale.ROOT);
+        }
+    }
+
+    /** How a belt meets a splitter half's block. */
+    public sealed interface Crossing {
+
+        /** It runs straight and level from the block's back face to its front, which lies {@code at} along the belt. */
+        record Cut(int span, double at) implements Crossing {
+        }
+
+        record Refused(CrossingRefusal reason) implements Crossing {
+        }
+    }
+
+    /** The belt ending at a splitter half's back face, and the one starting at its front. */
+    public record Halves(BeltPath upstream, BeltPath downstream) {
     }
 
     private final List<Anchor> anchors;
@@ -138,6 +164,80 @@ public final class BeltPath {
         if (steepestSlope(span) > MAX_SLOPE) return Bound.TOO_STEEP;
         if (tightestRadius(span) < MIN_RADIUS) return Bound.TURN_TOO_TIGHT;
         return null;
+    }
+
+    /**
+     * How this belt meets the block a splitter half facing ({@code facingX}, {@code facingZ}) would
+     * stand on, or empty when neither its curve nor its surface reaches into the block.
+     */
+    public Optional<Crossing> crossing(int x, int y, int z, int facingX, int facingZ) {
+        Crossing found = null;
+        var overlaps = false;
+        var before = 0d;
+        for (int span = 0; span < spanLengths.length; span++) {
+            if (passesThrough(span, x, y, z, 0)) {
+                if (found != null) return Optional.of(new Crossing.Refused(CrossingRefusal.NOT_CUT));
+                found = crossing(span, before, x, z, facingX, facingZ);
+            } else {
+                overlaps |= passesThrough(span, x, y, z, HALF_WIDTH);
+            }
+            before += spanLengths[span];
+        }
+        if (found == null && overlaps) return Optional.of(new Crossing.Refused(CrossingRefusal.NOT_CUT));
+        return Optional.ofNullable(found);
+    }
+
+    private Crossing crossing(int span, double before, int x, int z, int facingX, int facingZ) {
+        var from = nodes.get(span);
+        var to = nodes.get(span + 1);
+        if (from.y != to.y) return new Crossing.Refused(CrossingRefusal.CURVED);
+        var parallelEnds = from.tangentX == to.tangentX && from.tangentZ == to.tangentZ;
+        double dx = to.x - from.x, dz = to.z - from.z;
+        if (!parallelEnds) return new Crossing.Refused(CrossingRefusal.CURVED);
+        if (dx * from.tangentZ - dz * from.tangentX != 0 || dx * from.tangentX + dz * from.tangentZ <= 0) {
+            return new Crossing.Refused(CrossingRefusal.AT_ANGLE);
+        }
+        if (from.tangentX == -facingX && from.tangentZ == -facingZ) return new Crossing.Refused(CrossingRefusal.AGAINST_FACING);
+        if (from.tangentX != facingX || from.tangentZ != facingZ) return new Crossing.Refused(CrossingRefusal.THROUGH_SIDE);
+
+        // Along the facing, from the span's start to the block's back face.
+        var back = (x + 0.5 - 0.5 * facingX - from.x) * facingX + (z + 0.5 - 0.5 * facingZ - from.z) * facingZ;
+        if (back < 0 || back + 1 > spanLengths[span]) return new Crossing.Refused(CrossingRefusal.NOT_CUT);
+        return new Crossing.Cut(span, before + back);
+    }
+
+    /**
+     * Whether the drawn curve, or the belt's surface out to {@code across} either side of it,
+     * enters the block. Inset, so a belt ending on one of the block's faces does not.
+     */
+    private boolean passesThrough(int span, int x, int y, int z, double across) {
+        var inset = 1e-6;
+        var samples = Math.max(16, (int) Math.ceil(spanLengths[span] * 32));
+        for (int i = 0; i <= samples; i++) {
+            var t = (double) i / samples;
+            var point = hermite(nodes.get(span), nodes.get(span + 1), spanLengths[span] * TANGENT_SCALE, t);
+            var velocity = derivative(span, t, 1);
+            var run = Math.hypot(velocity[0], velocity[2]);
+            double sideX = run == 0 ? 0 : -velocity[2] / run, sideZ = run == 0 ? 0 : velocity[0] / run;
+            for (var offset : new double[] {0, across, -across, across / 2, -across / 2}) {
+                double px = point[0] + sideX * offset, pz = point[2] + sideZ * offset;
+                if (px > x + inset && px < x + 1 - inset && point[1] > y + inset && point[1] < y + 1 - inset
+                      && pz > z + inset && pz < z + 1 - inset) return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The two belts a cut leaves: the spans before it ending at the half's back face, and the
+     * spans after it starting at its front face, each keeping its own supports.
+     */
+    public Halves cut(Crossing.Cut cut, int x, int y, int z, int facingX, int facingZ) {
+        var back = new Anchor(x - facingX, y, z - facingZ, -facingX, -facingZ);
+        var front = new Anchor(x + facingX, y, z + facingZ, facingX, facingZ);
+        var supports = anchors.subList(1, anchors.size() - 1);
+        return new Halves(of(anchors.getFirst(), supports.subList(0, cut.span()), back),
+          of(front, supports.subList(cut.span(), supports.size()), anchors.getLast()));
     }
 
     private static boolean climbsStraight(Node from, Node to) {
