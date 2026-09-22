@@ -2,11 +2,8 @@ package rearth.belts.util;
 
 import rearth.belts.blocks.ChuteBlockEntity;
 import com.mojang.datafixers.util.Pair;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.world.phys.Vec3;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public final class SplineUtil {
@@ -16,26 +13,6 @@ public final class SplineUtil {
     
     public static Vec3 getPositionOnSpline(ChuteBlockEntity.BeltData data, double t) {
         return getPositionOnSpline(data.allPoints(), data.totalLength(), data.segmentLengths(), t);
-    }
-    
-    // t is in range 0-1
-    public static Vec3 getPositionOnSpline(Vec3 start, Vec3 startDir, Vec3 end, Vec3 endDir, List<Pair<BlockPos, Direction>> middlePoints, double t) {
-        
-        var transformedMidPoints = middlePoints.stream().map(elem -> new Pair<>(elem.getFirst().getCenter(), Vec3.atLowerCornerOf(elem.getSecond().getUnitVec3i()))).toList();
-        
-        var allPairs = getPointPairs(start, startDir, end, endDir, transformedMidPoints);
-        
-        var segmentLengths = new double[allPairs.size() - 1];
-        var totalLength = 0d;
-        for (int i = 0; i < allPairs.size() - 1; i++) {
-            var from = allPairs.get(i);
-            var to = allPairs.get(i + 1);
-            var length = getLineLength(from.getFirst(), from.getSecond(), to.getFirst(), to.getSecond());
-            segmentLengths[i] = (length);
-            totalLength += length;
-        }
-        
-        return getPositionOnSpline(allPairs, totalLength, segmentLengths, t);
     }
     
     public static Vec3 getPositionOnSpline(List<Pair<Vec3, Vec3>> allPoints, double totalLength, double[] segmentLengths, double t) {
@@ -68,67 +45,6 @@ public final class SplineUtil {
     
     private static double remapProgress(double x) {
         return 0.4791667 * x + 1.5625 * x * x - 1.041667 * x * x * x;
-    }
-    
-    // approximates segment length by sampling 2 points along the line, and returning the total distance
-    public static double getLineLength(Vec3 from, Vec3 fromTangent, Vec3 to, Vec3 toTangent) {
-        
-        var approxLength = from.distanceTo(to);
-        if (fromTangent.distanceToSqr(toTangent) < 0.1)
-            approxLength += 1;
-        
-        var scaledFromTangent = fromTangent.scale(approxLength);
-        var scaledToTangent = toTangent.scale(approxLength);
-        var midPointA = getPointOnHermiteSpline(from, scaledFromTangent, to, scaledToTangent, 0.33f);
-        var midPointB = getPointOnHermiteSpline(from, scaledFromTangent, to, scaledToTangent, 0.66f);
-        
-        
-        return from.distanceTo(midPointA) + midPointA.distanceTo(midPointB) + midPointB.distanceTo(to);
-    }
-    
-    public static double getTotalLength(List<Pair<Vec3, Vec3>> points) {
-        
-        var res = 0d;
-        
-        for (int i = 0; i < points.size() - 1; i++) {
-            var current = points.get(i);
-            var next = points.get(i + 1);
-            var segmentLength = getLineLength(current.getFirst(), current.getSecond(), next.getFirst(), next.getSecond());
-            res += segmentLength;
-        }
-        
-        return res;
-        
-    }
-    
-    // calculates the facing of the middle points automatically. Returns a pair for each point with the desired tangent (to the next point)
-    public static List<Pair<Vec3, Vec3>> getPointPairs(Vec3 start, Vec3 startDir, Vec3 end, Vec3 endDir, List<Pair<Vec3, Vec3>> middlePoints) {
-        
-        var pointsWithTangents = new ArrayList<Pair<Vec3, Vec3>>();
-        pointsWithTangents.add(new Pair<>(start, startDir));
-        
-        var currentFrom = start.add(startDir.scale(0.3f));
-        
-        for (var pair : middlePoints) {
-            if (pair.getFirst().equals(end)) {
-                pointsWithTangents.add(new Pair<>(end, endDir));
-                return pointsWithTangents;
-            }
-            
-            var currentTo = pair.getFirst();
-            var distA = currentFrom.distanceTo(pair.getFirst().add(pair.getSecond()));
-            var distB = currentFrom.distanceTo(pair.getFirst().subtract(pair.getSecond()));
-            var currentToDir = distA > distB ? pair.getSecond() : pair.getSecond().scale(-1);
-            
-            currentFrom = currentTo.add(currentToDir.scale(-0.3f));
-            
-            pointsWithTangents.add(new Pair<>(currentTo, currentToDir));
-        }
-
-        pointsWithTangents.add(new Pair<>(end, endDir));
-        
-        return pointsWithTangents;
-        
     }
     
     /**

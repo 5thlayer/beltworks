@@ -9,8 +9,8 @@ import net.minecraft.client.renderer.ShapeRenderer;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.Vec3i;
 import net.minecraft.util.ARGB;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -20,7 +20,7 @@ import rearth.belts.BlockEntitiesContent;
 import rearth.belts.blocks.ChuteBlockEntity;
 import rearth.belts.ComponentContent;
 import rearth.belts.items.BeltItem;
-import rearth.belts.util.MathHelpers;
+import rearth.belts.model.BeltPath;
 import rearth.belts.util.SplineUtil;
 
 import java.util.ArrayList;
@@ -75,55 +75,31 @@ public final class BeltOutlineRenderer {
         var startFacing = stack.get(ComponentContent.BELT_DIR.get());
         if (startBlockPos == null || startBlockPos.equals(BlockPos.ZERO) || startFacing == null) return List.of();
 
-        var startChute = level.getBlockEntity(startBlockPos, BlockEntitiesContent.CHUTE_BLOCK.get());
-        var startPos = startChute.map(ChuteBlockEntity::beltStartPos).orElse(startBlockPos).getCenter();
-        var startDir = startFacing.getUnitVec3i();
-        var midPoints = BeltItem.getStoredMidpoints(stack, level);
+        var supports = new ArrayList<>(BeltItem.getStoredMidpoints(stack, level));
 
-        BlockPos endBlockPos;
-        Direction endDir;
-        var endChute = level.getBlockEntity(blockHit.getBlockPos(), BlockEntitiesContent.CHUTE_BLOCK.get());
-        if (endChute.isPresent()) {
-            endBlockPos = endChute.get().beltEndPos();
-            endDir = endChute.get().beltEndFacing().getOpposite();
-        } else if (level.getBlockState(blockHit.getBlockPos()).is(BlockContent.CONVEYOR_SUPPORT_BLOCK.get())) {
-            var conveyorPos = blockHit.getBlockPos();
-            var conveyorFacing = level.getBlockState(conveyorPos).getValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING);
-            var lastEnd = midPoints.isEmpty() ? startBlockPos : midPoints.getLast().getFirst();
-            var distanceForward = conveyorPos.relative(conveyorFacing).distSqr(lastEnd);
-            var distanceBackward = conveyorPos.relative(conveyorFacing.getOpposite()).distSqr(lastEnd);
-            endDir = distanceBackward < distanceForward ? conveyorFacing : conveyorFacing.getOpposite();
-            endBlockPos = conveyorPos;
+        BeltPath path;
+        var hovered = blockHit.getBlockPos();
+        var hoveredState = level.getBlockState(hovered);
+        if (level.getBlockEntity(hovered, BlockEntitiesContent.CHUTE_BLOCK.get()).isPresent()) {
+            path = BeltItem.plannedPath(level, startBlockPos, startFacing, supports, hovered, null);
+        } else if (hoveredState.is(BlockContent.CONVEYOR_SUPPORT_BLOCK.get())) {
+            if (supports.stream().noneMatch(support -> support.getFirst().equals(hovered)))
+                supports.add(Pair.of(hovered, hoveredState.getValue(HorizontalDirectionalBlock.FACING)));
+            path = BeltItem.plannedPath(level, startBlockPos, startFacing, supports, null, null);
         } else {
-            endBlockPos = blockHit.getBlockPos().relative(blockHit.getDirection());
-            endDir = blockHit.getDirection().getOpposite();
-            if (endDir.getAxis().isVertical()) {
-                endDir = player.getDirection().getOpposite();
-            }
+            // As the click places an end loader: on the face hit, or facing the player from the ground.
+            var endFacing = blockHit.getDirection().getAxis().isVertical() ? player.getDirection() : blockHit.getDirection();
+            path = BeltItem.plannedPath(level, startBlockPos, startFacing, supports, hovered.relative(blockHit.getDirection()), endFacing);
         }
 
-        var linePoints = getPositionsAlongLine(
-                startPos,
-                endBlockPos.getCenter(),
-                startDir,
-                endDir.getUnitVec3i(),
-                midPoints
-        );
-        var lastForward = Vec3.atLowerCornerOf(startDir).normalize();
-        var lastCenter = linePoints.isEmpty() ? Vec3.ZERO : linePoints.getFirst();
-
-        for (var center : linePoints) {
-            var newForward = center.subtract(lastCenter).normalize();
-            if (center.equals(lastCenter)) newForward = lastForward;
-
-            var curveFactor = newForward.distanceTo(lastForward);
-            var color = ARGB.colorFromFloat(0.8f, 1f, 1f, 1f);
-            if (curveFactor > 0.25f) color = ARGB.colorFromFloat(0.8f, 1f, 0.6f, 0.2f);
-            if (curveFactor > 0.43f) color = ARGB.colorFromFloat(0.8f, 1f, 0f, 0f);
-
+        // Red exactly when the click would be refused for the belt's shape (PlanetaryFactory ADR-0078).
+        var color = path.refusal().isPresent()
+                ? ARGB.colorFromFloat(0.8f, 1f, 0f, 0f)
+                : ARGB.colorFromFloat(0.8f, 1f, 1f, 1f);
+        var data = ChuteBlockEntity.BeltData.of(path);
+        for (var along = 0d; along < data.totalLength(); along += 0.1) {
+            var center = SplineUtil.getPositionOnSpline(data, along / data.totalLength());
             outlines.add(new Outline(new AABB(center, center).inflate(0.05), color));
-            lastCenter = center;
-            lastForward = MathHelpers.lerp(lastForward, newForward, 0.3f);
         }
 
         return List.copyOf(outlines);
@@ -145,31 +121,5 @@ public final class BeltOutlineRenderer {
                     2f
             );
         }
-    }
-
-    private static List<Vec3> getPositionsAlongLine(
-            Vec3 from,
-            Vec3 to,
-            Vec3i startDir,
-            Vec3i endDir,
-            List<Pair<BlockPos, Direction>> midpoints
-    ) {
-        var transformedMidPoints = midpoints.stream()
-                .map(point -> Pair.of(point.getFirst().getCenter(), Vec3.atLowerCornerOf(point.getSecond().getUnitVec3i())))
-                .toList();
-        var segmentPoints = SplineUtil.getPointPairs(
-                from,
-                Vec3.atLowerCornerOf(startDir),
-                to,
-                Vec3.atLowerCornerOf(endDir),
-                transformedMidPoints
-        );
-        var distance = SplineUtil.getTotalLength(segmentPoints);
-        var result = new ArrayList<Vec3>();
-
-        for (var current = 0f; current < distance; current += 0.1f) {
-            result.add(SplineUtil.getPositionOnSpline(from, Vec3.atLowerCornerOf(startDir), to, Vec3.atLowerCornerOf(endDir), midpoints, current / distance));
-        }
-        return result;
     }
 }

@@ -35,6 +35,7 @@ import rearth.belts.api.item.ItemApi;
 import rearth.belts.collision.BeltCollisionRegistry;
 import rearth.belts.model.BeltContents;
 import rearth.belts.model.BeltCost;
+import rearth.belts.model.BeltPath;
 import rearth.belts.model.BeltTier;
 import rearth.belts.model.FlowLimit;
 import rearth.belts.model.LoaderEnergy;
@@ -46,6 +47,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<ChuteBlockEntity> {
 
@@ -512,7 +514,18 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             serverWorld.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
     }
     
-    public void assignFromBeltItem(BlockPos target, List<BlockPos> midpoints, BeltTier beltTier, int cost) {
+    /**
+     * Lays out this end's belt, or changes nothing and returns the bound its shape breaks
+     * (PlanetaryFactory ADR-0078).
+     */
+    public Optional<BeltPath.Refusal> assignFromBeltItem(BlockPos target, List<BlockPos> midpoints, BeltTier beltTier, int cost) {
+        var end = level == null ? Optional.<ChuteBlockEntity>empty() : level.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get());
+        if (end.isPresent()) {
+            var refusal = BeltData.path(beltStartPos(), getOwnFacing(), supportsOf(midpoints),
+              end.get().beltEndPos(), end.get().beltEndFacing()).refusal();
+            if (refusal.isPresent()) return refusal;
+        }
+
         this.target = target;
         this.midPoints = midpoints;
         this.beltTier = beltTier;
@@ -525,6 +538,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         
         if (level instanceof ServerLevel serverWorld)
             serverWorld.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
+        return Optional.empty();
     }
 
     @Override
@@ -534,7 +548,11 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     }
 
     public List<Pair<BlockPos, Direction>> getMidPointsWithTangents() {
-        return midPoints.stream()
+        return supportsOf(midPoints);
+    }
+
+    private List<Pair<BlockPos, Direction>> supportsOf(List<BlockPos> points) {
+        return points.stream()
                  .filter(point -> level.getBlockState(point).getBlock().equals(BlockContent.CONVEYOR_SUPPORT_BLOCK.get()))
                  .map(point -> new Pair<>(point, level.getBlockState(point).getValue(HorizontalDirectionalBlock.FACING)))
                  .toList();
@@ -581,26 +599,25 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         
         /** The path between two loaders' positions and facings, whether or not they are placed yet. */
         public static BeltData of(BlockPos conveyorStartPoint, Direction startFacing, List<Pair<BlockPos, Direction>> conveyorMidPointsVisual, BlockPos conveyorEndPoint, Direction endFacing) {
-            var conveyorStartDir = Vec3.atLowerCornerOf(startFacing.getUnitVec3i());
-            var conveyorEndDir = Vec3.atLowerCornerOf(endFacing.getOpposite().getUnitVec3i());
-            
-            var conveyorStartPointVisual = conveyorStartPoint.getCenter().add(conveyorStartDir.scale(-0.5f));
-            var conveyorEndPointVisual = conveyorEndPoint.getCenter().add(conveyorEndDir.scale(0.5f));
-            
-            var transformedMidPoints = conveyorMidPointsVisual.stream().map(elem -> new Pair<>(elem.getFirst().getCenter(), Vec3.atLowerCornerOf(elem.getSecond().getUnitVec3i()))).toList();
-            var segmentPoints = SplineUtil.getPointPairs(conveyorStartPointVisual, conveyorStartDir, conveyorEndPointVisual, conveyorEndDir, transformedMidPoints);
-            
-            var segmentLengths = new double[segmentPoints.size() - 1];
-            var totalLength = 0d;
-            for (int i = 0; i < segmentPoints.size() - 1; i++) {
-                var from = segmentPoints.get(i);
-                var to = segmentPoints.get(i + 1);
-                var length = SplineUtil.getLineLength(from.getFirst(), from.getSecond(), to.getFirst(), to.getSecond());
-                segmentLengths[i] = (length);
-                totalLength += length;
-            }
-            
-            return new BeltData(segmentPoints, totalLength, segmentLengths);
+            return of(path(conveyorStartPoint, startFacing, conveyorMidPointsVisual, conveyorEndPoint, endFacing));
+        }
+
+        public static BeltData of(BeltPath path) {
+            var points = path.nodes().stream()
+              .map(node -> new Pair<>(new Vec3(node.x(), node.y(), node.z()), new Vec3(node.tangentX(), 0, node.tangentZ())))
+              .toList();
+            return new BeltData(points, path.length(), path.spanLengths());
+        }
+
+        /** As {@link #of}, but with no end the path stops at its last support, as a belt still being laid does. */
+        public static BeltPath path(BlockPos start, Direction startFacing, List<Pair<BlockPos, Direction>> supports, @Nullable BlockPos end, @Nullable Direction endFacing) {
+            return BeltPath.of(anchor(start, startFacing),
+              supports.stream().map(support -> anchor(support.getFirst(), support.getSecond())).toList(),
+              end == null || endFacing == null ? null : anchor(end, endFacing));
+        }
+
+        private static BeltPath.Anchor anchor(BlockPos pos, Direction facing) {
+            return new BeltPath.Anchor(pos.getX(), pos.getY(), pos.getZ(), facing.getStepX(), facing.getStepZ());
         }
         
     }

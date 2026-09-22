@@ -22,6 +22,7 @@ import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import rearth.belts.model.BeltCost;
+import rearth.belts.model.BeltPath;
 import rearth.belts.model.BeltTier;
 import rearth.belts.model.LoaderChoice;
 import rearth.belts.blocks.ChuteBlockEntity;
@@ -33,6 +34,7 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 public class BeltItem extends Item {
@@ -173,18 +175,19 @@ public class BeltItem extends Item {
             return;
         }
 
-        var startSite = siteFacing(world, start, startDir);
-        var endSite = siteFacing(world, end, endDir);
-        if (startSite == null || endSite == null) {
+        if (!canEndBelt(world, start) || !canEndBelt(world, end)) {
             player.sendSystemMessage(Component.translatable("message.belts.blocked"));
             return;
         }
         
         var endChute = world.getBlockEntity(end, BlockEntitiesContent.CHUTE_BLOCK.get());
-        var path = ChuteBlockEntity.BeltData.of(startChute.map(ChuteBlockEntity::beltStartPos).orElse(start), startSite,
-          getStoredMidpoints(stack, world), endChute.map(ChuteBlockEntity::beltEndPos).orElse(end),
-          endChute.map(ChuteBlockEntity::beltEndFacing).orElse(endSite));
-        var cost = player.isCreative() ? 0 : BeltCost.of(path.totalLength());
+        var path = plannedPath(world, start, startDir, getStoredMidpoints(stack, world), end, endDir);
+        var refusal = path.refusal();
+        if (refusal.isPresent()) {
+            player.sendSystemMessage(Component.translatable(refusal.get().bound().messageKey()));
+            return;
+        }
+        var cost = player.isCreative() ? 0 : BeltCost.of(path.length());
         var held = ContainerHelper.clearOrCountMatchingItems(player.getInventory(), this::isThisBelt, 0, true);
         if (held < cost) {
             player.sendSystemMessage(Component.translatable("message.belts.not_enough_belts", cost, held));
@@ -218,6 +221,20 @@ public class BeltItem extends Item {
           .ifPresent(startEntity -> startEntity.assignFromBeltItem(end, supports, beltTier, cost));
     }
     
+    /**
+     * The path the belt item would lay from {@code start}, reading a loader or splitter already
+     * standing at either end; with no end, the path to the last support. The click and the preview
+     * both ask this (PlanetaryFactory ADR-0078).
+     */
+    public static BeltPath plannedPath(Level world, BlockPos start, Direction startDir, List<Pair<BlockPos, Direction>> supports,
+                                       @Nullable BlockPos end, @Nullable Direction endDir) {
+        var startChute = world.getBlockEntity(start, BlockEntitiesContent.CHUTE_BLOCK.get());
+        var endChute = end == null ? Optional.<ChuteBlockEntity>empty() : world.getBlockEntity(end, BlockEntitiesContent.CHUTE_BLOCK.get());
+        return ChuteBlockEntity.BeltData.path(startChute.map(ChuteBlockEntity::beltStartPos).orElse(start),
+          startChute.map(ChuteBlockEntity::getOwnFacing).orElse(startDir), supports,
+          endChute.map(ChuteBlockEntity::beltEndPos).orElse(end), endChute.map(ChuteBlockEntity::beltEndFacing).orElse(endDir));
+    }
+
     private static void placeLoader(Level world, BlockPos pos, Direction facing, BeltTier tier, Player player) {
         world.setBlockAndUpdate(pos, BlockContent.loaderFor(tier).defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, facing));
         if (!player.isCreative()) {
@@ -239,12 +256,11 @@ public class BeltItem extends Item {
         return candidate.is(this);
     }
     
-    /** The facing a belt end at this position has, or null when nothing can stand there. */
-    private static @Nullable Direction siteFacing(Level world, BlockPos pos, Direction placedFacing) {
-        var chute = world.getBlockEntity(pos, BlockEntitiesContent.CHUTE_BLOCK.get());
-        if (chute.isPresent()) return chute.get().getOwnFacing();
+    /** Whether a loader stands here or one could be placed. */
+    private static boolean canEndBelt(Level world, BlockPos pos) {
+        if (world.getBlockEntity(pos, BlockEntitiesContent.CHUTE_BLOCK.get()).isPresent()) return true;
         var state = world.getBlockState(pos);
-        return state.canBeReplaced() || state.isAir() ? placedFacing : null;
+        return state.canBeReplaced() || state.isAir();
     }
     
     @Override
