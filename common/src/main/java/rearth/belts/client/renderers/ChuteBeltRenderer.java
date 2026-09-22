@@ -269,9 +269,22 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
                                      BlockPos origin, Direction startFacing, Direction endFacing, BeltTier tier, int argb) {
         var light = LightCoordsUtil.pack(15, 15);
         var quads = createSplineModel(beltData, origin, startFacing, endFacing, pos -> light);
+        submitTinted(poseStack, collector, camera, origin, quads, tier, argb, light);
+    }
+
+    /** A splitter half's belt surface, which its block model leaves out, for a placement preview (PlanetaryFactory #355). */
+    public static void submitPlannedSplitter(PoseStack poseStack, SubmitNodeCollector collector, Vec3 camera, BlockPos pos,
+                                             Direction facing, BeltTier tier, int argb) {
+        var light = LightCoordsUtil.pack(15, 15);
+        var quads = createSplitterSurface(facing, TEXTURE_REPEAT, TEXTURE_REPEAT, light);
+        submitTinted(poseStack, collector, camera, pos, quads, tier, argb, light);
+    }
+
+    private static void submitTinted(PoseStack poseStack, SubmitNodeCollector collector, Vec3 camera, BlockPos pos,
+                                     List<Quad> quads, BeltTier tier, int argb, int light) {
         var sprite = Minecraft.getInstance().getAtlasManager().getAtlasOrThrow(AtlasIds.BLOCKS).getSprite(BELT_FRAME_SPRITES.get(tier)[0]);
         poseStack.pushPose();
-        poseStack.translate(origin.getX() - camera.x, origin.getY() - camera.y - 2 / 16f + 0.08f, origin.getZ() - camera.z);
+        poseStack.translate(pos.getX() - camera.x, pos.getY() - camera.y - 2 / 16f + 0.08f, pos.getZ() - camera.z);
         collector.submitCustomGeometry(poseStack, RenderTypes.entityTranslucent(TextureAtlas.LOCATION_BLOCKS), (pose, consumer) -> {
             for (var quad : quads) {
                 for (var vertex : List.of(quad.a, quad.b, quad.c, quad.d)) {
@@ -369,14 +382,17 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
      * texture density, so the only break in the pattern is under the strut (#349).
      */
     private static List<Quad> createSplitterSurface(ChuteBlockEntity entity, int light) {
+        var incoming = entity.incomingBelt();
+        return createSplitterSurface(entity.getOwnFacing(), textureRepeat(incoming == null ? null : incoming.getBeltData()),
+          textureRepeat(entity.getBeltData()), light);
+    }
+
+    private static List<Quad> createSplitterSurface(Direction facing, double inRepeat, double outRepeat, int light) {
         var result = new ArrayList<Quad>();
-        var forward = Vec3.atLowerCornerOf(entity.getOwnFacing().getUnitVec3i());
+        var forward = Vec3.atLowerCornerOf(facing.getUnitVec3i());
         var right = forward.cross(UP).scale(LINE_WIDTH);
         var back = new Vec3(0.5, 0.5, 0.5).add(forward.scale(-0.5));
-        var incoming = entity.incomingBelt();
-        addStraightStrip(result, back, forward, right, 0.5, 0,
-          textureRepeat(incoming == null ? null : incoming.getBeltData()), light);
-        var outRepeat = textureRepeat(entity.getBeltData());
+        addStraightStrip(result, back, forward, right, 0.5, 0, inRepeat, light);
         var outStartV = (1 - (0.5 / outRepeat) % 1) % 1;
         addStraightStrip(result, back.add(forward.scale(0.5)), forward, right, 0.5, outStartV, outRepeat, light);
         return result;
