@@ -28,6 +28,7 @@ import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 import rearth.belts.BlockContent;
+import rearth.belts.BeltSync;
 import rearth.belts.BlockEntitiesContent;
 import rearth.belts.ItemContent;
 import rearth.belts.api.item.ItemApi;
@@ -54,10 +55,8 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     private BeltTier beltTier = BeltTier.BELT;
     // What placing the belt charged, which is what removing it pays back; a re-path keeps it (#346).
     private int cost;
-    private final BeltContents<BeltItem> contents = new BeltContents<>();
-    // Sequential rather than random: the renderer keys each item's lerp by id, and a full belt
-    // holds 512 (#344).
-    private short nextItemId;
+    // Sent whole only in the update tag; each tick, only the entries gained and lost (#351).
+    private final BeltContents<ItemStack> contents = new BeltContents<>();
     private boolean needsFit = true;
     
     // this is calculated on both the client and server
@@ -72,11 +71,6 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     
     // client only data, used for rendering
     public final Map<Long, Integer> cachedLightCoords = new HashMap<>();
-    // When the belt's contents last arrived, in System.nanoTime, for the renderer to extrapolate
-    // from. Not the game time: the server resyncs the client's every second, and each jump shows.
-    public long contentsReceivedAt;
-    
-    private boolean networkDirty = false;
 
     private static boolean tearingDownSplitter;
 
@@ -89,7 +83,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     private final LoaderEnergy energy;
     private final boolean splitter;
     // Run by the left half only (#349).
-    private final @Nullable Splitter<BeltItem> splitterModel;
+    private final @Nullable Splitter<ItemStack> splitterModel;
 
     public ChuteBlockEntity(BlockPos pos, BlockState state) {
         super(BlockEntitiesContent.CHUTE_BLOCK.get(), pos, state);
@@ -136,31 +130,34 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
 
         BeltCollisionRegistry.register(this);
         
-        if (level.isClientSide()) return;
+        if (level.isClientSide()) {
+            contents.advance(getBeltLength(), beltTier.blocksPerTick());
+            return;
+        }
         
         if (needsFit) {
             var spawnAt = pos.getCenter();
             for (var spilled : contents.fit(getBeltLength())) {
-                level.addFreshEntity(new ItemEntity(level, spawnAt.x, spawnAt.y, spawnAt.z, spilled.stack()));
+                level.addFreshEntity(new ItemEntity(level, spawnAt.x, spawnAt.y, spawnAt.z, spilled));
             }
             needsFit = false;
         }
         
         if (contents.tick(getBeltLength(), beltTier.blocksPerTick(), this::extractOne, this::insertIntoTarget, hand(level))) {
-            networkDirty = true;
             setChanged();
         }
+        // After the tick, so a splitter that ran later last tick is sent too.
+        var changes = contents.drainChanges();
+        if (!changes.isEmpty() && level instanceof ServerLevel serverLevel) BeltSync.send(serverLevel, pos, changes);
         
         // refresh target
         if (level.getGameTime() % 19 == 0)
             assignTargetState(level);
-        
-        
-        if (networkDirty && level instanceof ServerLevel serverWorld) {
-            serverWorld.sendBlockUpdated(pos, state, state, Block.UPDATE_ALL);
-            networkDirty = false;
-        }
-        
+    }
+
+    /** Brings the client's copy of this belt up to what the server's gained and lost. */
+    public void applyChanges(BeltContents.Changes<ItemStack> changes) {
+        contents.apply(changes);
     }
     
     /**
@@ -186,7 +183,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         if (heldHand != null && heldHand.player == player) heldHand = null;
     }
 
-    private BeltContents.@Nullable Hand<BeltItem> hand(Level level) {
+    private BeltContents.@Nullable Hand<ItemStack> hand(Level level) {
         if (heldHand == null) return null;
         var held = heldHand;
         var player = held.player;
@@ -198,8 +195,8 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         return new BeltContents.Hand<>(held.point, item -> {
             // Asked first: a creative inventory's add answers true when full and voids the item.
             var inventory = player.getInventory();
-            if ((inventory.getSlotWithRemainingSpace(item.stack()) >= 0 || inventory.getFreeSlot() >= 0)
-                  && inventory.add(item.stack().copy())) return true;
+            if ((inventory.getSlotWithRemainingSpace(item) >= 0 || inventory.getFreeSlot() >= 0)
+                  && inventory.add(item.copy())) return true;
             heldHand = new HeldHand(player, held.point, held.until, false);
             return false;
         });
@@ -216,9 +213,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         var inRight = right.get().incomingBelt();
         if (splitterModel.tick(level.getGameTime(), lane(inLeft), lane(inRight), outgoingLane(), right.get().outgoingLane())) {
             for (var changed : new ChuteBlockEntity[] {inLeft, inRight, this, right.get()}) {
-                if (changed == null) continue;
-                changed.networkDirty = true;
-                changed.setChanged();
+                if (changed != null) changed.setChanged();
             }
         }
     }
@@ -231,12 +226,12 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         return source.get();
     }
 
-    private @Nullable Splitter.Lane<BeltItem> outgoingLane() {
+    private @Nullable Splitter.Lane<ItemStack> outgoingLane() {
         if (target == null || target.equals(BlockPos.ZERO) || beltData == null) return null;
         return lane(this);
     }
 
-    private static @Nullable Splitter.Lane<BeltItem> lane(@Nullable ChuteBlockEntity belt) {
+    private static @Nullable Splitter.Lane<ItemStack> lane(@Nullable ChuteBlockEntity belt) {
         return belt == null ? null : new Splitter.Lane<>(belt.contents, belt.getBeltLength(), belt.beltTier.blocksPerTick());
     }
 
@@ -258,7 +253,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         BeltCollisionRegistry.unregister(this);
 
         var returned = new ArrayList<ItemStack>();
-        for (var entry : contents.entries()) returned.add(entry.payload().stack());
+        for (var entry : contents.entries()) returned.add(entry.payload());
         var belt = ItemContent.beltFor(beltTier);
         for (var left = cost; left > 0; ) {
             var stack = new ItemStack(belt, Math.min(left, belt.getDefaultMaxStackSize()));
@@ -321,7 +316,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         }
     }
     
-    private boolean insertIntoTarget(BeltItem item) {
+    private boolean insertIntoTarget(ItemStack item) {
         var conveyorEndEntityCandidate = level.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get());
         if (conveyorEndEntityCandidate.isEmpty()) return false;
         var conveyorEndEntity = conveyorEndEntityCandidate.get();
@@ -331,8 +326,8 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         var targetInv = ItemApi.BLOCK.find(level, target.relative(conveyorEndEntity.getOwnFacing().getOpposite()), null, null, conveyorEndEntity.getOwnFacing());
         if (targetInv == null) return false;
         
-        if (targetInv.insert(item.stack(), true) != item.stack().getCount()) return false;
-        targetInv.insert(item.stack(), false);
+        if (targetInv.insert(item, true) != item.getCount()) return false;
+        targetInv.insert(item, false);
         conveyorEndEntity.flow.pass();
         conveyorEndEntity.energy.move();
         conveyorEndEntity.setChanged();
@@ -341,7 +336,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     
     // One item per entry, as a Factorio loader puts one item in each belt slot (#344).
     @SuppressWarnings("DataFlowIssue")
-    private @Nullable BeltItem extractOne() {
+    private @Nullable ItemStack extractOne() {
         if (splitter) return null;
         if (!flow.ready(level.getGameTime()) || !energy.canMove()) return null;
         var source = ItemApi.BLOCK.find(level, worldPosition.relative(getOwnFacing().getOpposite()), null, null, getOwnFacing());
@@ -356,7 +351,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
 
             flow.pass();
             energy.move();
-            return new BeltItem(nextItemId++, extractingStack);
+            return extractingStack;
         }
         return null;
     }
@@ -389,8 +384,8 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         for (var entry : contents.entries()) {
             var item = positions.addChild();
             item.putDouble("position", entry.position());
-            item.store("stack", ItemStack.OPTIONAL_CODEC, entry.payload().stack());
-            item.putShort("id", entry.payload().id());
+            item.store("stack", ItemStack.OPTIONAL_CODEC, entry.payload());
+            item.putInt("id", entry.id());
         }
     }
     
@@ -411,11 +406,9 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         sourceBeltPos = input.read("source", BlockPos.CODEC).orElse(BlockPos.ZERO);
 
         contents.clear();
-        if (level != null && level.isClientSide()) contentsReceivedAt = System.nanoTime();
         for (var item : input.childrenListOrEmpty("moving")) {
-            var id = (short) item.getShortOr("id", (short) 0);
             var stack = item.read("stack", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY);
-            contents.restore(new BeltItem(id, stack), item.getDoubleOr("position", 0));
+            contents.restore(stack, item.getDoubleOr("position", 0), item.getIntOr("id", 0));
         }
         
         if (level != null && (pathChanged || beltData == null)) {
@@ -435,7 +428,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         return ClientboundBlockEntityDataPacket.create(this);
     }
     
-    public List<BeltContents.Entry<BeltItem>> getBeltEntries() {
+    public List<BeltContents.Entry<ItemStack>> getBeltEntries() {
         return contents.entries();
     }
     
@@ -528,7 +521,6 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         // At once rather than on the next refresh, so breaking the end straight away finds the belt.
         if (level != null) assignTargetState(level);
         needsFit = true;
-        networkDirty = true;
         this.setChanged();
         
         if (level instanceof ServerLevel serverWorld)
@@ -570,9 +562,6 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         
         if (level instanceof ServerLevel serverWorld)
             serverWorld.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
-    }
-    
-    public record BeltItem(short id, ItemStack stack) {
     }
     
     public record BeltData(List<Pair<Vec3, Vec3>> allPoints, double totalLength, double[] segmentLengths) {
