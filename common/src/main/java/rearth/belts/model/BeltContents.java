@@ -126,20 +126,23 @@ public final class BeltContents<T> {
 
     /** Whether {@link #offer} would place an entry at the head. */
     public boolean canOffer(double length, double at, @Nullable Hand<T> hand) {
-        return placement(length, at, hand) >= 0;
+        return placement(length, at, hand) >= Math.min(at, 0);
     }
 
     /**
      * Places an entry handed on from another belt's end at its {@link #overshoot}, or as far
      * short of it as the head and a hand hold it. Placed any nearer the start, a handed-on entry
      * loses travel each handoff and the entry behind it waits for room (#373).
+     *
+     * <p>{@code at} is below zero by as much as this belt is still to move this tick, and the move
+     * brings the entry onto the belt.
      */
     public void offer(T payload, double length, double at, @Nullable Hand<T> hand) {
         load(payload, placement(length, at, hand));
     }
 
     private double placement(double length, double at, @Nullable Hand<T> hand) {
-        var placed = Math.max(at, 0);
+        var placed = at;
         if (!entries.isEmpty()) placed = Math.min(placed, entries.peekFirst().position - SPACING);
         if (hand != null) placed = Math.min(placed, Math.max(hand.point, 0));
         return Math.min(placed, length - SPACING);

@@ -94,6 +94,9 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     private final @Nullable Splitter<ItemStack> splitterModel;
     private final Splitter.@Nullable Half<ItemStack> half;
     private final double halfSpeed;
+    // The game time this block's belt, and a splitter's halves, last moved.
+    private long movedAt = Long.MIN_VALUE;
+    private long halfMovedAt = Long.MIN_VALUE;
     private @Nullable BeltData halfData;
 
     public ChuteBlockEntity(BlockPos pos, BlockState state) {
@@ -118,14 +121,6 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         }
 
         if (splitter) tickHalf(level, pos, state);
-
-        if (support && !level.isClientSide()) {
-            var in = incomingBelt();
-            if (in != null && Join.pass(lane(in), outgoingLane())) {
-                in.setChanged();
-                setChanged();
-            }
-        }
 
         if (target == null || target.equals(BlockPos.ZERO)) {
             BeltCollisionRegistry.unregister(this);
@@ -166,6 +161,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         if (contents.tick(getBeltLength(), beltTier.blocksPerTick(), this::extractOne, this::insertIntoTarget, hand(level, false))) {
             setChanged();
         }
+        movedAt = level.getGameTime();
         // After the tick, so a splitter that ran later last tick is sent too.
         send(Track.BELT, contents);
         
@@ -267,17 +263,15 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     private void tickSplitter(Level level, BlockPos pos, BlockState state) {
         var right = level.getBlockEntity(SplitterBlock.partner(pos, state), BlockEntitiesContent.CHUTE_BLOCK.get());
         if (right.isEmpty() || !right.get().splitter) return;
-        var inLeft = incomingBelt();
-        var inRight = right.get().incomingBelt();
-        if (splitterModel.tick(level.getGameTime(), side(level, inLeft), right.get().side(level, inRight))) {
-            for (var changed : new ChuteBlockEntity[] {inLeft, inRight, this, right.get()}) {
-                if (changed != null) changed.setChanged();
-            }
+        if (splitterModel.tick(level.getGameTime(), side(level), right.get().side(level))) {
+            setChanged();
+            right.get().setChanged();
         }
+        halfMovedAt = right.get().halfMovedAt = level.getGameTime();
     }
 
-    private Splitter.Side<ItemStack> side(Level level, @Nullable ChuteBlockEntity incoming) {
-        return new Splitter.Side<>(half, lane(incoming), outgoingLane(), hand(level, true));
+    private Splitter.Side<ItemStack> side(Level level) {
+        return new Splitter.Side<>(half, outgoingLane(), hand(level, true));
     }
 
     /** The loader, splitter half or support whose belt ends here, if its belt is laid out. */
@@ -288,14 +282,15 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         return source.get();
     }
 
+    // Tick order between blocks is the level's, so each join asks whether its receiver has moved (#373).
     private @Nullable Splitter.Lane<ItemStack> outgoingLane() {
         if (target == null || target.equals(BlockPos.ZERO) || beltData == null) return null;
-        return lane(this);
+        var speed = beltTier.blocksPerTick();
+        return new Splitter.Lane<>(contents, getBeltLength(), speed, hand(level, false), movedAt == level.getGameTime() ? 0 : speed);
     }
 
-    private static @Nullable Splitter.Lane<ItemStack> lane(@Nullable ChuteBlockEntity belt) {
-        return belt == null ? null
-                 : new Splitter.Lane<>(belt.contents, belt.getBeltLength(), belt.beltTier.blocksPerTick(), belt.hand(belt.level, false));
+    private Splitter.Lane<ItemStack> enteringLane() {
+        return Splitter.entering(half, halfSpeed, hand(level, true), halfMovedAt == level.getGameTime() ? 0 : halfSpeed);
     }
 
     /**
@@ -405,9 +400,15 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         var conveyorEndEntityCandidate = level.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get());
         if (conveyorEndEntityCandidate.isEmpty()) return false;
         var conveyorEndEntity = conveyorEndEntityCandidate.get();
-        // The splitter pulls from this belt's end, so its two inputs alternate (#349); a support
-        // pulls for its join, and with no belt leaving it the belt backs up (#366).
-        if (conveyorEndEntity.splitter || conveyorEndEntity.support) return false;
+        // Handed on here, before this belt moves, since the overshoot looks a tick ahead (#373). A
+        // support with no belt leaving it backs this belt up (#366).
+        if (conveyorEndEntity.splitter || conveyorEndEntity.support) {
+            var overshoot = contents.overshoot(getBeltLength(), beltTier.blocksPerTick());
+            var receiver = conveyorEndEntity.splitter ? conveyorEndEntity.enteringLane() : conveyorEndEntity.outgoingLane();
+            if (!Join.offer(item, overshoot, receiver)) return false;
+            conveyorEndEntity.setChanged();
+            return true;
+        }
         if (!conveyorEndEntity.flow.ready(level.getGameTime()) || !conveyorEndEntity.energy.canMove()) return false;
         var targetInv = ItemApi.BLOCK.find(level, target.relative(conveyorEndEntity.getOwnFacing().getOpposite()), null, null, conveyorEndEntity.getOwnFacing());
         if (targetInv == null) return false;

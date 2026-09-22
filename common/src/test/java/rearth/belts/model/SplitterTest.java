@@ -286,9 +286,15 @@ class SplitterTest {
         Halves splitter(BeltTier tier, Belt inLeft, Belt inRight, Belt outLeft, Belt outRight) {
             var splitter = new Splitter<String>(tier);
             var halves = new Halves(new Splitter.Half<>(), new Splitter.Half<>());
+            // The belts tick first, so the splitter is still to move.
+            var speed = tier.blocksPerTick();
+            if (inLeft != null) inLeft.sink = item -> Join.offer(item, inLeft.overshoot(),
+              Splitter.entering(halves.left, speed, hand, speed));
+            if (inRight != null) inRight.sink = item -> Join.offer(item, inRight.overshoot(),
+              Splitter.entering(halves.right, speed, null, speed));
             splitters.add(() -> splitter.tick(now,
-              new Splitter.Side<>(halves.left, lane(inLeft), lane(outLeft), hand),
-              new Splitter.Side<>(halves.right, lane(inRight), lane(outRight), null)));
+              new Splitter.Side<>(halves.left, lane(outLeft), hand),
+              new Splitter.Side<>(halves.right, lane(outRight), null)));
             return halves;
         }
 
@@ -325,7 +331,7 @@ class SplitterTest {
         final BeltTier tier;
         final BeltContents<String> contents = new BeltContents<>();
         final Supplier<String> source;
-        // A belt that ends at a splitter refuses at its end: the splitter takes from it.
+        // A belt that ends at a splitter hands its end on to the splitter's half.
         Predicate<String> sink;
         int delivered;
         final List<String> sources = new ArrayList<>();
@@ -334,6 +340,10 @@ class SplitterTest {
             this.tier = tier;
             this.source = source;
             this.sink = sink == null ? item -> false : sink;
+        }
+
+        double overshoot() {
+            return contents.overshoot(LENGTH, tier.blocksPerTick());
         }
 
         long from(String input) {

@@ -34,8 +34,8 @@ public final class Splitter<T> {
 
     /**
      * Front to back: hands what reaches each half's front onto its outgoing belt, moves the
-     * segments past the midline, passes what reaches it, moves the segments before it, then takes
-     * from each incoming belt's end.
+     * segments past the midline, passes what reaches it, then moves the segments before it. An
+     * incoming belt hands its items on in its own tick, through {@link #entering}.
      *
      * @return whether any item was delivered, taken, moved or passed
      */
@@ -51,9 +51,24 @@ public final class Splitter<T> {
         while (passOne(gameTime, sides)) changed = true;
         for (var side : sides) {
             changed |= side.half.entering.tick(MIDLINE, speed, () -> null, item -> false, side.hand(false));
-            if (side.in != null) changed |= Join.pass(side.in, new Lane<>(side.half.entering, MIDLINE, speed, side.hand(false)));
         }
         return changed;
+    }
+
+    /**
+     * The segment before a half's midline, as the belt ending there hands it items.
+     *
+     * @param speed   the splitter's tier's blocks per tick
+     * @param hand    a hand held on the half, at a point along the whole half
+     * @param pending how far the splitter is still to move this tick
+     */
+    public static <T> Lane<T> entering(Half<T> half, double speed, BeltContents.@Nullable Hand<T> hand, double pending) {
+        return new Lane<>(half.entering, MIDLINE, speed, onSegment(hand, false), pending);
+    }
+
+    private static <T> BeltContents.@Nullable Hand<T> onSegment(BeltContents.@Nullable Hand<T> hand, boolean pastMidline) {
+        if (hand == null || hand.point() >= MIDLINE != pastMidline) return null;
+        return pastMidline ? new BeltContents.Hand<>(hand.point() - MIDLINE, hand.taker()) : hand;
     }
 
     private boolean passOne(long gameTime, List<Side<T>> sides) {
@@ -112,22 +127,28 @@ public final class Splitter<T> {
     }
 
     /**
-     * A half with the belts meeting it, each null when there is none, and a player's hand on it
-     * at a point along the whole half.
+     * A half with the belt leaving it, null when there is none, and a player's hand on it at a
+     * point along the whole half.
      */
-    public record Side<T>(Half<T> half, @Nullable Lane<T> in, @Nullable Lane<T> out, BeltContents.@Nullable Hand<T> hand) {
+    public record Side<T>(Half<T> half, @Nullable Lane<T> out, BeltContents.@Nullable Hand<T> hand) {
 
         private BeltContents.@Nullable Hand<T> hand(boolean pastMidline) {
-            if (hand == null || hand.point() >= MIDLINE != pastMidline) return null;
-            return pastMidline ? new BeltContents.Hand<>(hand.point() - MIDLINE, hand.taker()) : hand;
+            return onSegment(hand, pastMidline);
         }
     }
 
-    /** A belt meeting the splitter, with the length and speed its own tick uses and any hand held on it. */
-    public record Lane<T>(BeltContents<T> belt, double length, double speed, BeltContents.@Nullable Hand<T> hand) {
+    /**
+     * A belt an entry is handed across, with the length and speed its own tick uses, any hand held
+     * on it, and how far it is still to move this tick.
+     */
+    public record Lane<T>(BeltContents<T> belt, double length, double speed, BeltContents.@Nullable Hand<T> hand, double pending) {
 
         public Lane(BeltContents<T> belt, double length, double speed) {
-            this(belt, length, speed, null);
+            this(belt, length, speed, null, 0);
+        }
+
+        public Lane(BeltContents<T> belt, double length, double speed, BeltContents.@Nullable Hand<T> hand) {
+            this(belt, length, speed, hand, 0);
         }
     }
 }
