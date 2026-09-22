@@ -131,17 +131,17 @@ public class BeltItem extends Item {
     // A free support's direction is the belt's to set; a support a belt arrives at leaves along it.
     private BeltPlan startOn(ChuteBlockEntity chute, BlockPos clicked, BeltPlan.@Nullable Refusal refusal) {
         var arrow = isFreeSupport(chute) ? null : chute.getOwnFacing();
-        var end = new BeltPlan.End(clicked, chute.getOwnFacing(), BeltPlan.Action.USE, null, null, arrow);
-        return new BeltPlan(BeltPlan.Click.START, beltTier, List.of(end), List.of(), null, 0, refusal);
+        var end = new BeltPlan.End(clicked, BeltPlan.Action.USE, null, null, arrow);
+        return new BeltPlan(BeltPlan.Click.START, beltTier, List.of(end), chute.getOwnFacing(), List.of(), null, 0, refusal);
     }
 
     // With no inventory beside it the start becomes a support, whose direction the belt's end decides.
     private BeltPlan startOnGround(Level world, BlockPos pos, Direction stored, BeltPlan.@Nullable Refusal refusal) {
         var loader = loaderFacing(world, pos, stored);
         var end = loader.isPresent()
-                ? new BeltPlan.End(pos, stored, BeltPlan.Action.PLACE_LOADER, loaderState(beltTier, loader.get()), beltTier, loader.get())
-                : new BeltPlan.End(pos, stored, BeltPlan.Action.PLACE_SUPPORT, supportState(stored), null, null);
-        return new BeltPlan(BeltPlan.Click.START, beltTier, List.of(end), List.of(), null, 0, refusal);
+                ? new BeltPlan.End(pos, BeltPlan.Action.PLACE_LOADER, loaderState(beltTier, loader.get()), beltTier, loader.get())
+                : new BeltPlan.End(pos, BeltPlan.Action.PLACE_SUPPORT, PlannedSupport.state(stored), null, null);
+        return new BeltPlan(BeltPlan.Click.START, beltTier, List.of(end), stored, List.of(), null, 0, refusal);
     }
 
     private BeltPlan midpoint(Level world, ItemStack stack, BlockPos start, Direction startDir, PlannedSupport support) {
@@ -152,7 +152,7 @@ public class BeltItem extends Item {
         var startEnd = planStart(world, start, startDir, supports, null);
         var path = ChuteBlockEntity.BeltData.path(startEnd.anchor(), supports, null);
         var ends = List.of(startEnd.toEnd(world, start, startEnd.places() == SupportSlots.OpenEnd.LOADER ? beltTier : null, false));
-        return new BeltPlan(BeltPlan.Click.MIDPOINT, beltTier, ends, List.copyOf(planned), path, 0, refusal);
+        return new BeltPlan(BeltPlan.Click.MIDPOINT, beltTier, ends, null, List.copyOf(planned), path, 0, refusal);
     }
 
     /** The message refusing a sneak-click that plans this mid-belt support, or empty. */
@@ -208,7 +208,7 @@ public class BeltItem extends Item {
         var ends = List.of(
           startEnd.toEnd(world, start, startEnd.places() == SupportSlots.OpenEnd.LOADER ? tierOf(chosen) : null, false),
           endEnd.toEnd(world, end, endEnd.places() == SupportSlots.OpenEnd.LOADER ? tierOf(chosen) : null, true));
-        return new BeltPlan(BeltPlan.Click.BELT, beltTier, ends, List.copyOf(planned), path, cost, refusal);
+        return new BeltPlan(BeltPlan.Click.BELT, beltTier, ends, null, List.copyOf(planned), path, cost, refusal);
     }
 
     // A refused plan still draws its loaders, in the belt's own tier.
@@ -221,7 +221,7 @@ public class BeltItem extends Item {
             case START -> {
                 var end = plan.ends().getFirst();
                 stack.set(ComponentContent.BELT_START.get(), end.pos());
-                stack.set(ComponentContent.BELT_DIR.get(), end.facing());
+                stack.set(ComponentContent.BELT_DIR.get(), plan.startDir());
                 player.sendSystemMessage(Component.translatable("message.belts.started"));
             }
             case MIDPOINT -> {
@@ -253,7 +253,7 @@ public class BeltItem extends Item {
                 ContainerHelper.clearOrCountMatchingItems(player.getInventory(), candidate -> candidate.is(item), 1, false);
             }
         }
-        for (var support : plan.supports()) world.setBlockAndUpdate(support.pos(), supportState(support.facing()));
+        for (var support : plan.supports()) world.setBlockAndUpdate(support.pos(), support.state());
 
         world.getBlockEntity(start, BlockEntitiesContent.CHUTE_BLOCK.get())
           .ifPresent(startEntity -> startEntity.assignFromBeltItem(end, plan.supports().stream().map(PlannedSupport::pos).toList(),
@@ -296,16 +296,16 @@ public class BeltItem extends Item {
         BeltPlan.End toEnd(Level world, BlockPos clicked, @Nullable BeltTier loader, boolean atEnd) {
             var flow = atEnd ? facing.getOpposite() : facing;
             if (places == SupportSlots.OpenEnd.LOADER) {
-                return new BeltPlan.End(pos, facing, BeltPlan.Action.PLACE_LOADER, loaderState(loader, facing), loader, null);
+                return new BeltPlan.End(pos, BeltPlan.Action.PLACE_LOADER, loaderState(loader, facing), loader, null);
             }
             if (places == SupportSlots.OpenEnd.SUPPORT) {
-                return new BeltPlan.End(pos, flow, BeltPlan.Action.PLACE_SUPPORT, supportState(flow), null, null);
+                return new BeltPlan.End(pos, BeltPlan.Action.PLACE_SUPPORT, PlannedSupport.state(flow), null, null);
             }
             if (turns) {
                 var turned = world.getBlockState(pos).setValue(HorizontalDirectionalBlock.FACING, flow);
-                return new BeltPlan.End(pos, flow, BeltPlan.Action.TURN_SUPPORT, turned, null, null);
+                return new BeltPlan.End(pos, BeltPlan.Action.TURN_SUPPORT, turned, null, null);
             }
-            return new BeltPlan.End(clicked, facing, BeltPlan.Action.USE, null, null, null);
+            return new BeltPlan.End(clicked, BeltPlan.Action.USE, null, null, null);
         }
     }
 
@@ -362,10 +362,6 @@ public class BeltItem extends Item {
             if (ItemApi.BLOCK.find(world, pos.relative(facing.getOpposite()), null, null, facing) != null) return Optional.of(facing);
         }
         return Optional.empty();
-    }
-
-    private static BlockState supportState(Direction facing) {
-        return BlockContent.CONVEYOR_SUPPORT_BLOCK.get().defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, facing);
     }
 
     private static BlockState loaderState(BeltTier tier, Direction facing) {

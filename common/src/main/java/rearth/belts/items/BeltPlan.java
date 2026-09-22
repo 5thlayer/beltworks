@@ -16,10 +16,11 @@ import java.util.List;
  *
  * @param ends     for a start click, the one end the click stores; for a belt, its start then its end;
  *                 for a mid-belt support, the stored start
+ * @param startDir the direction a start click stores, or null for any other click
  * @param supports every mid-belt support the belt would have, a sneak-click's new one last
  * @param path     the curve, or null before a start is stored or when the belt would end where it starts
  */
-public record BeltPlan(Click click, BeltTier tier, List<End> ends, List<PlannedSupport> supports, @Nullable BeltPath path,
+public record BeltPlan(Click click, BeltTier tier, List<End> ends, @Nullable Direction startDir, List<PlannedSupport> supports, @Nullable BeltPath path,
                        int beltCost, @Nullable Refusal refusal) {
 
     public enum Click {
@@ -32,12 +33,11 @@ public record BeltPlan(Click click, BeltTier tier, List<End> ends, List<PlannedS
 
     /**
      * @param pos    the block clicked or placed; for a start click, the position the item stores
-     * @param facing for a start click, the direction the item stores; otherwise the way the end faces
      * @param state  the block the click leaves here, or null where it leaves the block alone
      * @param loader the tier of a loader the click places
      * @param arrow  the direction a start click fixes, or null where the belt's other point decides it
      */
-    public record End(BlockPos pos, Direction facing, Action action, @Nullable BlockState state,
+    public record End(BlockPos pos, Action action, @Nullable BlockState state,
                       @Nullable BeltTier loader, @Nullable Direction arrow) {
     }
 

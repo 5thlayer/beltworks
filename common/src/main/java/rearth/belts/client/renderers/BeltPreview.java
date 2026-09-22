@@ -13,7 +13,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.ARGB;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
@@ -21,7 +20,6 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
 import org.jetbrains.annotations.Nullable;
-import rearth.belts.BlockContent;
 import rearth.belts.blocks.ChuteBlockEntity;
 import rearth.belts.items.BeltItem;
 import rearth.belts.items.BeltPlan;
@@ -76,9 +74,7 @@ public final class BeltPreview {
         }
         if (plan.click() != BeltPlan.Click.START) {
             for (var support : plan.supports()) {
-                var state = BlockContent.CONVEYOR_SUPPORT_BLOCK.get().defaultBlockState()
-                              .setValue(HorizontalDirectionalBlock.FACING, support.facing());
-                submitBlock(poseStack, collector, camera, support.pos(), state, tint, false);
+                submitBlock(poseStack, collector, camera, support.pos(), support.state(), tint, false);
             }
         }
         var path = plan.path();
