@@ -10,16 +10,15 @@ import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.ARGB;
-import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
-import rearth.belts.BlockContent;
 import rearth.belts.BlockEntitiesContent;
 import rearth.belts.blocks.ChuteBlockEntity;
 import rearth.belts.ComponentContent;
 import rearth.belts.items.BeltItem;
+import rearth.belts.items.PlannedSupport;
 import rearth.belts.model.BeltPath;
 import rearth.belts.util.SplineUtil;
 
@@ -75,27 +74,35 @@ public final class BeltOutlineRenderer {
         var startFacing = stack.get(ComponentContent.BELT_DIR.get());
         if (startBlockPos == null || startBlockPos.equals(BlockPos.ZERO) || startFacing == null) return List.of();
 
-        var supports = new ArrayList<>(BeltItem.getStoredMidpoints(stack, level));
+        var supports = new ArrayList<>(BeltItem.getStoredMidpoints(stack));
 
         BeltPath path;
+        var refused = false;
         var hovered = blockHit.getBlockPos();
-        var hoveredState = level.getBlockState(hovered);
-        if (level.getBlockEntity(hovered, BlockEntitiesContent.CHUTE_BLOCK.get()).isPresent()) {
+        var hoveredChute = level.getBlockEntity(hovered, BlockEntitiesContent.CHUTE_BLOCK.get());
+        if (hoveredChute.isPresent()) {
+            refused = BeltItem.clickRefusal(hoveredChute.get(), true, player.isShiftKeyDown()).isPresent();
             path = BeltItem.plannedPath(level, startBlockPos, startFacing, supports, hovered, null);
-        } else if (hoveredState.is(BlockContent.CONVEYOR_SUPPORT_BLOCK.get())) {
-            if (supports.stream().noneMatch(support -> support.getFirst().equals(hovered)))
-                supports.add(Pair.of(hovered, hoveredState.getValue(HorizontalDirectionalBlock.FACING)));
+        } else if (player.isShiftKeyDown()) {
+            // As the sneak-click plans a mid-belt support there (PlanetaryFactory #366).
+            var facing = blockHit.getDirection().getAxis().isVertical() ? player.getDirection() : blockHit.getDirection();
+            var support = new PlannedSupport(hovered.relative(blockHit.getDirection()), facing);
+            refused = BeltItem.planRefusal(level, stack, support).isPresent();
+            supports.add(Pair.of(support.pos(), support.facing()));
             path = BeltItem.plannedPath(level, startBlockPos, startFacing, supports, null, null);
         } else {
-            // As the click places an end loader: on the face hit, or facing the player from the ground.
+            // As the click places an end loader or support: on the face hit, or facing the player from the ground.
             var endFacing = blockHit.getDirection().getAxis().isVertical() ? player.getDirection() : blockHit.getDirection();
             path = BeltItem.plannedPath(level, startBlockPos, startFacing, supports, hovered.relative(blockHit.getDirection()), endFacing);
         }
 
-        // Red exactly when the click would be refused for the belt's shape (PlanetaryFactory ADR-0078).
-        var color = path.refusal().isPresent()
+        // Red exactly when the click would be refused (PlanetaryFactory ADR-0078, #366).
+        var color = refused || path.refusal().isPresent()
                 ? ARGB.colorFromFloat(0.8f, 1f, 0f, 0f)
                 : ARGB.colorFromFloat(0.8f, 1f, 1f, 1f);
+        for (var support : supports) {
+            outlines.add(new Outline(new AABB(support.getFirst()).deflate(0.3), color));
+        }
         var data = ChuteBlockEntity.BeltData.of(path);
         for (var along = 0d; along < data.totalLength(); along += 0.1) {
             var center = SplineUtil.getPositionOnSpline(data, along / data.totalLength());

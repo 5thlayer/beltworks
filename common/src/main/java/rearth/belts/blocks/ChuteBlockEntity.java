@@ -38,8 +38,10 @@ import rearth.belts.model.BeltCost;
 import rearth.belts.model.BeltPath;
 import rearth.belts.model.BeltTier;
 import rearth.belts.model.FlowLimit;
+import rearth.belts.model.Join;
 import rearth.belts.model.LoaderEnergy;
 import rearth.belts.model.Splitter;
+import rearth.belts.model.SupportSlots;
 import rearth.belts.util.SplineUtil;
 
 import java.util.ArrayList;
@@ -67,6 +69,9 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     // The loader whose belt ends here. Synced, so the client agrees this end is in use and
     // consumes a filter click rather than going on to the off hand.
     private BlockPos sourceBeltPos = BlockPos.ZERO;
+
+    // The loader or support whose belt passes through this support (#366).
+    private BlockPos passingBeltPos = BlockPos.ZERO;
     
     // used for filtering. Optionally works with create and ftb filters.
     public ItemStack filteredItem = ItemStack.EMPTY;
@@ -84,12 +89,14 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     private final FlowLimit flow;
     private final LoaderEnergy energy;
     private final boolean splitter;
+    private final boolean support;
     // Run by the left half only (#349).
     private final @Nullable Splitter<ItemStack> splitterModel;
 
     public ChuteBlockEntity(BlockPos pos, BlockState state) {
         super(BlockEntitiesContent.CHUTE_BLOCK.get(), pos, state);
-        var tier = ((ChuteBlock) state.getBlock()).tier();
+        support = state.getBlock() instanceof ConveyorSupportBlock;
+        var tier = support ? BeltTier.BELT : ((ChuteBlock) state.getBlock()).tier();
         splitter = state.getBlock() instanceof SplitterBlock;
         flow = new FlowLimit(tier.itemsPerTick());
         // Splitters draw no power (ADR-0076).
@@ -107,6 +114,14 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
 
         if (splitter && !level.isClientSide() && state.getValue(SplitterBlock.SIDE) == SplitterBlock.Side.LEFT) {
             tickSplitter(level, pos, state);
+        }
+
+        if (support && !level.isClientSide()) {
+            var in = incomingBelt();
+            if (in != null && Join.pass(lane(in), outgoingLane())) {
+                in.setChanged();
+                setChanged();
+            }
         }
 
         if (target == null || target.equals(BlockPos.ZERO)) {
@@ -220,7 +235,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         }
     }
 
-    /** The loader or splitter half whose belt ends here, if its belt is laid out. */
+    /** The loader, splitter half or support whose belt ends here, if its belt is laid out. */
     public @Nullable ChuteBlockEntity incomingBelt() {
         if (sourceBeltPos.equals(BlockPos.ZERO)) return null;
         var source = level.getBlockEntity(sourceBeltPos, BlockEntitiesContent.CHUTE_BLOCK.get());
@@ -238,8 +253,8 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     }
 
     /**
-     * Removes the belt this loader starts or ends, handing its items and its cost to the player
-     * who broke it, or dropping them here when nobody did. The loader at the other end stays.
+     * Removes every belt this end starts, ends or passes, handing its items and its cost to the
+     * player who broke it, or dropping them here when nobody did. The belt's other end stays.
      */
     public void releaseBelts(@Nullable Player player) {
         if (level == null || level.isClientSide()) return;
@@ -249,6 +264,17 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             source.get().releaseBelt(player, worldPosition);
         }
         sourceBeltPos = BlockPos.ZERO;
+        var passing = passingBelt();
+        if (passing != null) passing.releaseBelt(player, worldPosition);
+        passingBeltPos = BlockPos.ZERO;
+    }
+
+    /** The loader or support whose belt passes through this support, if it still does. */
+    private @Nullable ChuteBlockEntity passingBelt() {
+        if (passingBeltPos.equals(BlockPos.ZERO)) return null;
+        var source = level.getBlockEntity(passingBeltPos, BlockEntitiesContent.CHUTE_BLOCK.get());
+        if (source.isEmpty() || !source.get().midPoints.contains(worldPosition)) return null;
+        return source.get();
     }
 
     private void releaseBelt(@Nullable Player player, BlockPos dropAt) {
@@ -267,6 +293,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             level.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get())
               .ifPresent(end -> end.linkSource(BlockPos.ZERO));
         }
+        linkPassing(midPoints, BlockPos.ZERO);
         contents.clear();
         target = null;
         midPoints = new ArrayList<>();
@@ -322,8 +349,9 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         var conveyorEndEntityCandidate = level.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get());
         if (conveyorEndEntityCandidate.isEmpty()) return false;
         var conveyorEndEntity = conveyorEndEntityCandidate.get();
-        // The splitter pulls from this belt's end, so its two inputs alternate (#349).
-        if (conveyorEndEntity.splitter) return false;
+        // The splitter pulls from this belt's end, so its two inputs alternate (#349); a support
+        // pulls for its join, and with no belt leaving it the belt backs up (#366).
+        if (conveyorEndEntity.splitter || conveyorEndEntity.support) return false;
         if (!conveyorEndEntity.flow.ready(level.getGameTime()) || !conveyorEndEntity.energy.canMove()) return false;
         var targetInv = ItemApi.BLOCK.find(level, target.relative(conveyorEndEntity.getOwnFacing().getOpposite()), null, null, conveyorEndEntity.getOwnFacing());
         if (targetInv == null) return false;
@@ -339,7 +367,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     // One item per entry, as a Factorio loader puts one item in each belt slot (#344).
     @SuppressWarnings("DataFlowIssue")
     private @Nullable ItemStack extractOne() {
-        if (splitter) return null;
+        if (splitter || support) return null;
         if (!flow.ready(level.getGameTime()) || !energy.canMove()) return null;
         var source = ItemApi.BLOCK.find(level, worldPosition.relative(getOwnFacing().getOpposite()), null, null, getOwnFacing());
         if (source == null) return null;
@@ -381,6 +409,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         output.putLong("energy", energy.joules());
         // Saved so breaking the end straight after a load still finds the belt it ends.
         output.store("source", BlockPos.CODEC, sourceBeltPos);
+        output.store("passing", BlockPos.CODEC, passingBeltPos);
 
         var positions = output.childrenList("moving");
         for (var entry : contents.entries()) {
@@ -406,6 +435,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         cost = input.getIntOr("cost", 0);
         energy.setJoules(input.getLongOr("energy", 0));
         sourceBeltPos = input.read("source", BlockPos.CODEC).orElse(BlockPos.ZERO);
+        passingBeltPos = input.read("passing", BlockPos.CODEC).orElse(BlockPos.ZERO);
 
         contents.clear();
         for (var item : input.childrenListOrEmpty("moving")) {
@@ -469,16 +499,28 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         return splitter;
     }
 
+    public boolean isSupport() {
+        return support;
+    }
+
+    /** Which of this support's slots its belts take (#366). */
+    public SupportSlots.Use supportUse() {
+        return new SupportSlots.Use(!sourceBeltPos.equals(BlockPos.ZERO), target != null && !target.equals(BlockPos.ZERO),
+          passingBelt() != null);
+    }
+
     public BeltTier getBeltTier() {
         return beltTier;
     }
 
     /** Whether a belt may start here: a loader is one belt's end, a splitter half one belt in and one out. */
     public boolean canStartBelt() {
+        if (support) return SupportSlots.refusal(supportUse(), SupportSlots.Click.START).isEmpty();
         return splitter ? target == null || target.equals(BlockPos.ZERO) : !isUsed();
     }
 
     public boolean canEndBelt() {
+        if (support) return SupportSlots.refusal(supportUse(), SupportSlots.Click.END).isEmpty();
         return splitter ? sourceBeltPos.equals(BlockPos.ZERO) : !isUsed();
     }
 
@@ -495,15 +537,30 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         return splitter ? worldPosition.relative(getOwnFacing().getOpposite()) : worldPosition;
     }
 
-    /** The facing a loader ending the belt at {@link #beltEndPos} would have: back towards the belt. */
+    /**
+     * The facing a loader ending the belt at {@link #beltEndPos} would have: back towards the belt.
+     * A support faces the way its belts run.
+     */
     public Direction beltEndFacing() {
-        return splitter ? getOwnFacing().getOpposite() : getOwnFacing();
+        return splitter || support ? getOwnFacing().getOpposite() : getOwnFacing();
     }
 
     public boolean isUsed() {
         var usedAsTarget = !sourceBeltPos.equals(BlockPos.ZERO);
         var usedAsSource = target != null && !target.equals(BlockPos.ZERO);
-        return usedAsTarget || usedAsSource;
+        return usedAsTarget || usedAsSource || passingBelt() != null;
+    }
+
+    private void linkPassing(List<BlockPos> supports, BlockPos belt) {
+        for (var point : supports) {
+            level.getBlockEntity(point, BlockEntitiesContent.CHUTE_BLOCK.get()).ifPresent(support -> {
+                if (!support.support || support.passingBeltPos.equals(belt)) return;
+                support.passingBeltPos = belt;
+                support.setChanged();
+                if (level instanceof ServerLevel serverWorld)
+                    serverWorld.sendBlockUpdated(point, support.getBlockState(), support.getBlockState(), Block.UPDATE_ALL);
+            });
+        }
     }
 
     private void linkSource(BlockPos source) {
@@ -521,8 +578,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     public Optional<BeltPath.Refusal> assignFromBeltItem(BlockPos target, List<BlockPos> midpoints, BeltTier beltTier, int cost) {
         var end = level == null ? Optional.<ChuteBlockEntity>empty() : level.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get());
         if (end.isPresent()) {
-            var refusal = BeltData.path(beltStartPos(), getOwnFacing(), supportsOf(midpoints),
-              end.get().beltEndPos(), end.get().beltEndFacing()).refusal();
+            var refusal = BeltData.path(this, supportsOf(midpoints), end.get()).refusal();
             if (refusal.isPresent()) return refusal;
         }
 
@@ -532,7 +588,10 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         this.cost = cost;
         beltData = BeltData.create(this);
         // At once rather than on the next refresh, so breaking the end straight away finds the belt.
-        if (level != null) assignTargetState(level);
+        if (level != null) {
+            assignTargetState(level);
+            linkPassing(midpoints, worldPosition);
+        }
         needsFit = true;
         this.setChanged();
         
@@ -592,14 +651,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             var targetCandidate = entity.getLevel().getBlockEntity(entity.getTarget(), BlockEntitiesContent.CHUTE_BLOCK.get());
             if (targetCandidate.isEmpty()) return null;
             
-            var end = targetCandidate.get();
-            return of(entity.beltStartPos(), entity.getOwnFacing(), entity.getMidPointsWithTangents(),
-              end.beltEndPos(), end.beltEndFacing());
-        }
-        
-        /** The path between two loaders' positions and facings, whether or not they are placed yet. */
-        public static BeltData of(BlockPos conveyorStartPoint, Direction startFacing, List<Pair<BlockPos, Direction>> conveyorMidPointsVisual, BlockPos conveyorEndPoint, Direction endFacing) {
-            return of(path(conveyorStartPoint, startFacing, conveyorMidPointsVisual, conveyorEndPoint, endFacing));
+            return of(path(entity, entity.getMidPointsWithTangents(), targetCandidate.get()));
         }
 
         public static BeltData of(BeltPath path) {
@@ -609,15 +661,20 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             return new BeltData(points, path.length(), path.spanLengths());
         }
 
-        /** As {@link #of}, but with no end the path stops at its last support, as a belt still being laid does. */
-        public static BeltPath path(BlockPos start, Direction startFacing, List<Pair<BlockPos, Direction>> supports, @Nullable BlockPos end, @Nullable Direction endFacing) {
-            return BeltPath.of(anchor(start, startFacing),
-              supports.stream().map(support -> anchor(support.getFirst(), support.getSecond())).toList(),
-              end == null || endFacing == null ? null : anchor(end, endFacing));
+        /** The path between two placed ends. */
+        public static BeltPath path(ChuteBlockEntity start, List<Pair<BlockPos, Direction>> supports, ChuteBlockEntity end) {
+            return path(anchor(start.beltStartPos(), start.getOwnFacing(), start.support), supports,
+              anchor(end.beltEndPos(), end.beltEndFacing(), end.support));
         }
 
-        private static BeltPath.Anchor anchor(BlockPos pos, Direction facing) {
-            return new BeltPath.Anchor(pos.getX(), pos.getY(), pos.getZ(), facing.getStepX(), facing.getStepZ());
+        /** With no end the path stops at its last support, as a belt still being laid does. */
+        public static BeltPath path(BeltPath.Anchor start, List<Pair<BlockPos, Direction>> supports, BeltPath.@Nullable Anchor end) {
+            return BeltPath.of(start, supports.stream().map(support -> anchor(support.getFirst(), support.getSecond(), false)).toList(), end);
+        }
+
+        /** An end facing the way a loader there would, whether or not it is placed yet. */
+        public static BeltPath.Anchor anchor(BlockPos pos, Direction facing, boolean support) {
+            return new BeltPath.Anchor(pos.getX(), pos.getY(), pos.getZ(), facing.getStepX(), facing.getStepZ(), support);
         }
         
     }

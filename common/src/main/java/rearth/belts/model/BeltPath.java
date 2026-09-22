@@ -21,8 +21,20 @@ public final class BeltPath {
     private static final double TANGENT_SCALE = 1.5;
     private static final int SAMPLES = 512;
 
-    /** A block a belt ends at or passes through, facing along X or Z. */
-    public record Anchor(int x, int y, int z, int facingX, int facingZ) {
+    /**
+     * A block a belt ends at or passes through, facing along X or Z. An end faces the way a loader
+     * there would: along the belt at its start, back up it at its end. A loader's curve runs through
+     * the block to its face on the inventory's side; a support's ends at its centre.
+     */
+    public record Anchor(int x, int y, int z, int facingX, int facingZ, boolean support) {
+
+        public Anchor(int x, int y, int z, int facingX, int facingZ) {
+            this(x, y, z, facingX, facingZ, false);
+        }
+
+        public static Anchor support(int x, int y, int z, int facingX, int facingZ) {
+            return new Anchor(x, y, z, facingX, facingZ, true);
+        }
     }
 
     /** A point of the curve, with the unit horizontal tangent the curve has there. */
@@ -58,8 +70,8 @@ public final class BeltPath {
     }
 
     /**
-     * The path from a loader at {@code start} through {@code supports} to a loader at {@code end},
-     * each loader facing the way it stands. With no end, the path stops at its last support.
+     * The path from the end at {@code start} through {@code supports} to the end at {@code end}.
+     * With no end, the path stops at its last support.
      */
     public static BeltPath of(Anchor start, List<Anchor> supports, @Nullable Anchor end) {
         var anchors = new ArrayList<Anchor>();
@@ -92,6 +104,7 @@ public final class BeltPath {
     }
 
     private static Node face(Anchor loader, int tangentX, int tangentZ) {
+        if (loader.support) return new Node(loader.x + 0.5, loader.y + 0.5, loader.z + 0.5, tangentX, tangentZ);
         return new Node(loader.x + 0.5 - 0.5 * loader.facingX, loader.y + 0.5, loader.z + 0.5 - 0.5 * loader.facingZ,
           tangentX, tangentZ);
     }

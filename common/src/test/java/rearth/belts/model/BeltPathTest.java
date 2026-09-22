@@ -49,6 +49,24 @@ class BeltPathTest {
     }
 
     @Test
+    void aBeltEndingOnASupportEndsAtItsCentre() {
+        var path = BeltPath.of(START, List.of(), Anchor.support(8, 0, 0, -1, 0));
+        assertEquals(8.5, path.length(), 1e-9);
+        var end = path.nodes().getLast();
+        assertEquals(8.5, end.x(), 1e-9);
+        assertEquals(1, end.tangentX(), 1e-9);
+    }
+
+    @Test
+    void aBeltStartingOnASupportStartsAtItsCentreAndLeavesTheWayItFaces() {
+        var path = BeltPath.of(Anchor.support(0, 0, 0, 1, 0), List.of(), Anchor.support(8, 0, 0, -1, 0));
+        assertEquals(8, path.length(), 1e-9);
+        var start = path.nodes().getFirst();
+        assertEquals(0.5, start.x(), 1e-9);
+        assertEquals(1, start.tangentX(), 1e-9);
+    }
+
+    @Test
     void aSupportSplitsASixtyFourBlockBeltIntoTwoSpansThatFit() {
         var path = BeltPath.of(START, List.of(new Anchor(32, 0, 0, 1, 0)), westFacing(63, 0, 0));
         assertEquals(Optional.empty(), path.refusal());

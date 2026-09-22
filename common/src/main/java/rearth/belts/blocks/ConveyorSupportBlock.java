@@ -1,12 +1,19 @@
 package rearth.belts.blocks;
 
 import com.mojang.serialization.MapCodec;
+import rearth.belts.BlockEntitiesContent;
 import rearth.belts.util.MathHelpers;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
@@ -22,7 +29,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
-public class ConveyorSupportBlock extends HorizontalDirectionalBlock {
+/**
+ * A belt end, or a point a belt passes through, placed only by the belt item and free (PlanetaryFactory
+ * #366). As an end it faces the way its belts run.
+ */
+public class ConveyorSupportBlock extends HorizontalDirectionalBlock implements EntityBlock {
     
     private static final Map<Direction, VoxelShape> SHAPES = new HashMap<>();
     
@@ -60,5 +71,25 @@ public class ConveyorSupportBlock extends HorizontalDirectionalBlock {
     @Override
     protected MapCodec<? extends HorizontalDirectionalBlock> codec() {
         return simpleCodec(ConveyorSupportBlock::new);
+    }
+
+    @Override
+    public @Nullable BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+        return new ChuteBlockEntity(pos, state);
+    }
+
+    @Override
+    public @Nullable <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level world, BlockState state, BlockEntityType<T> type) {
+        return (world1, pos, state1, blockEntity) -> {
+            if (blockEntity instanceof ChuteBlockEntity support) support.tick(world1, pos, state1, support);
+        };
+    }
+
+    // Breaking a support breaks every belt it holds, refunded as breaking a loader refunds (#366).
+    @Override
+    public BlockState playerWillDestroy(Level world, BlockPos pos, BlockState state, Player player) {
+        if (!world.isClientSide())
+            world.getBlockEntity(pos, BlockEntitiesContent.CHUTE_BLOCK.get()).ifPresent(support -> support.releaseBelts(player));
+        return super.playerWillDestroy(world, pos, state, player);
     }
 }

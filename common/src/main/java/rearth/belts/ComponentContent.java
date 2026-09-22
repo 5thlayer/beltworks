@@ -7,6 +7,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.codec.ByteBufCodecs;
+import rearth.belts.items.PlannedSupport;
 
 import java.util.List;
 
@@ -19,7 +20,7 @@ public class ComponentContent {
     public static final RegistrySupplier<DataComponentType<Direction>> BELT_DIR = COMPONENTS.register("belt_start_dir",
       () -> DataComponentType.<Direction>builder().persistent(Direction.CODEC).networkSynchronized(Direction.STREAM_CODEC).build());
     
-    public static final RegistrySupplier<DataComponentType<List<BlockPos>>> MIDPOINTS = COMPONENTS.register("belt_midpoints",
-      () -> DataComponentType.<List<BlockPos>>builder().persistent(BlockPos.CODEC.listOf()).networkSynchronized(BlockPos.STREAM_CODEC.apply(ByteBufCodecs.list())).build());
+    public static final RegistrySupplier<DataComponentType<List<PlannedSupport>>> MIDPOINTS = COMPONENTS.register("belt_midpoints",
+      () -> DataComponentType.<List<PlannedSupport>>builder().persistent(PlannedSupport.CODEC.listOf()).networkSynchronized(PlannedSupport.STREAM_CODEC.apply(ByteBufCodecs.list())).build());
     
 }
