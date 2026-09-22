@@ -7,6 +7,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import rearth.belts.model.SupportSlots.Click;
+import rearth.belts.model.SupportSlots.Heading;
 import rearth.belts.model.SupportSlots.OpenEnd;
 import rearth.belts.model.SupportSlots.Refusal;
 import rearth.belts.model.SupportSlots.Use;
@@ -73,6 +74,21 @@ class SupportSlotsTest {
         assertEquals(Refusal.values().length,
           java.util.Arrays.stream(Refusal.values()).map(Refusal::messageKey).distinct().count());
         assertEquals("message.belts.support_" + refusal.name().toLowerCase(java.util.Locale.ROOT), refusal.messageKey());
+    }
+
+    @Test
+    void aFreeSupportRunsAlongTheLargerHorizontalDistanceToTheBeltsOtherPoint() {
+        assertEquals(new Heading(1, 0), Heading.toward(5, 2, new Heading(0, 1)));
+        assertEquals(new Heading(-1, 0), Heading.toward(-5, 2, new Heading(1, 0)));
+        assertEquals(new Heading(0, -1), Heading.toward(1, -3, new Heading(1, 0)));
+        assertEquals(new Heading(0, 1), Heading.toward(0, 1, new Heading(-1, 0)));
+    }
+
+    @Test
+    void aTieOrAPointStraightAboveKeepsTheFallbackWhereItAgrees() {
+        assertEquals(new Heading(0, 1), Heading.toward(2, 2, new Heading(0, 1)));
+        assertEquals(new Heading(1, 0), Heading.toward(2, 2, new Heading(0, -1)));
+        assertEquals(new Heading(0, -1), Heading.toward(0, 0, new Heading(0, -1)));
     }
 
     @Test

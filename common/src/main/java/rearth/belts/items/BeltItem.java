@@ -182,8 +182,10 @@ public class BeltItem extends Item {
             return;
         }
         
-        var endChute = world.getBlockEntity(end, BlockEntitiesContent.CHUTE_BLOCK.get());
-        var path = plannedPath(world, start, startDir, supportsOf(planned), end, endDir);
+        var supports = supportsOf(planned);
+        var startEnd = planStart(world, start, startDir, supports, end);
+        var endEnd = planEnd(world, end, endDir, supports, start);
+        var path = ChuteBlockEntity.BeltData.path(startEnd.anchor(), supports, endEnd.anchor());
         var refusal = path.refusal();
         if (refusal.isPresent()) {
             player.sendSystemMessage(Component.translatable(refusal.get().bound().messageKey()));
@@ -196,9 +198,7 @@ public class BeltItem extends Item {
             return;
         }
 
-        var startEnd = startChute.isPresent() ? null : openEnd(world, start, startDir);
-        var endEnd = endChute.isPresent() ? null : openEnd(world, end, endDir);
-        var openLoaders = (startEnd == SupportSlots.OpenEnd.LOADER ? 1 : 0) + (endEnd == SupportSlots.OpenEnd.LOADER ? 1 : 0);
+        var openLoaders = (startEnd.places() == SupportSlots.OpenEnd.LOADER ? 1 : 0) + (endEnd.places() == SupportSlots.OpenEnd.LOADER ? 1 : 0);
         var loaders = LoaderChoice.of(beltTier, openLoaders, player.isCreative() ? Map.of(beltTier, openLoaders) : heldLoaders(player));
         if (loaders.isEmpty()) {
             player.sendSystemMessage(Component.translatable("message.belts.not_enough_loaders", openLoaders, beltTier.number()));
@@ -216,11 +216,8 @@ public class BeltItem extends Item {
         var playfrom = distStart < distEnd ? start : end;
         world.playSound(null, playfrom, SoundEvents.BREEZE_WIND_CHARGE_BURST.value(), SoundSource.PLAYERS, 1f, 0.5f);
         
-        // A support faces the way its belts run: along the belt at its start and at its end.
-        if (startEnd == SupportSlots.OpenEnd.LOADER) placeLoader(world, start, startDir, chosen.pop(), player);
-        if (startEnd == SupportSlots.OpenEnd.SUPPORT) placeSupport(world, start, startDir);
-        if (endEnd == SupportSlots.OpenEnd.LOADER) placeLoader(world, end, endDir, chosen.pop(), player);
-        if (endEnd == SupportSlots.OpenEnd.SUPPORT) placeSupport(world, end, endDir.getOpposite());
+        startEnd.place(world, chosen, player, false);
+        endEnd.place(world, chosen, player, true);
         for (var support : planned) placeSupport(world, support.pos(), support.facing());
         
         world.getBlockEntity(start, BlockEntitiesContent.CHUTE_BLOCK.get())
@@ -245,24 +242,83 @@ public class BeltItem extends Item {
      */
     public static BeltPath plannedPath(Level world, BlockPos start, Direction startDir, List<Pair<BlockPos, Direction>> supports,
                                        @Nullable BlockPos end, @Nullable Direction endDir) {
-        var startChute = world.getBlockEntity(start, BlockEntitiesContent.CHUTE_BLOCK.get());
-        var startAnchor = startChute
-          .map(chute -> ChuteBlockEntity.BeltData.anchor(chute.beltStartPos(), chute.getOwnFacing(), chute.isSupport()))
-          .orElseGet(() -> ChuteBlockEntity.BeltData.anchor(start, startDir, openEnd(world, start, startDir) == SupportSlots.OpenEnd.SUPPORT));
-        var endChute = end == null ? Optional.<ChuteBlockEntity>empty() : world.getBlockEntity(end, BlockEntitiesContent.CHUTE_BLOCK.get());
-        BeltPath.Anchor endAnchor = null;
-        if (endChute.isPresent()) {
-            var chute = endChute.get();
-            endAnchor = ChuteBlockEntity.BeltData.anchor(chute.beltEndPos(), chute.beltEndFacing(), chute.isSupport());
-        } else if (end != null && endDir != null) {
-            endAnchor = ChuteBlockEntity.BeltData.anchor(end, endDir, openEnd(world, end, endDir) == SupportSlots.OpenEnd.SUPPORT);
-        }
-        return ChuteBlockEntity.BeltData.path(startAnchor, supports, endAnchor);
+        var endPlan = end == null ? null : planEnd(world, end, endDir, supports, start);
+        return ChuteBlockEntity.BeltData.path(planStart(world, start, startDir, supports, end).anchor(), supports,
+          endPlan == null ? null : endPlan.anchor());
     }
-    
-    /** What an open end facing the way a loader there would gets: a loader when an inventory is beyond it. */
-    public static SupportSlots.OpenEnd openEnd(Level world, BlockPos pos, Direction loaderFacing) {
-        return SupportSlots.OpenEnd.of(ItemApi.BLOCK.find(world, pos.relative(loaderFacing.getOpposite()), null, null, loaderFacing) != null);
+
+    /**
+     * One end of a planned belt: where its curve meets it, facing as a loader there would, and what
+     * the click places there, or whether it turns a free support to face along the belt.
+     */
+    private record PlannedEnd(BlockPos pos, Direction facing, boolean support, SupportSlots.@Nullable OpenEnd places, boolean turns) {
+
+        BeltPath.Anchor anchor() {
+            return ChuteBlockEntity.BeltData.anchor(pos, facing, support);
+        }
+
+        // A support faces the way its belts run, which at a belt's end is against a loader's facing.
+        void place(Level world, ArrayDeque<BeltTier> loaders, Player player, boolean atEnd) {
+            var flow = atEnd ? facing.getOpposite() : facing;
+            if (places == SupportSlots.OpenEnd.LOADER) placeLoader(world, pos, facing, loaders.pop(), player);
+            if (places == SupportSlots.OpenEnd.SUPPORT) placeSupport(world, pos, flow);
+            if (turns) world.setBlockAndUpdate(pos, world.getBlockState(pos).setValue(HorizontalDirectionalBlock.FACING, flow));
+        }
+    }
+
+    private static PlannedEnd planStart(Level world, BlockPos start, Direction startDir, List<Pair<BlockPos, Direction>> supports,
+                                        @Nullable BlockPos end) {
+        var next = supports.isEmpty() ? end : supports.getFirst().getFirst();
+        var flow = next == null ? startDir : heading(next.getX() - start.getX(), next.getZ() - start.getZ(), startDir);
+        var chute = world.getBlockEntity(start, BlockEntitiesContent.CHUTE_BLOCK.get());
+        if (chute.isPresent()) {
+            if (isFreeSupport(chute.get())) return new PlannedEnd(start, flow, true, null, true);
+            return new PlannedEnd(chute.get().beltStartPos(), chute.get().getOwnFacing(), chute.get().isSupport(), null, false);
+        }
+        var loader = loaderFacing(world, start, startDir);
+        return switch (SupportSlots.OpenEnd.of(loader.isPresent())) {
+            case LOADER -> new PlannedEnd(start, loader.get(), false, SupportSlots.OpenEnd.LOADER, false);
+            case SUPPORT -> new PlannedEnd(start, flow, true, SupportSlots.OpenEnd.SUPPORT, false);
+        };
+    }
+
+    private static PlannedEnd planEnd(Level world, BlockPos end, @Nullable Direction endDir, List<Pair<BlockPos, Direction>> supports,
+                                      BlockPos start) {
+        var previous = supports.isEmpty() ? start : supports.getLast().getFirst();
+        var chute = world.getBlockEntity(end, BlockEntitiesContent.CHUTE_BLOCK.get());
+        var fallback = endDir != null ? endDir.getOpposite() : chute.map(ChuteBlockEntity::getOwnFacing).orElse(Direction.NORTH);
+        var flow = heading(end.getX() - previous.getX(), end.getZ() - previous.getZ(), fallback);
+        if (chute.isPresent()) {
+            if (isFreeSupport(chute.get())) return new PlannedEnd(end, flow.getOpposite(), true, null, true);
+            return new PlannedEnd(chute.get().beltEndPos(), chute.get().beltEndFacing(), chute.get().isSupport(), null, false);
+        }
+        var loader = endDir == null ? Optional.<Direction>empty() : loaderFacing(world, end, endDir);
+        return switch (SupportSlots.OpenEnd.of(loader.isPresent())) {
+            case LOADER -> new PlannedEnd(end, loader.get(), false, SupportSlots.OpenEnd.LOADER, false);
+            case SUPPORT -> new PlannedEnd(end, flow.getOpposite(), true, SupportSlots.OpenEnd.SUPPORT, false);
+        };
+    }
+
+    // Its facing was set by belts no longer there, so the new belt sets it again (#366).
+    private static boolean isFreeSupport(ChuteBlockEntity chute) {
+        return chute.isSupport() && chute.supportUse().equals(new SupportSlots.Use(false, false, false));
+    }
+
+    private static Direction heading(int dx, int dz, Direction fallback) {
+        var heading = SupportSlots.Heading.toward(dx, dz, new SupportSlots.Heading(fallback.getStepX(), fallback.getStepZ()));
+        return Direction.getApproximateNearest(heading.x(), 0, heading.z());
+    }
+
+    /**
+     * The facing a loader at this open end takes, with the inventory beyond it: the way the click
+     * suggests, else the other way, so a player may face the inventory or the belt. Empty with no
+     * inventory either side, where the end becomes a support.
+     */
+    private static Optional<Direction> loaderFacing(Level world, BlockPos pos, Direction suggested) {
+        for (var facing : List.of(suggested, suggested.getOpposite())) {
+            if (ItemApi.BLOCK.find(world, pos.relative(facing.getOpposite()), null, null, facing) != null) return Optional.of(facing);
+        }
+        return Optional.empty();
     }
 
     private static void placeSupport(Level world, BlockPos pos, Direction facing) {

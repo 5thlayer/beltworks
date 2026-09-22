@@ -39,6 +39,24 @@ public final class SupportSlots {
         }
     }
 
+    /**
+     * The way a belt runs through a support no other belt holds, along X or Z: towards the belt's
+     * next point from its start, or from its previous point at its end. A support has no facing of
+     * its own until a belt holds it (#366).
+     */
+    public record Heading(int x, int z) {
+
+        /** Along the larger of the two distances, keeping the fallback on a tie it agrees with or when there is no distance. */
+        public static Heading toward(int dx, int dz, Heading fallback) {
+            if (dx == 0 && dz == 0) return fallback;
+            if (Math.abs(dx) == Math.abs(dz)) {
+                if (fallback.x != 0 && Integer.signum(dx) == fallback.x) return fallback;
+                if (fallback.z != 0 && Integer.signum(dz) == fallback.z) return fallback;
+            }
+            return Math.abs(dx) >= Math.abs(dz) ? new Heading(Integer.signum(dx), 0) : new Heading(0, Integer.signum(dz));
+        }
+    }
+
     public static Optional<Refusal> refusal(Use use, Click click) {
         if (click == Click.MIDPOINT) return Optional.of(Refusal.NOT_A_MIDPOINT);
         if (use.midBelt) return Optional.of(Refusal.MID_BELT);
