@@ -51,6 +51,11 @@ public enum BeltTier {
         return beltItem;
     }
 
+    /** The belt tile's block and item registry path in the {@code belts} namespace (PlanetaryFactory #398). */
+    public String tile() {
+        return beltItem + "_tile";
+    }
+
     /** The loader's block and item registry path in the {@code belts} namespace. */
     public String loader() {
         return loader;

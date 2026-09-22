@@ -426,21 +426,35 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             conveyorEndEntity.setChanged();
             return true;
         }
-        if (!conveyorEndEntity.flow.ready(level.getGameTime()) || !conveyorEndEntity.energy.canMove()) return false;
-        var targetInv = ItemApi.BLOCK.find(level, target.relative(conveyorEndEntity.getOwnFacing().getOpposite()), null, null, conveyorEndEntity.getOwnFacing());
+        return conveyorEndEntity.acceptFromLine(item);
+    }
+
+    /**
+     * Unloads one item into the inventory behind this loader's facing, at its own tier's rate and
+     * for its own energy. A transport line's last tile offers here (PlanetaryFactory #398).
+     */
+    public boolean acceptFromLine(ItemStack item) {
+        if (splitter || support) return false;
+        if (!flow.ready(level.getGameTime()) || !energy.canMove()) return false;
+        var targetInv = ItemApi.BLOCK.find(level, worldPosition.relative(getOwnFacing().getOpposite()), null, null, getOwnFacing());
         if (targetInv == null) return false;
-        
+
         if (targetInv.insert(item, true) != item.getCount()) return false;
         targetInv.insert(item, false);
-        conveyorEndEntity.flow.pass();
-        conveyorEndEntity.energy.move();
-        conveyorEndEntity.setChanged();
+        flow.pass();
+        energy.move();
+        setChanged();
         return true;
     }
+
     
-    // One item per entry, as a Factorio loader puts one item in each belt slot (#344).
+    /**
+     * Loads one item out of the inventory behind this loader's facing, at its own tier's rate and
+     * for its own energy: one item per entry, as a Factorio loader puts one item in each belt slot
+     * (#344). A transport line's first tile asks here (PlanetaryFactory #398).
+     */
     @SuppressWarnings("DataFlowIssue")
-    private @Nullable ItemStack extractOne() {
+    public @Nullable ItemStack extractOne() {
         if (splitter || support) return null;
         if (!flow.ready(level.getGameTime()) || !energy.canMove()) return null;
         var source = ItemApi.BLOCK.find(level, worldPosition.relative(getOwnFacing().getOpposite()), null, null, getOwnFacing());

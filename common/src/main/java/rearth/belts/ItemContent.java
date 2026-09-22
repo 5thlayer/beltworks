@@ -20,6 +20,10 @@ public class ItemContent {
     public static final RegistrySupplier<Item> IMPROVED_CHUTE = loader(BeltTier.IMPROVED, BlockContent.IMPROVED_CHUTE_BLOCK);
     public static final RegistrySupplier<Item> EXPRESS_CHUTE = loader(BeltTier.EXPRESS, BlockContent.EXPRESS_CHUTE_BLOCK);
     public static final RegistrySupplier<Item> TURBO_CHUTE = loader(BeltTier.TURBO, BlockContent.TURBO_CHUTE_BLOCK);
+    public static final RegistrySupplier<Item> BELT_TILE = tile(BeltTier.BELT, BlockContent.BELT_TILE);
+    public static final RegistrySupplier<Item> IMPROVED_BELT_TILE = tile(BeltTier.IMPROVED, BlockContent.IMPROVED_BELT_TILE);
+    public static final RegistrySupplier<Item> EXPRESS_BELT_TILE = tile(BeltTier.EXPRESS, BlockContent.EXPRESS_BELT_TILE);
+    public static final RegistrySupplier<Item> TURBO_BELT_TILE = tile(BeltTier.TURBO, BlockContent.TURBO_BELT_TILE);
     public static final RegistrySupplier<Item> SPLITTER = splitter(BeltTier.BELT, BlockContent.SPLITTER_BLOCK);
     public static final RegistrySupplier<Item> IMPROVED_SPLITTER = splitter(BeltTier.IMPROVED, BlockContent.IMPROVED_SPLITTER_BLOCK);
     public static final RegistrySupplier<Item> EXPRESS_SPLITTER = splitter(BeltTier.EXPRESS, BlockContent.EXPRESS_SPLITTER_BLOCK);
@@ -38,6 +42,19 @@ public class ItemContent {
             case EXPRESS -> EXPRESS_BELT.get();
             case TURBO -> TURBO_BELT.get();
         };
+    }
+
+    public static Item tileFor(BeltTier tier) {
+        return switch (tier) {
+            case BELT -> BELT_TILE.get();
+            case IMPROVED -> IMPROVED_BELT_TILE.get();
+            case EXPRESS -> EXPRESS_BELT_TILE.get();
+            case TURBO -> TURBO_BELT_TILE.get();
+        };
+    }
+
+    private static RegistrySupplier<Item> tile(BeltTier tier, RegistrySupplier<Block> block) {
+        return ITEMS.register(tier.tile(), () -> new TooltipBlockItem(block.get(), properties(tier.tile())));
     }
 
     private static RegistrySupplier<Item> loader(BeltTier tier, RegistrySupplier<Block> block) {

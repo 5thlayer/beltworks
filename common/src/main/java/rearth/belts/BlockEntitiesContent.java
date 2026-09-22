@@ -1,5 +1,6 @@
 package rearth.belts;
 
+import rearth.belts.blocks.BeltTileBlockEntity;
 import rearth.belts.blocks.ChuteBlockEntity;
 import dev.architectury.registry.registries.DeferredRegister;
 import dev.architectury.registry.registries.RegistrySupplier;
@@ -19,5 +20,12 @@ public class BlockEntitiesContent {
                     BlockContent.EXPRESS_SPLITTER_BLOCK.get(), BlockContent.TURBO_SPLITTER_BLOCK.get(),
                     BlockContent.CONVEYOR_SUPPORT_BLOCK.get())
     );
-    
+
+    public static final RegistrySupplier<BlockEntityType<BeltTileBlockEntity>> BELT_TILE = TYPES.register(
+            "belt_tile",
+            () -> PlatformBlockEntityTypes.create(BeltTileBlockEntity::new, BlockContent.BELT_TILE.get(),
+                    BlockContent.IMPROVED_BELT_TILE.get(), BlockContent.EXPRESS_BELT_TILE.get(),
+                    BlockContent.TURBO_BELT_TILE.get())
+    );
+
 }

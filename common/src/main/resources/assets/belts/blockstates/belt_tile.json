@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "belts:block/belt_tile"
+    },
+    "facing=east": {
+      "model": "belts:block/belt_tile",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "belts:block/belt_tile",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "belts:block/belt_tile",
+      "y": 270
+    }
+  }
+}

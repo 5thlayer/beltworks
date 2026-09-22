@@ -1,5 +1,6 @@
 package rearth.belts;
 
+import rearth.belts.blocks.BeltTileBlock;
 import rearth.belts.blocks.ChuteBlock;
 import rearth.belts.blocks.ConveyorSupportBlock;
 import rearth.belts.blocks.SplitterBlock;
@@ -21,6 +22,10 @@ public class BlockContent {
     public static final RegistrySupplier<Block> IMPROVED_CHUTE_BLOCK = loader(BeltTier.IMPROVED);
     public static final RegistrySupplier<Block> EXPRESS_CHUTE_BLOCK = loader(BeltTier.EXPRESS);
     public static final RegistrySupplier<Block> TURBO_CHUTE_BLOCK = loader(BeltTier.TURBO);
+    public static final RegistrySupplier<Block> BELT_TILE = tile(BeltTier.BELT);
+    public static final RegistrySupplier<Block> IMPROVED_BELT_TILE = tile(BeltTier.IMPROVED);
+    public static final RegistrySupplier<Block> EXPRESS_BELT_TILE = tile(BeltTier.EXPRESS);
+    public static final RegistrySupplier<Block> TURBO_BELT_TILE = tile(BeltTier.TURBO);
     public static final RegistrySupplier<Block> SPLITTER_BLOCK = splitter(BeltTier.BELT);
     public static final RegistrySupplier<Block> IMPROVED_SPLITTER_BLOCK = splitter(BeltTier.IMPROVED);
     public static final RegistrySupplier<Block> EXPRESS_SPLITTER_BLOCK = splitter(BeltTier.EXPRESS);
@@ -39,6 +44,15 @@ public class BlockContent {
         };
     }
 
+    public static Block tileFor(BeltTier tier) {
+        return switch (tier) {
+            case BELT -> BELT_TILE.get();
+            case IMPROVED -> IMPROVED_BELT_TILE.get();
+            case EXPRESS -> EXPRESS_BELT_TILE.get();
+            case TURBO -> TURBO_BELT_TILE.get();
+        };
+    }
+
     public static Block splitterFor(BeltTier tier) {
         return switch (tier) {
             case BELT -> SPLITTER_BLOCK.get();
@@ -46,6 +60,11 @@ public class BlockContent {
             case EXPRESS -> EXPRESS_SPLITTER_BLOCK.get();
             case TURBO -> TURBO_SPLITTER_BLOCK.get();
         };
+    }
+
+    private static RegistrySupplier<Block> tile(BeltTier tier) {
+        return BLOCKS.register(tier.tile(), () -> new BeltTileBlock(
+          BlockBehaviour.Properties.ofLegacyCopy(Blocks.GLASS).sound(SoundType.POINTED_DRIPSTONE).noOcclusion().setId(ResourceKey.create(Registries.BLOCK, Belts.id(tier.tile()))), tier));
     }
 
     private static RegistrySupplier<Block> splitter(BeltTier tier) {

@@ -7,7 +7,7 @@
   "message.belts.blocked": "A block stands where the belt would end.",
   "message.belts.span_too_long": "A belt reaches at most 32 blocks between supports.",
   "message.belts.turns_while_climbing": "A belt climbs only in a straight line; turn it where it is level.",
-  "message.belts.too_steep": "A belt climbs no steeper than 35°.",
+  "message.belts.too_steep": "A belt climbs no steeper than 35\u00b0.",
   "message.belts.turn_too_tight": "A belt turns no tighter than one block.",
   "message.belts.midpoint_added": "Planned a support mid-belt.",
   "message.belts.midpoint_duplicate": "A support is already planned there.",
@@ -71,5 +71,17 @@
   "block.belts.express_splitter": "Express splitter",
   "item.belts.express_splitter": "Express splitter",
   "block.belts.turbo_splitter": "Turbo splitter",
-  "item.belts.turbo_splitter": "Turbo splitter"
+  "item.belts.turbo_splitter": "Turbo splitter",
+  "block.belts.belt_tile": "Belt tile",
+  "item.belts.belt_tile": "Belt tile",
+  "item.belts.belt_tile.tooltip": "One block of belt, carrying 15 items a second. Tiles in a line carry items as one; a line of mixed tiers runs at its slowest tile.",
+  "block.belts.improved_belt_tile": "Fast belt tile",
+  "item.belts.improved_belt_tile": "Fast belt tile",
+  "item.belts.improved_belt_tile.tooltip": "One block of belt, carrying 30 items a second. Tiles in a line carry items as one; a line of mixed tiers runs at its slowest tile.",
+  "block.belts.express_belt_tile": "Express belt tile",
+  "item.belts.express_belt_tile": "Express belt tile",
+  "item.belts.express_belt_tile.tooltip": "One block of belt, carrying 45 items a second. Tiles in a line carry items as one; a line of mixed tiers runs at its slowest tile.",
+  "block.belts.turbo_belt_tile": "Turbo belt tile",
+  "item.belts.turbo_belt_tile": "Turbo belt tile",
+  "item.belts.turbo_belt_tile.tooltip": "One block of belt, carrying 60 items a second. Tiles in a line carry items as one; a line of mixed tiers runs at its slowest tile."
 }
