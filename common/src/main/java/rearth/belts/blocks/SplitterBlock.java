@@ -72,6 +72,11 @@ public class SplitterBlock extends ChuteBlock {
     }
 
     @Override
+    public boolean setsFilter(ChuteBlockEntity entity, ItemStack stack) {
+        return false;
+    }
+
+    @Override
     protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         return InteractionResult.TRY_WITH_EMPTY_HAND;
     }

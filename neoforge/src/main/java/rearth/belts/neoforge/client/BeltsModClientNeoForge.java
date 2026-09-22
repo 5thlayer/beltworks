@@ -6,10 +6,11 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.ExtractBlockOutlineRenderStateEvent;
+import net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent;
 import rearth.belts.Belts;
 import rearth.belts.BlockEntitiesContent;
 import rearth.belts.client.BeltsClient;
-import rearth.belts.client.renderers.BeltOutlineRenderer;
+import rearth.belts.client.renderers.BeltPreview;
 
 @Mod(value = Belts.MOD_ID, dist = Dist.CLIENT)
 public final class BeltsModClientNeoForge {
@@ -18,6 +19,7 @@ public final class BeltsModClientNeoForge {
         BeltsClient.init();
         eventBus.addListener(this::registerRenderers);
         NeoForge.EVENT_BUS.addListener(this::extractOutline);
+        NeoForge.EVENT_BUS.addListener(this::submitPreview);
         NeoForge.EVENT_BUS.addListener(BeltHandClient::tick);
         NeoForge.EVENT_BUS.addListener(BeltHandClient::interact);
     }
@@ -27,17 +29,21 @@ public final class BeltsModClientNeoForge {
     }
 
     private void extractOutline(ExtractBlockOutlineRenderStateEvent event) {
-        var outlines = BeltOutlineRenderer.extractPlannedBelt(event.getLevel(), event.getHitResult());
+        var plan = BeltPreview.currentPlan();
+        if (plan == null) return;
+        var outlines = BeltPreview.outlines(plan, event.getLevel().getGameTime());
         if (outlines.isEmpty()) return;
 
         event.addCustomRenderer((renderState, buffers, poseStack, translucentPass, levelRenderState) -> {
-            BeltOutlineRenderer.renderPlannedBelt(
-                    outlines,
-                    levelRenderState.cameraRenderState.pos,
-                    poseStack,
-                    buffers
-            );
+            BeltPreview.renderOutlines(outlines, levelRenderState.cameraRenderState.pos, poseStack, buffers);
             return false;
         });
+    }
+
+    private void submitPreview(SubmitCustomGeometryEvent event) {
+        var plan = BeltPreview.currentPlan();
+        BeltPreview.announce(plan);
+        if (plan == null) return;
+        BeltPreview.submit(plan, event.getPoseStack(), event.getSubmitNodeCollector(), event.getLevelRenderState().cameraRenderState.pos);
     }
 }

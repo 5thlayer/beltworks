@@ -21,12 +21,15 @@ import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
 import rearth.belts.model.BeltCost;
 import rearth.belts.model.BeltPath;
 import rearth.belts.model.BeltTier;
 import rearth.belts.model.LoaderChoice;
 import rearth.belts.model.SupportSlots;
 import rearth.belts.api.item.ItemApi;
+import rearth.belts.blocks.ChuteBlock;
 import rearth.belts.blocks.ChuteBlockEntity;
 import net.minecraft.world.ContainerHelper;
 import org.jetbrains.annotations.Nullable;
@@ -65,87 +68,95 @@ public class BeltItem extends Item {
     // PlanetaryFactory #366 has the gesture.
     @Override
     public InteractionResult useOn(UseOnContext context) {
-        
-        var stack = context.getItemInHand();
         var level = context.getLevel();
         var player = context.getPlayer();
-        
         if (level.isClientSide() || player == null) return InteractionResult.SUCCESS;
-        
-        var targetBlockPos = context.getClickedPos();
-        var hasStart = stack.has(ComponentContent.BELT_START.get()) && stack.has(ComponentContent.BELT_DIR.get());
-        
-        var chuteCandidate = level.getBlockEntity(targetBlockPos, BlockEntitiesContent.CHUTE_BLOCK.get());
-        if (chuteCandidate.isPresent()) {
-            var chuteEntity = chuteCandidate.get();
-            var refusal = clickRefusal(chuteEntity, hasStart, player.isShiftKeyDown());
-            if (refusal.isPresent()) {
-                player.sendSystemMessage(Component.translatable(refusal.get()));
-                return InteractionResult.FAIL;
-            }
-            
-            if (hasStart) {
-                createBelt(stack.get(ComponentContent.BELT_START.get()), stack.get(ComponentContent.BELT_DIR.get()),
-                  targetBlockPos, chuteEntity.getOwnFacing(), level, stack, player);
-            } else {
-                stack.set(ComponentContent.BELT_START.get(), targetBlockPos);
-                stack.set(ComponentContent.BELT_DIR.get(), chuteEntity.getOwnFacing());
-                player.sendSystemMessage(Component.translatable("message.belts.started"));
-            }
-            
-            return InteractionResult.SUCCESS;
+
+        var stack = context.getItemInHand();
+        var hit = new BlockHitResult(context.getClickLocation(), context.getClickedFace(), context.getClickedPos(), context.isInside());
+        var plan = plan(level, stack, player, hit);
+        if (plan == null) return InteractionResult.PASS;
+        if (plan.refused()) {
+            player.sendSystemMessage(plan.refusal().message());
+            return InteractionResult.FAIL;
         }
-        
-        // The block on the surface of the target. From the ground the player's facing gives the
-        // direction; from a wall, the direction faces away from it.
-        var targetDir = context.getClickedFace();
-        targetBlockPos = targetBlockPos.relative(context.getClickedFace());
-        if (context.getClickedFace().getAxis().equals(Direction.Axis.Y)) {
-            targetDir = context.getHorizontalDirection();
-        }
-        
-        if (!isOpen(level, targetBlockPos)) return InteractionResult.SUCCESS;
-        
-        if (!hasStart) {
-            if (!context.getClickedFace().getAxis().equals(Direction.Axis.Y)) {
-                targetDir = targetDir.getOpposite();
-            }
-            stack.set(ComponentContent.BELT_START.get(), targetBlockPos);
-            stack.set(ComponentContent.BELT_DIR.get(), targetDir.getOpposite());
-            player.sendSystemMessage(Component.translatable("message.belts.started"));
-        } else if (player.isShiftKeyDown()) {
-            planSupport(stack, new PlannedSupport(targetBlockPos, targetDir), level, player);
-        } else {
-            createBelt(stack.get(ComponentContent.BELT_START.get()), stack.get(ComponentContent.BELT_DIR.get()),
-              targetBlockPos, targetDir, level, stack, player);
-        }
-        
+        execute(plan, level, stack, player);
         return InteractionResult.SUCCESS;
     }
-    
+
+    /**
+     * What a click with this stack at this aim would do, or null where the aimed block answers the
+     * click itself (PlanetaryFactory #372).
+     */
+    public @Nullable BeltPlan plan(Level world, ItemStack stack, Player player, BlockHitResult hit) {
+        var clicked = hit.getBlockPos();
+        var face = hit.getDirection();
+        var start = stack.get(ComponentContent.BELT_START.get());
+        var startDir = stack.get(ComponentContent.BELT_DIR.get());
+        var hasStart = start != null && startDir != null;
+        var sneaking = player.isShiftKeyDown();
+
+        var chute = world.getBlockEntity(clicked, BlockEntitiesContent.CHUTE_BLOCK.get());
+        if (chute.isPresent()) {
+            // Sneaking skips the block's own answer, as vanilla does for any held item.
+            if (!sneaking && chute.get().getBlockState().getBlock() instanceof ChuteBlock block && block.setsFilter(chute.get(), stack)) {
+                return null;
+            }
+            var refusal = clickRefusal(chute.get(), hasStart, sneaking).map(BeltPlan.Refusal::of).orElse(null);
+            if (!hasStart) return startOn(chute.get(), clicked, refusal);
+            return belt(world, stack, player, start, startDir, clicked, chute.get().getOwnFacing(), refusal);
+        }
+
+        // The block on the surface of the target. From the ground the player's facing gives the
+        // direction; from a wall, the direction faces away from it.
+        var target = clicked.relative(face);
+        var targetDir = face.getAxis() == Direction.Axis.Y ? player.getDirection() : face;
+        var blocked = isOpen(world, target) ? null : BeltPlan.Refusal.of("message.belts.blocked");
+        if (!hasStart) {
+            return startOnGround(world, target, face.getAxis() == Direction.Axis.Y ? targetDir.getOpposite() : face, blocked);
+        }
+        if (sneaking) return midpoint(world, stack, start, startDir, new PlannedSupport(target, targetDir));
+        return belt(world, stack, player, start, startDir, target, targetDir, null);
+    }
+
     /** The message refusing a click on this loader, splitter or support, or empty when the click takes it. */
-    public static Optional<String> clickRefusal(ChuteBlockEntity clicked, boolean hasStart, boolean sneaking) {
+    private static Optional<String> clickRefusal(ChuteBlockEntity clicked, boolean hasStart, boolean sneaking) {
         if (clicked.isSupport()) {
             var click = sneaking ? SupportSlots.Click.MIDPOINT : hasStart ? SupportSlots.Click.END : SupportSlots.Click.START;
             return SupportSlots.refusal(clicked.supportUse(), click).map(SupportSlots.Refusal::messageKey);
         }
         return (hasStart ? clicked.canEndBelt() : clicked.canStartBelt()) ? Optional.empty() : Optional.of("message.belts.chute_used");
     }
-    
-    private static void planSupport(ItemStack stack, PlannedSupport support, Level world, Player player) {
-        var refusal = planRefusal(world, stack, support);
-        if (refusal.isPresent()) {
-            player.sendSystemMessage(Component.translatable(refusal.get()));
-            return;
-        }
-        var planned = new ArrayList<>(stack.getOrDefault(ComponentContent.MIDPOINTS.get(), List.of()));
-        planned.add(support);
-        stack.set(ComponentContent.MIDPOINTS.get(), planned);
-        player.sendSystemMessage(Component.translatable("message.belts.midpoint_added"));
+
+    // A free support's direction is the belt's to set; a support a belt arrives at leaves along it.
+    private BeltPlan startOn(ChuteBlockEntity chute, BlockPos clicked, BeltPlan.@Nullable Refusal refusal) {
+        var arrow = isFreeSupport(chute) ? null : chute.getOwnFacing();
+        var end = new BeltPlan.End(clicked, chute.getOwnFacing(), BeltPlan.Action.USE, null, null, arrow);
+        return new BeltPlan(BeltPlan.Click.START, beltTier, List.of(end), List.of(), null, 0, refusal);
     }
 
-    /** The message refusing a sneak-click that plans this mid-belt support, or empty; the preview asks it too. */
-    public static Optional<String> planRefusal(Level world, ItemStack stack, PlannedSupport support) {
+    // With no inventory beside it the start becomes a support, whose direction the belt's end decides.
+    private BeltPlan startOnGround(Level world, BlockPos pos, Direction stored, BeltPlan.@Nullable Refusal refusal) {
+        var loader = loaderFacing(world, pos, stored);
+        var end = loader.isPresent()
+                ? new BeltPlan.End(pos, stored, BeltPlan.Action.PLACE_LOADER, loaderState(beltTier, loader.get()), beltTier, loader.get())
+                : new BeltPlan.End(pos, stored, BeltPlan.Action.PLACE_SUPPORT, supportState(stored), null, null);
+        return new BeltPlan(BeltPlan.Click.START, beltTier, List.of(end), List.of(), null, 0, refusal);
+    }
+
+    private BeltPlan midpoint(Level world, ItemStack stack, BlockPos start, Direction startDir, PlannedSupport support) {
+        var refusal = planRefusal(world, stack, support).map(BeltPlan.Refusal::of).orElse(null);
+        var planned = new ArrayList<>(stack.getOrDefault(ComponentContent.MIDPOINTS.get(), List.of()));
+        planned.add(support);
+        var supports = supportsOf(planned);
+        var startEnd = planStart(world, start, startDir, supports, null);
+        var path = ChuteBlockEntity.BeltData.path(startEnd.anchor(), supports, null);
+        var ends = List.of(startEnd.toEnd(world, start, startEnd.places() == SupportSlots.OpenEnd.LOADER ? beltTier : null, false));
+        return new BeltPlan(BeltPlan.Click.MIDPOINT, beltTier, ends, List.copyOf(planned), path, 0, refusal);
+    }
+
+    /** The message refusing a sneak-click that plans this mid-belt support, or empty. */
+    private static Optional<String> planRefusal(Level world, ItemStack stack, PlannedSupport support) {
         var planned = new ArrayList<>(stack.getOrDefault(ComponentContent.MIDPOINTS.get(), List.of()));
         var start = stack.get(ComponentContent.BELT_START.get());
         if (support.pos().equals(start) || planned.stream().anyMatch(other -> other.pos().equals(support.pos()))) {
@@ -156,73 +167,98 @@ public class BeltItem extends Item {
         return plannedPath(world, start, stack.get(ComponentContent.BELT_DIR.get()), supportsOf(planned), null, null)
                  .refusal().map(refusal -> refusal.bound().messageKey());
     }
-    
-    private void createBelt(BlockPos start, Direction startDir, BlockPos end, Direction endDir, Level world, ItemStack stack, Player player) {
-        
-        var startChute = world.getBlockEntity(start, BlockEntitiesContent.CHUTE_BLOCK.get());
-        if (startChute.isPresent()) {
-            var refusal = clickRefusal(startChute.get(), false, false);
-            if (refusal.isPresent()) {
-                player.sendSystemMessage(Component.translatable(refusal.get()));
-                return;
-            }
+
+    // The first refusal met is the one named, so the order is the reason the player reads (PlanetaryFactory #372).
+    private BeltPlan belt(Level world, ItemStack stack, Player player, BlockPos start, Direction startDir,
+                          BlockPos end, Direction endDir, BeltPlan.@Nullable Refusal clickRefusal) {
+        var planned = stack.getOrDefault(ComponentContent.MIDPOINTS.get(), List.<PlannedSupport>of());
+        var refusal = clickRefusal;
+        if (refusal == null) {
+            refusal = world.getBlockEntity(start, BlockEntitiesContent.CHUTE_BLOCK.get())
+                        .flatMap(chute -> clickRefusal(chute, false, false)).map(BeltPlan.Refusal::of).orElse(null);
         }
-        
         // A splitter half is free at both ends, and a belt from its front to its own back would
         // hand its end straight to its head (#349).
-        if (start.equals(end)) {
-            player.sendSystemMessage(Component.translatable("message.belts.chute_used"));
-            return;
+        if (refusal == null && start.equals(end)) refusal = BeltPlan.Refusal.of("message.belts.chute_used");
+        if (refusal == null && (!canEndBelt(world, start) || !canEndBelt(world, end)
+              || planned.stream().anyMatch(support -> support.pos().equals(end) || !isOpen(world, support.pos())))) {
+            refusal = BeltPlan.Refusal.of("message.belts.blocked");
         }
 
-        var planned = stack.getOrDefault(ComponentContent.MIDPOINTS.get(), List.<PlannedSupport>of());
-        if (!canEndBelt(world, start) || !canEndBelt(world, end)
-              || planned.stream().anyMatch(support -> support.pos().equals(end) || !isOpen(world, support.pos()))) {
-            player.sendSystemMessage(Component.translatable("message.belts.blocked"));
-            return;
-        }
-        
         var supports = supportsOf(planned);
         var startEnd = planStart(world, start, startDir, supports, end);
         var endEnd = planEnd(world, end, endDir, supports, start);
-        var path = ChuteBlockEntity.BeltData.path(startEnd.anchor(), supports, endEnd.anchor());
-        var refusal = path.refusal();
-        if (refusal.isPresent()) {
-            player.sendSystemMessage(Component.translatable(refusal.get().bound().messageKey()));
-            return;
+        var path = start.equals(end) ? null : ChuteBlockEntity.BeltData.path(startEnd.anchor(), supports, endEnd.anchor());
+        if (refusal == null && path != null && path.refusal().isPresent()) {
+            refusal = BeltPlan.Refusal.of(path.refusal().get().bound().messageKey());
         }
-        var cost = player.isCreative() ? 0 : BeltCost.of(path.length());
-        var held = ContainerHelper.clearOrCountMatchingItems(player.getInventory(), this::isThisBelt, 0, true);
-        if (held < cost) {
-            player.sendSystemMessage(Component.translatable("message.belts.not_enough_belts", cost, held));
-            return;
+
+        var cost = player.isCreative() || path == null ? 0 : BeltCost.of(path.length());
+        if (refusal == null) {
+            var held = ContainerHelper.clearOrCountMatchingItems(player.getInventory(), this::isThisBelt, 0, true);
+            if (held < cost) refusal = BeltPlan.Refusal.of("message.belts.not_enough_belts", cost, held);
         }
 
         var openLoaders = (startEnd.places() == SupportSlots.OpenEnd.LOADER ? 1 : 0) + (endEnd.places() == SupportSlots.OpenEnd.LOADER ? 1 : 0);
         var loaders = LoaderChoice.of(beltTier, openLoaders, player.isCreative() ? Map.of(beltTier, openLoaders) : heldLoaders(player));
-        if (loaders.isEmpty()) {
-            player.sendSystemMessage(Component.translatable("message.belts.not_enough_loaders", openLoaders, beltTier.number()));
-            return;
+        if (refusal == null && loaders.isEmpty()) {
+            refusal = BeltPlan.Refusal.of("message.belts.not_enough_loaders", openLoaders, beltTier.number());
         }
-        var chosen = new ArrayDeque<>(loaders.get());
-        
+        var chosen = new ArrayDeque<>(loaders.orElse(List.of()));
+        var ends = List.of(
+          startEnd.toEnd(world, start, startEnd.places() == SupportSlots.OpenEnd.LOADER ? tierOf(chosen) : null, false),
+          endEnd.toEnd(world, end, endEnd.places() == SupportSlots.OpenEnd.LOADER ? tierOf(chosen) : null, true));
+        return new BeltPlan(BeltPlan.Click.BELT, beltTier, ends, List.copyOf(planned), path, cost, refusal);
+    }
+
+    // A refused plan still draws its loaders, in the belt's own tier.
+    private BeltTier tierOf(ArrayDeque<BeltTier> chosen) {
+        return chosen.isEmpty() ? beltTier : chosen.pop();
+    }
+
+    private void execute(BeltPlan plan, Level world, ItemStack stack, Player player) {
+        switch (plan.click()) {
+            case START -> {
+                var end = plan.ends().getFirst();
+                stack.set(ComponentContent.BELT_START.get(), end.pos());
+                stack.set(ComponentContent.BELT_DIR.get(), end.facing());
+                player.sendSystemMessage(Component.translatable("message.belts.started"));
+            }
+            case MIDPOINT -> {
+                stack.set(ComponentContent.MIDPOINTS.get(), plan.supports());
+                player.sendSystemMessage(Component.translatable("message.belts.midpoint_added"));
+            }
+            case BELT -> createBelt(plan, world, stack, player);
+        }
+    }
+
+    private void createBelt(BeltPlan plan, Level world, ItemStack stack, Player player) {
+        var start = plan.ends().get(0).pos();
+        var end = plan.ends().get(1).pos();
+
         stack.remove(ComponentContent.MIDPOINTS.get());
         stack.remove(ComponentContent.BELT_START.get());
         stack.remove(ComponentContent.BELT_DIR.get());
-        ContainerHelper.clearOrCountMatchingItems(player.getInventory(), this::isThisBelt, cost, false);
-        
+        ContainerHelper.clearOrCountMatchingItems(player.getInventory(), this::isThisBelt, plan.beltCost(), false);
+
         var distStart = start.distToCenterSqr(player.position());
         var distEnd = end.distToCenterSqr(player.position());
         var playfrom = distStart < distEnd ? start : end;
         world.playSound(null, playfrom, SoundEvents.BREEZE_WIND_CHARGE_BURST.value(), SoundSource.PLAYERS, 1f, 0.5f);
-        
-        startEnd.place(world, chosen, player, false);
-        endEnd.place(world, chosen, player, true);
-        for (var support : planned) placeSupport(world, support.pos(), support.facing());
-        
+
+        for (var placed : plan.ends()) {
+            if (placed.state() != null) world.setBlockAndUpdate(placed.pos(), placed.state());
+            if (placed.action() == BeltPlan.Action.PLACE_LOADER && !player.isCreative()) {
+                var item = BlockContent.loaderFor(placed.loader()).asItem();
+                ContainerHelper.clearOrCountMatchingItems(player.getInventory(), candidate -> candidate.is(item), 1, false);
+            }
+        }
+        for (var support : plan.supports()) world.setBlockAndUpdate(support.pos(), supportState(support.facing()));
+
         world.getBlockEntity(start, BlockEntitiesContent.CHUTE_BLOCK.get())
-          .ifPresent(startEntity -> startEntity.assignFromBeltItem(end, planned.stream().map(PlannedSupport::pos).toList(), beltTier, cost));
-        
+          .ifPresent(startEntity -> startEntity.assignFromBeltItem(end, plan.supports().stream().map(PlannedSupport::pos).toList(),
+            beltTier, plan.beltCost()));
+
         var next = world.getBlockEntity(end, BlockEntitiesContent.CHUTE_BLOCK.get())
                      .filter(chute -> chute.isSupport() && chute.canStartBelt());
         if (next.isPresent()) {
@@ -233,15 +269,14 @@ public class BeltItem extends Item {
             player.sendSystemMessage(Component.translatable("message.belts.belt_created"));
         }
     }
-    
+
     /**
      * The path the belt item would lay from {@code start}, reading a loader, splitter or support
      * already standing at either end, and otherwise the loader or support an open end would get;
-     * with no end, the path to the last support. The click and the preview both ask this
-     * (PlanetaryFactory ADR-0078).
+     * with no end, the path to the last support (PlanetaryFactory ADR-0078).
      */
-    public static BeltPath plannedPath(Level world, BlockPos start, Direction startDir, List<Pair<BlockPos, Direction>> supports,
-                                       @Nullable BlockPos end, @Nullable Direction endDir) {
+    private static BeltPath plannedPath(Level world, BlockPos start, Direction startDir, List<Pair<BlockPos, Direction>> supports,
+                                        @Nullable BlockPos end, @Nullable Direction endDir) {
         var endPlan = end == null ? null : planEnd(world, end, endDir, supports, start);
         return ChuteBlockEntity.BeltData.path(planStart(world, start, startDir, supports, end).anchor(), supports,
           endPlan == null ? null : endPlan.anchor());
@@ -258,11 +293,19 @@ public class BeltItem extends Item {
         }
 
         // A support faces the way its belts run, which at a belt's end is against a loader's facing.
-        void place(Level world, ArrayDeque<BeltTier> loaders, Player player, boolean atEnd) {
+        BeltPlan.End toEnd(Level world, BlockPos clicked, @Nullable BeltTier loader, boolean atEnd) {
             var flow = atEnd ? facing.getOpposite() : facing;
-            if (places == SupportSlots.OpenEnd.LOADER) placeLoader(world, pos, facing, loaders.pop(), player);
-            if (places == SupportSlots.OpenEnd.SUPPORT) placeSupport(world, pos, flow);
-            if (turns) world.setBlockAndUpdate(pos, world.getBlockState(pos).setValue(HorizontalDirectionalBlock.FACING, flow));
+            if (places == SupportSlots.OpenEnd.LOADER) {
+                return new BeltPlan.End(pos, facing, BeltPlan.Action.PLACE_LOADER, loaderState(loader, facing), loader, null);
+            }
+            if (places == SupportSlots.OpenEnd.SUPPORT) {
+                return new BeltPlan.End(pos, flow, BeltPlan.Action.PLACE_SUPPORT, supportState(flow), null, null);
+            }
+            if (turns) {
+                var turned = world.getBlockState(pos).setValue(HorizontalDirectionalBlock.FACING, flow);
+                return new BeltPlan.End(pos, flow, BeltPlan.Action.TURN_SUPPORT, turned, null, null);
+            }
+            return new BeltPlan.End(clicked, facing, BeltPlan.Action.USE, null, null, null);
         }
     }
 
@@ -321,18 +364,14 @@ public class BeltItem extends Item {
         return Optional.empty();
     }
 
-    private static void placeSupport(Level world, BlockPos pos, Direction facing) {
-        world.setBlockAndUpdate(pos, BlockContent.CONVEYOR_SUPPORT_BLOCK.get().defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, facing));
+    private static BlockState supportState(Direction facing) {
+        return BlockContent.CONVEYOR_SUPPORT_BLOCK.get().defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, facing);
     }
 
-    private static void placeLoader(Level world, BlockPos pos, Direction facing, BeltTier tier, Player player) {
-        world.setBlockAndUpdate(pos, BlockContent.loaderFor(tier).defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, facing));
-        if (!player.isCreative()) {
-            var item = BlockContent.loaderFor(tier).asItem();
-            ContainerHelper.clearOrCountMatchingItems(player.getInventory(), stack -> stack.is(item), 1, false);
-        }
+    private static BlockState loaderState(BeltTier tier, Direction facing) {
+        return BlockContent.loaderFor(tier).defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, facing);
     }
-    
+
     private static Map<BeltTier, Integer> heldLoaders(Player player) {
         var held = new EnumMap<BeltTier, Integer>(BeltTier.class);
         for (var tier : BeltTier.values()) {
@@ -383,11 +422,6 @@ public class BeltItem extends Item {
         super.appendHoverText(stack, context, display, tooltip, type);
     }
     
-    /** The mid-belt supports the belt item has planned, as the path reads them. */
-    public static List<Pair<BlockPos, Direction>> getStoredMidpoints(ItemStack stack) {
-        return supportsOf(stack.getOrDefault(ComponentContent.MIDPOINTS.get(), List.of()));
-    }
-
     private static List<Pair<BlockPos, Direction>> supportsOf(List<PlannedSupport> planned) {
         return planned.stream().map(support -> Pair.of(support.pos(), support.facing())).toList();
     }

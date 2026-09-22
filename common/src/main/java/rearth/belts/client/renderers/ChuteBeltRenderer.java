@@ -12,12 +12,15 @@ import net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState;
 import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.data.AtlasIds;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
@@ -231,6 +234,29 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
                 addVertex(consumer, pose, sprite, quad.b, quad.lightB);
                 addVertex(consumer, pose, sprite, quad.c, quad.lightC);
                 addVertex(consumer, pose, sprite, quad.d, quad.lightD);
+            }
+        });
+        poseStack.popPose();
+    }
+
+    /** The same mesh a placed belt draws, so the preview is the belt (PlanetaryFactory #372). */
+    public static void submitPlanned(PoseStack poseStack, SubmitNodeCollector collector, Vec3 camera, ChuteBlockEntity.BeltData beltData,
+                                     BlockPos origin, Direction startFacing, Direction endFacing, BeltTier tier, int argb) {
+        var light = LightCoordsUtil.pack(15, 15);
+        var quads = createSplineModel(beltData, origin, startFacing, endFacing, pos -> light);
+        var sprite = Minecraft.getInstance().getAtlasManager().getAtlasOrThrow(AtlasIds.BLOCKS).getSprite(BELT_FRAME_SPRITES.get(tier)[0]);
+        poseStack.pushPose();
+        poseStack.translate(origin.getX() - camera.x, origin.getY() - camera.y - 2 / 16f + 0.08f, origin.getZ() - camera.z);
+        collector.submitCustomGeometry(poseStack, RenderTypes.entityTranslucent(TextureAtlas.LOCATION_BLOCKS), (pose, consumer) -> {
+            for (var quad : quads) {
+                for (var vertex : List.of(quad.a, quad.b, quad.c, quad.d)) {
+                    consumer.addVertex(pose.pose(), vertex.x, vertex.y, vertex.z)
+                      .setColor(argb)
+                      .setUv(sprite.getU(vertex.u), sprite.getV(vertex.v))
+                      .setOverlay(OverlayTexture.NO_OVERLAY)
+                      .setLight(light)
+                      .setNormal(pose, 0, 1, 0);
+                }
             }
         });
         poseStack.popPose();

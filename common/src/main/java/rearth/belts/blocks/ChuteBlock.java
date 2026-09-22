@@ -74,7 +74,7 @@ public class ChuteBlock extends HorizontalDirectionalBlock implements EntityBloc
             var entity = candidate.get();
             // An empty hand is a reset, and only the main hand's reaches useWithoutItem; an empty
             // off hand tried after the main hand set a filter must not undo it.
-            if (!entity.isUsed() || stack.isEmpty()) return super.useItemOn(stack, state, world, pos, player, hand, hit);
+            if (!setsFilter(entity, stack)) return super.useItemOn(stack, state, world, pos, player, hand, hit);
             if (!world.isClientSide())
                 entity.assignFilterItem(stack, player);
             return InteractionResult.SUCCESS;
@@ -83,6 +83,11 @@ public class ChuteBlock extends HorizontalDirectionalBlock implements EntityBloc
         return super.useItemOn(stack, state, world, pos, player, hand, hit);
     }
     
+    /** Whether a click holding this stack sets the filter, answered before the held item is asked (PlanetaryFactory #372). */
+    public boolean setsFilter(ChuteBlockEntity entity, ItemStack stack) {
+        return entity.isUsed() && !stack.isEmpty();
+    }
+
     @Override
     public InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos, Player player, BlockHitResult hit) {
         
