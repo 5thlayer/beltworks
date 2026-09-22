@@ -11,20 +11,21 @@ import rearth.belts.BlockEntitiesContent;
 import rearth.belts.Belts;
 
 /**
- * A player's hand on the belt that starts at {@code belt}, at a fraction of its curve, resent each
- * tick the use button is held; a negative progress lets go (#350).
+ * A player's hand on the belt that starts at {@code belt}, or on the splitter half there, at a
+ * fraction of its curve, resent each tick the use button is held; a negative progress lets go (#350).
  */
-public record BeltHandPayload(BlockPos belt, double progress) implements CustomPacketPayload {
+public record BeltHandPayload(BlockPos belt, boolean half, double progress) implements CustomPacketPayload {
 
     public static final Type<BeltHandPayload> TYPE = new Type<>(Belts.id("belt_hand"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, BeltHandPayload> STREAM_CODEC = StreamCodec.composite(
       BlockPos.STREAM_CODEC, BeltHandPayload::belt,
+      ByteBufCodecs.BOOL, BeltHandPayload::half,
       ByteBufCodecs.DOUBLE, BeltHandPayload::progress,
       BeltHandPayload::new);
 
     public static BeltHandPayload release(BlockPos belt) {
-        return new BeltHandPayload(belt, -1);
+        return new BeltHandPayload(belt, false, -1);
     }
 
     @Override
@@ -41,7 +42,7 @@ public record BeltHandPayload(BlockPos belt, double progress) implements CustomP
             if (payload.progress < 0) {
                 belt.releaseHand(player);
             } else {
-                belt.holdHand(player, payload.progress);
+                belt.holdHand(player, payload.half, payload.progress);
             }
         });
     }

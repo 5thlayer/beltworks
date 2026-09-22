@@ -40,27 +40,44 @@ public final class BeltCollisionRegistry {
     private BeltCollisionRegistry() {
     }
 
+    /** The belt starting at this block. */
     public static void register(ChuteBlockEntity entity) {
+        if (entity.getTarget() == null) return;
+        register(entity, false, entity.getBeltData(), entity.getBeltSpeed());
+    }
+
+    /** A splitter half's own block of belt, a surface of its own beside any belt starting there (#373). */
+    public static void registerHalf(ChuteBlockEntity entity) {
+        register(entity, true, entity.getHalfData(), entity.getHalfSpeed() * 20);
+    }
+
+    private static void register(ChuteBlockEntity entity, boolean half, ChuteBlockEntity.@Nullable BeltData beltData, double speed) {
         var level = entity.getLevel();
-        var beltData = entity.getBeltData();
-        if (level == null || beltData == null || entity.getTarget() == null) return;
+        if (level == null || beltData == null) return;
 
         var levelData = LEVEL_DATA.computeIfAbsent(level, ignored -> new LevelCollisionData());
-        var sourcePos = entity.getBlockPos().immutable();
-        var current = levelData.belts.get(sourcePos);
-        var speed = entity.getBeltSpeed();
+        var key = new BeltKey(entity.getBlockPos().immutable(), half);
+        var current = levelData.belts.get(key);
         if (current != null && current.sourceData == beltData && current.speed == speed) return;
 
-        levelData.belts.put(sourcePos, createCollision(beltData, speed));
+        levelData.belts.put(key, createCollision(beltData, speed));
         levelData.rebuildSectionIndex();
     }
 
     public static void unregister(ChuteBlockEntity entity) {
+        unregister(entity, false);
+    }
+
+    public static void unregisterHalf(ChuteBlockEntity entity) {
+        unregister(entity, true);
+    }
+
+    private static void unregister(ChuteBlockEntity entity, boolean half) {
         var level = entity.getLevel();
         if (level == null) return;
 
         var levelData = LEVEL_DATA.get(level);
-        if (levelData == null || levelData.belts.remove(entity.getBlockPos()) == null) return;
+        if (levelData == null || levelData.belts.remove(new BeltKey(entity.getBlockPos(), half)) == null) return;
 
         if (levelData.belts.isEmpty()) {
             LEVEL_DATA.remove(level);
@@ -131,15 +148,21 @@ public final class BeltCollisionRegistry {
                 if (hit.isEmpty()) continue;
                 var distance = from.distanceTo(hit.get());
                 if (nearest == null || distance < nearest.distance) {
-                    nearest = new BeltHit(belt.getKey(), segment.progressAt(hit.get()), distance);
+                    nearest = new BeltHit(belt.getKey().pos, belt.getKey().half, segment.progressAt(hit.get()), distance);
                 }
             }
         }
         return nearest;
     }
 
-    /** @param progress the fraction of the belt's curve from its start */
-    public record BeltHit(BlockPos source, double progress, double distance) {
+    /**
+     * @param half     whether the belt is a splitter half's own block rather than the belt starting there
+     * @param progress the fraction of the belt's curve from its start
+     */
+    public record BeltHit(BlockPos source, boolean half, double progress, double distance) {
+    }
+
+    private record BeltKey(BlockPos pos, boolean half) {
     }
 
     private static boolean canBeMoved(Entity entity) {
@@ -291,7 +314,7 @@ public final class BeltCollisionRegistry {
     }
 
     private static final class LevelCollisionData {
-        private final Map<BlockPos, BeltCollision> belts = new HashMap<>();
+        private final Map<BeltKey, BeltCollision> belts = new HashMap<>();
         private final Map<Long, List<CollisionSlab>> sectionIndex = new HashMap<>();
 
         private void rebuildSectionIndex() {

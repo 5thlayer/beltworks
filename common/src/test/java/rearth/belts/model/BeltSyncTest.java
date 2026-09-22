@@ -64,15 +64,16 @@ class BeltSyncTest {
     @Test
     void aSplitterPassIsARemovalFromOneBeltAndAnAdditionToTheOther() {
         var in = new BeltContents<String>();
-        var out = new BeltContents<String>();
+        var half = new Splitter.Half<String>();
         for (int tick = 0; tick < 20; tick++) in.tick(1, TIER_1, () -> in.isEmpty() ? "item" : null, item -> false);
         in.drainChanges();
         var passed = in.entries().getFirst().id();
 
-        new Splitter<String>(1).tick(0, new Splitter.Lane<>(in, 1, TIER_1), null, new Splitter.Lane<>(out, 1, TIER_1), null);
+        new Splitter<String>(BeltTier.BELT).tick(0, new Splitter.Side<>(half, new Splitter.Lane<>(in, 1, TIER_1), null, null),
+          new Splitter.Side<>(new Splitter.Half<>(), null, null, null));
 
         assertEquals(List.of(passed), in.drainChanges().removed());
-        assertEquals(List.of("item"), out.drainChanges().added().stream().map(BeltContents.Added::payload).toList());
+        assertEquals(List.of("item"), half.entering().drainChanges().added().stream().map(BeltContents.Added::payload).toList());
     }
 
     @Test

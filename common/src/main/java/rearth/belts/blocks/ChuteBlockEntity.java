@@ -90,8 +90,11 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     private final LoaderEnergy energy;
     private final boolean splitter;
     private final boolean support;
-    // Run by the left half only (#349).
+    // Run by the left half only, for both halves (#349).
     private final @Nullable Splitter<ItemStack> splitterModel;
+    private final Splitter.@Nullable Half<ItemStack> half;
+    private final double halfSpeed;
+    private @Nullable BeltData halfData;
 
     public ChuteBlockEntity(BlockPos pos, BlockState state) {
         super(BlockEntitiesContent.CHUTE_BLOCK.get(), pos, state);
@@ -101,7 +104,9 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         flow = new FlowLimit(tier.itemsPerTick());
         // Splitters draw no power (ADR-0076).
         energy = new LoaderEnergy(splitter ? BeltTier.BELT : tier);
-        splitterModel = splitter ? new Splitter<>(tier.itemsPerTick()) : null;
+        splitterModel = splitter ? new Splitter<>(tier) : null;
+        half = splitter ? new Splitter.Half<>() : null;
+        halfSpeed = tier.blocksPerTick();
     }
     
     @Override
@@ -112,9 +117,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             setChanged();
         }
 
-        if (splitter && !level.isClientSide() && state.getValue(SplitterBlock.SIDE) == SplitterBlock.Side.LEFT) {
-            tickSplitter(level, pos, state);
-        }
+        if (splitter) tickHalf(level, pos, state);
 
         if (support && !level.isClientSide()) {
             var in = incomingBelt();
@@ -160,34 +163,59 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             needsFit = false;
         }
         
-        if (contents.tick(getBeltLength(), beltTier.blocksPerTick(), this::extractOne, this::insertIntoTarget, hand(level))) {
+        if (contents.tick(getBeltLength(), beltTier.blocksPerTick(), this::extractOne, this::insertIntoTarget, hand(level, false))) {
             setChanged();
         }
         // After the tick, so a splitter that ran later last tick is sent too.
-        var changes = contents.drainChanges();
-        if (!changes.isEmpty() && level instanceof ServerLevel serverLevel) BeltSync.send(serverLevel, pos, changes);
+        send(Track.BELT, contents);
         
         // refresh target
         if (level.getGameTime() % 19 == 0)
             assignTargetState(level);
     }
 
-    /** Brings the client's copy of this belt up to what the server's gained and lost. */
-    public void applyChanges(BeltContents.Changes<ItemStack> changes) {
-        contents.apply(changes);
+    private void send(Track track, BeltContents<ItemStack> belt) {
+        var changes = belt.drainChanges();
+        if (!changes.isEmpty() && level instanceof ServerLevel serverLevel) BeltSync.send(serverLevel, worldPosition, track, changes);
+    }
+
+    /** Brings the client's copy of one of this block's belts up to what the server's gained and lost. */
+    public void applyChanges(Track track, BeltContents.Changes<ItemStack> changes) {
+        var belt = belt(track);
+        if (belt != null) belt.apply(changes);
+    }
+
+    private @Nullable BeltContents<ItemStack> belt(Track track) {
+        return switch (track) {
+            case BELT -> contents;
+            case HALF_ENTERING -> half == null ? null : half.entering();
+            case HALF_LEAVING -> half == null ? null : half.leaving();
+        };
+    }
+
+    /** The belts a block carries: the one starting at it, and a splitter half's own two segments (#373). */
+    public enum Track {
+        BELT, HALF_ENTERING, HALF_LEAVING
     }
     
     /**
      * Makes the point at this fraction of the belt's curve the player's end for the belt, until
      * they release it or it lapses. Once their inventory refuses an item the hand stops taking
-     * until it is released, and the belt runs on to its end past it (#350).
+     * until it is released, and the belt runs on to its end past it (#350). On a splitter's half
+     * the belt is the half's own block (#373).
      */
-    public void holdHand(ServerPlayer player, double progress) {
-        if (beltData == null || !(progress >= 0 && progress <= 1)) return;
+    public void holdHand(ServerPlayer player, boolean onHalf, double progress) {
+        var data = onHalf ? getHalfData() : beltData;
+        if (data == null || !(progress >= 0 && progress <= 1)) return;
         var reach = player.blockInteractionRange() + 1;
-        if (player.getEyePosition().distanceToSqr(SplineUtil.getPositionOnSpline(beltData, progress)) > reach * reach) return;
-        var taking = heldHand == null || heldHand.player != player || heldHand.taking;
-        heldHand = new HeldHand(player, handPoint(progress), level.getGameTime() + HAND_LAPSE_TICKS, taking);
+        if (player.getEyePosition().distanceToSqr(SplineUtil.getPositionOnSpline(data, progress)) > reach * reach) return;
+        var taking = heldHand == null || heldHand.player != player || heldHand.onHalf != onHalf || heldHand.taking;
+        var point = onHalf ? progress - BeltContents.SPACING / 2 : handPoint(progress);
+        heldHand = new HeldHand(player, onHalf, point, level.getGameTime() + HAND_LAPSE_TICKS, taking);
+    }
+
+    public void holdHand(ServerPlayer player, double progress) {
+        holdHand(player, false, progress);
     }
 
     /** The entry position a hand at this fraction of the curve holds. */
@@ -200,7 +228,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         if (heldHand != null && heldHand.player == player) heldHand = null;
     }
 
-    private BeltContents.@Nullable Hand<ItemStack> hand(Level level) {
+    private BeltContents.@Nullable Hand<ItemStack> hand(Level level, boolean onHalf) {
         if (heldHand == null) return null;
         var held = heldHand;
         var player = held.player;
@@ -208,18 +236,31 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             heldHand = null;
             return null;
         }
-        if (!held.taking) return null;
+        if (!held.taking || held.onHalf != onHalf) return null;
         return new BeltContents.Hand<>(held.point, item -> {
             // Asked first: a creative inventory's add answers true when full and voids the item.
             var inventory = player.getInventory();
             if ((inventory.getSlotWithRemainingSpace(item) >= 0 || inventory.getFreeSlot() >= 0)
                   && inventory.add(item.copy())) return true;
-            heldHand = new HeldHand(player, held.point, held.until, false);
+            heldHand = new HeldHand(player, held.onHalf, held.point, held.until, false);
             return false;
         });
     }
 
-    private record HeldHand(ServerPlayer player, double point, long until, boolean taking) {
+    private record HeldHand(ServerPlayer player, boolean onHalf, double point, long until, boolean taking) {
+    }
+
+    // Before a splitter's early returns: a half carries items with no belt leaving it.
+    private void tickHalf(Level level, BlockPos pos, BlockState state) {
+        BeltCollisionRegistry.registerHalf(this);
+        if (level.isClientSide()) {
+            half.entering().advance(Splitter.MIDLINE, halfSpeed);
+            half.leaving().advance(Splitter.MIDLINE, halfSpeed);
+            return;
+        }
+        if (state.getValue(SplitterBlock.SIDE) == SplitterBlock.Side.LEFT) tickSplitter(level, pos, state);
+        send(Track.HALF_ENTERING, half.entering());
+        send(Track.HALF_LEAVING, half.leaving());
     }
 
     // One model for both halves, so the two inputs and two outputs alternate as one splitter (#349).
@@ -228,11 +269,15 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         if (right.isEmpty() || !right.get().splitter) return;
         var inLeft = incomingBelt();
         var inRight = right.get().incomingBelt();
-        if (splitterModel.tick(level.getGameTime(), lane(inLeft), lane(inRight), outgoingLane(), right.get().outgoingLane())) {
+        if (splitterModel.tick(level.getGameTime(), side(level, inLeft), right.get().side(level, inRight))) {
             for (var changed : new ChuteBlockEntity[] {inLeft, inRight, this, right.get()}) {
                 if (changed != null) changed.setChanged();
             }
         }
+    }
+
+    private Splitter.Side<ItemStack> side(Level level, @Nullable ChuteBlockEntity incoming) {
+        return new Splitter.Side<>(half, lane(incoming), outgoingLane(), hand(level, true));
     }
 
     /** The loader, splitter half or support whose belt ends here, if its belt is laid out. */
@@ -249,7 +294,8 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     }
 
     private static @Nullable Splitter.Lane<ItemStack> lane(@Nullable ChuteBlockEntity belt) {
-        return belt == null ? null : new Splitter.Lane<>(belt.contents, belt.getBeltLength(), belt.beltTier.blocksPerTick());
+        return belt == null ? null
+                 : new Splitter.Lane<>(belt.contents, belt.getBeltLength(), belt.beltTier.blocksPerTick(), belt.hand(belt.level, false));
     }
 
     /**
@@ -258,6 +304,12 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
      */
     public void releaseBelts(@Nullable Player player) {
         if (level == null || level.isClientSide()) return;
+        if (half != null && half.size() > 0) {
+            var carried = half.payloads();
+            half.clear();
+            setChanged();
+            giveBack(player, carried, worldPosition);
+        }
         if (target != null && !target.equals(BlockPos.ZERO)) releaseBelt(player, worldPosition);
         var source = level.getBlockEntity(sourceBeltPos, BlockEntitiesContent.CHUTE_BLOCK.get());
         if (source.isPresent() && source.get() != this && worldPosition.equals(source.get().target)) {
@@ -303,8 +355,12 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         if (level instanceof ServerLevel serverWorld)
             serverWorld.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
 
+        giveBack(player, returned, dropAt);
+    }
+
+    private void giveBack(@Nullable Player player, List<ItemStack> stacks, BlockPos dropAt) {
         var spawnAt = dropAt.getCenter();
-        for (var stack : returned) {
+        for (var stack : stacks) {
             if (player != null) {
                 player.getInventory().placeItemBackInInventory(stack);
             } else {
@@ -411,12 +467,28 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         output.store("source", BlockPos.CODEC, sourceBeltPos);
         output.store("passing", BlockPos.CODEC, passingBeltPos);
 
-        var positions = output.childrenList("moving");
-        for (var entry : contents.entries()) {
+        saveEntries(output, "moving", contents);
+        if (half != null) {
+            saveEntries(output, "half_entering", half.entering());
+            saveEntries(output, "half_leaving", half.leaving());
+        }
+    }
+
+    private static void saveEntries(ValueOutput output, String name, BeltContents<ItemStack> belt) {
+        var positions = output.childrenList(name);
+        for (var entry : belt.entries()) {
             var item = positions.addChild();
             item.putDouble("position", entry.position());
             item.store("stack", ItemStack.OPTIONAL_CODEC, entry.payload());
             item.putInt("id", entry.id());
+        }
+    }
+
+    private static void loadEntries(ValueInput input, String name, BeltContents<ItemStack> belt) {
+        belt.clear();
+        for (var item : input.childrenListOrEmpty(name)) {
+            var stack = item.read("stack", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY);
+            belt.restore(stack, item.getDoubleOr("position", 0), item.getIntOr("id", 0));
         }
     }
     
@@ -437,10 +509,10 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         sourceBeltPos = input.read("source", BlockPos.CODEC).orElse(BlockPos.ZERO);
         passingBeltPos = input.read("passing", BlockPos.CODEC).orElse(BlockPos.ZERO);
 
-        contents.clear();
-        for (var item : input.childrenListOrEmpty("moving")) {
-            var stack = item.read("stack", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY);
-            contents.restore(stack, item.getDoubleOr("position", 0), item.getIntOr("id", 0));
+        loadEntries(input, "moving", contents);
+        if (half != null) {
+            loadEntries(input, "half_entering", half.entering());
+            loadEntries(input, "half_leaving", half.leaving());
         }
         
         if (level != null && (pathChanged || beltData == null)) {
@@ -462,6 +534,29 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     
     public List<BeltContents.Entry<ItemStack>> getBeltEntries() {
         return contents.entries();
+    }
+
+    /** A splitter half's own belt, or null on any other block. */
+    public Splitter.@Nullable Half<ItemStack> getHalf() {
+        return half;
+    }
+
+    /** Blocks per tick a splitter half's items move: its own tier's belt speed. */
+    public double getHalfSpeed() {
+        return halfSpeed;
+    }
+
+    /** A splitter half's straight block of belt from its back face to its front face, or null on any other block. */
+    public @Nullable BeltData getHalfData() {
+        if (!splitter) return null;
+        if (halfData == null) {
+            var facing = getOwnFacing();
+            var forward = new Vec3(facing.getStepX(), 0, facing.getStepZ());
+            var center = worldPosition.getCenter();
+            halfData = new BeltData(List.of(new Pair<>(center.subtract(forward.scale(0.5)), forward),
+              new Pair<>(center.add(forward.scale(0.5)), forward)), 1, new double[] {1});
+        }
+        return halfData;
     }
     
     public BlockPos getTarget() {
@@ -603,6 +698,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     @Override
     public void setRemoved() {
         BeltCollisionRegistry.unregister(this);
+        BeltCollisionRegistry.unregisterHalf(this);
         super.setRemoved();
     }
 

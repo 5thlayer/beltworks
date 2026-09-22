@@ -32,6 +32,7 @@ import rearth.belts.blocks.ChuteBlock;
 import rearth.belts.blocks.ChuteBlockEntity;
 import rearth.belts.model.BeltContents;
 import rearth.belts.model.BeltTier;
+import rearth.belts.model.Splitter;
 import rearth.belts.util.SplineUtil;
 
 import java.util.ArrayList;
@@ -100,6 +101,7 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
             // The belt's tier is the belt item's; the splitter's own surface is its block's.
             state.splitterSprite = beltSprite(((ChuteBlock) entity.getBlockState().getBlock()).tier(), gameTime + partialTicks);
             state.splitterQuads = createSplitterSurface(entity, state.lightCoords);
+            addHalfItems(entity, state, partialTicks);
         }
 
         var targetPos = entity.getTarget();
@@ -142,45 +144,20 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
 
         state.quads = cachedMesh.quads;
         var activeLightPositions = new HashSet<>(cachedMesh.lightPositions);
-        var originCenter = entity.getBlockPos().getCenter();
-        var progressPerTick = entity.getBeltSpeed() / entity.getBeltLength() / 20f;
         var entries = entity.getBeltEntries();
-        var positions = extrapolatedPositions(entity, entries, partialTicks);
+        var speed = entity.getBeltSpeed() / 20d;
+        var positions = extrapolatedPositions(entries, speed, entity.getBeltLength(), partialTicks);
         for (int index = 0; index < entries.size(); index++) {
             var entry = entries.get(index);
-            var stack = entry.payload();
             // An entry the client placed behind a lagging head can start short of the belt (#351).
             var progress = Math.clamp((positions[index] + BeltContents.SPACING / 2) / entity.getBeltLength(), 0, 1);
-            var nextProgress = Math.min(1, progress + progressPerTick);
-            var worldPoint = SplineUtil.getPositionOnSpline(beltData, progress);
-            var nextWorldPoint = SplineUtil.getPositionOnSpline(beltData, nextProgress);
-            var renderPosition = worldPoint.subtract(originCenter);
-            var itemLight = shaded(getLightCoords(
+            var light = shaded(getLightCoords(
               entity,
-              BlockPos.containing(renderPosition.add(originCenter)),
+              BlockPos.containing(SplineUtil.getPositionOnSpline(beltData, progress)),
               activeLightPositions,
               rebuildMesh
             ), entry.id());
-
-            if (!(stack.getItem() instanceof BlockItem)) {
-                renderPosition = renderPosition.add(0, -0.12, 0);
-            }
-
-            var forward = nextWorldPoint.subtract(worldPoint);
-            var flatForward = new Vec3(forward.x, 0, forward.z).normalize();
-            // Drawn in two lanes of four per block, by id parity, so items at a readable size do not
-            // overlap and z-fight. The belt itself has one lane (#344).
-            var lane = (entry.id() & 1) == 0 ? 0.125 : -0.125;
-            renderPosition = renderPosition.add(flatForward.cross(UP).scale(lane));
-            var scale = stack.getItem() instanceof BlockItem ? 0.5f : 0.35f;
-            var yaw = (float) Math.toDegrees(Math.atan2(-flatForward.z, flatForward.x));
-            var pitch = (float) Math.toDegrees(Math.atan2(forward.y, Math.sqrt(forward.x * forward.x + forward.z * forward.z)));
-
-            var itemState = new ItemStackRenderState();
-            minecraft.getItemModelResolver().updateForTopItem(
-              itemState, stack, ItemDisplayContext.FIXED, level, null, 0
-            );
-            state.items.add(new RenderedItem(renderPosition, yaw, pitch, scale, itemLight, itemState));
+            state.items.add(renderedItem(entity, beltData, progress, speed / entity.getBeltLength(), entry, light));
         }
         entity.cachedLightCoords.keySet().removeIf(pos -> !activeLightPositions.contains(pos));
 
@@ -192,6 +169,54 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
             state.filter = filterState;
             state.filterFacing = entity.getOwnFacing();
         }
+    }
+
+    /** A splitter half's items, each segment's along its own half of the block (#373). */
+    private static void addHalfItems(ChuteBlockEntity entity, RenderState state, float partialTicks) {
+        var half = entity.getHalf();
+        var halfData = entity.getHalfData();
+        if (half == null || halfData == null) return;
+        var speed = entity.getHalfSpeed();
+        for (var segment : List.of(half.entering(), half.leaving())) {
+            var start = segment == half.leaving() ? Splitter.MIDLINE : 0;
+            var entries = segment.entries();
+            var positions = extrapolatedPositions(entries, speed, Splitter.MIDLINE, partialTicks);
+            for (int index = 0; index < entries.size(); index++) {
+                var progress = Math.clamp(start + positions[index] + BeltContents.SPACING / 2, 0, 1);
+                var entry = entries.get(index);
+                state.items.add(renderedItem(entity, halfData, progress, speed, entry, shaded(state.lightCoords, entry.id())));
+            }
+        }
+    }
+
+    /** An entry drawn at a fraction of a curve, facing along it. */
+    private static RenderedItem renderedItem(ChuteBlockEntity entity, ChuteBlockEntity.BeltData beltData, double progress,
+                                             double progressPerTick, BeltContents.Entry<ItemStack> entry, int light) {
+        var stack = entry.payload();
+        var nextProgress = Math.min(1, progress + progressPerTick);
+        var worldPoint = SplineUtil.getPositionOnSpline(beltData, progress);
+        var nextWorldPoint = SplineUtil.getPositionOnSpline(beltData, nextProgress);
+        var renderPosition = worldPoint.subtract(entity.getBlockPos().getCenter());
+
+        if (!(stack.getItem() instanceof BlockItem)) {
+            renderPosition = renderPosition.add(0, -0.12, 0);
+        }
+
+        var forward = nextWorldPoint.subtract(worldPoint);
+        var flatForward = new Vec3(forward.x, 0, forward.z).normalize();
+        // Drawn in two lanes of four per block, by id parity, so items at a readable size do not
+        // overlap and z-fight. The belt itself has one lane (#344).
+        var lane = (entry.id() & 1) == 0 ? 0.125 : -0.125;
+        renderPosition = renderPosition.add(flatForward.cross(UP).scale(lane));
+        var scale = stack.getItem() instanceof BlockItem ? 0.5f : 0.35f;
+        var yaw = (float) Math.toDegrees(Math.atan2(-flatForward.z, flatForward.x));
+        var pitch = (float) Math.toDegrees(Math.atan2(forward.y, Math.sqrt(forward.x * forward.x + forward.z * forward.z)));
+
+        var itemState = new ItemStackRenderState();
+        Minecraft.getInstance().getItemModelResolver().updateForTopItem(
+          itemState, stack, ItemDisplayContext.FIXED, entity.getLevel(), null, 0
+        );
+        return new RenderedItem(renderPosition, yaw, pitch, scale, light, itemState);
     }
 
     @Override
@@ -430,11 +455,11 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
      * behind the entry ahead and at the end, as {@link BeltContents#tick} backs a belt up. Drawing
      * the last update's positions instead moves items in one step per tick.
      */
-    private static double[] extrapolatedPositions(ChuteBlockEntity entity, List<BeltContents.Entry<ItemStack>> entries,
+    private static double[] extrapolatedPositions(List<BeltContents.Entry<ItemStack>> entries, double speed, double length,
                                                   float partialTicks) {
-        var advance = entity.getBeltSpeed() / 20f * partialTicks;
+        var advance = speed * partialTicks;
         var positions = new double[entries.size()];
-        var limit = entity.getBeltLength() - BeltContents.SPACING;
+        var limit = length - BeltContents.SPACING;
         for (int index = entries.size() - 1; index >= 0; index--) {
             positions[index] = Math.min(entries.get(index).position() + advance, limit);
             limit = positions[index] - BeltContents.SPACING;

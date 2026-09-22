@@ -28,14 +28,17 @@ import java.util.Locale;
 
 /**
  * One half of a splitter, two blocks wide across its {@link #FACING}, which is the way items flow.
- * Each half ends one belt at its back and starts one at its front (ADR-0076). The halves share
- * the loader's block entity, with no inventory and no filter.
+ * Each half ends one belt at its back and starts one at its front (ADR-0076), and is itself a block
+ * of belt of the splitter's tier (PlanetaryFactory #373). The halves share the loader's block
+ * entity, with no inventory and no filter.
  */
 public class SplitterBlock extends ChuteBlock {
 
     public static final EnumProperty<Side> SIDE = EnumProperty.create("side", Side.class);
 
     private static final VoxelShape SHAPE = Shapes.box(0, 0, 0, 1, 9.28 / 16f, 1);
+    // At the belt's surface, where the renderer draws it, so what stands on a half rides its belt.
+    private static final VoxelShape COLLISION = Shapes.box(0, 0, 0, 1, 0.5 - 2 / 16d + 0.08, 1);
 
     public SplitterBlock(Properties settings, BeltTier tier) {
         super(settings, tier);
@@ -69,6 +72,11 @@ public class SplitterBlock extends ChuteBlock {
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
         return SHAPE;
+    }
+
+    @Override
+    protected VoxelShape getCollisionShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+        return COLLISION;
     }
 
     @Override

@@ -9,10 +9,12 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import rearth.belts.BlockEntitiesContent;
 import rearth.belts.Belts;
+import rearth.belts.blocks.ChuteBlockEntity;
 import rearth.belts.model.BeltContents;
 
-/** What the belt starting at {@code belt} gained and lost since the last one sent (#351). */
-public record BeltChangesPayload(BlockPos belt, BeltContents.Changes<ItemStack> changes) implements CustomPacketPayload {
+/** What one of the block at {@code belt}'s belts gained and lost since the last one sent (#351). */
+public record BeltChangesPayload(BlockPos belt, ChuteBlockEntity.Track track, BeltContents.Changes<ItemStack> changes)
+  implements CustomPacketPayload {
 
     public static final Type<BeltChangesPayload> TYPE = new Type<>(Belts.id("belt_changes"));
 
@@ -30,6 +32,7 @@ public record BeltChangesPayload(BlockPos belt, BeltContents.Changes<ItemStack> 
 
     public static final StreamCodec<RegistryFriendlyByteBuf, BeltChangesPayload> STREAM_CODEC = StreamCodec.composite(
       BlockPos.STREAM_CODEC, BeltChangesPayload::belt,
+      ByteBufCodecs.idMapper(id -> ChuteBlockEntity.Track.values()[id], Enum::ordinal), BeltChangesPayload::track,
       CHANGES_CODEC, BeltChangesPayload::changes,
       BeltChangesPayload::new);
 
@@ -42,6 +45,6 @@ public record BeltChangesPayload(BlockPos belt, BeltContents.Changes<ItemStack> 
         var level = context.player().level();
         if (!level.hasChunkAt(payload.belt)) return;
         level.getBlockEntity(payload.belt, BlockEntitiesContent.CHUTE_BLOCK.get())
-          .ifPresent(belt -> belt.applyChanges(payload.changes));
+          .ifPresent(belt -> belt.applyChanges(payload.track, payload.changes));
     }
 }

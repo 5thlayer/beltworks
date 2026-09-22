@@ -16,8 +16,11 @@ public final class Join {
     public static <T> boolean pass(Splitter.Lane<T> in, Splitter.@Nullable Lane<T> out) {
         if (out == null) return false;
         var passed = false;
-        while (in.belt().endReady(in.length(), in.speed()) && out.belt().canOffer(out.length(), out.speed())) {
-            out.belt().offer(in.belt().takeEnd(), out.speed());
+        var held = in.hand() == null ? -1 : in.hand().point();
+        while (in.belt().endReady(in.length(), in.speed(), held)) {
+            var at = in.belt().overshoot(in.length(), in.speed());
+            if (!out.belt().canOffer(out.length(), at, out.hand())) break;
+            out.belt().offer(in.belt().takeEnd(), out.length(), at, out.hand());
             passed = true;
         }
         return passed;

@@ -14,6 +14,7 @@ import rearth.belts.neoforge.BeltHandPayload;
 final class BeltHandClient {
 
     private static @Nullable BlockPos held;
+    private static boolean heldHalf;
 
     private BeltHandClient() {
     }
@@ -23,13 +24,14 @@ final class BeltHandClient {
         var hit = minecraft.options.keyUse.isDown() && minecraft.screen == null
                     && minecraft.player != null && !minecraft.player.isUsingItem() ? aim(minecraft) : null;
 
-        if (held != null && (hit == null || !held.equals(hit.source()))) {
+        if (held != null && (hit == null || !held.equals(hit.source()) || heldHalf != hit.half())) {
             ClientPacketDistributor.sendToServer(BeltHandPayload.release(held));
             held = null;
         }
         if (hit == null) return;
-        ClientPacketDistributor.sendToServer(new BeltHandPayload(hit.source(), hit.progress()));
+        ClientPacketDistributor.sendToServer(new BeltHandPayload(hit.source(), hit.half(), hit.progress()));
         held = hit.source();
+        heldHalf = hit.half();
     }
 
     // Otherwise the same press would also place the held block or use the held item past the belt.

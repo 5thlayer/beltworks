@@ -100,7 +100,21 @@ public final class BeltContents<T> {
 
     /** Whether the entry at the end is within one tick of it, so a splitter may take it this tick. */
     public boolean endReady(double length, double speed) {
-        return !entries.isEmpty() && entries.peekLast().position + speed >= length - SPACING;
+        return endReady(length, speed, -1);
+    }
+
+    /** As {@link #endReady(double, double)}, for an end entry past a hand held at {@code point}. */
+    public boolean endReady(double length, double speed, double point) {
+        return !entries.isEmpty() && entries.peekLast().position > point
+                 && entries.peekLast().position + speed >= length - SPACING;
+    }
+
+    /**
+     * How far past the end's last position the entry there would move this tick: where it lands
+     * on the belt that takes it, since an entry's last position on one belt is the next one's first.
+     */
+    public double overshoot(double length, double speed) {
+        return entries.peekLast().position + speed - (length - SPACING);
     }
 
     /** Removes the entry at the end, after {@link #endReady} said there is one. */
@@ -111,21 +125,24 @@ public final class BeltContents<T> {
     }
 
     /** Whether {@link #offer} would place an entry at the head. */
-    public boolean canOffer(double length, double speed) {
-        var at = offerAt(speed);
-        return at >= 0 && at <= length - SPACING;
+    public boolean canOffer(double length, double at, @Nullable Hand<T> hand) {
+        return placement(length, at, hand) >= 0;
     }
 
     /**
-     * Places an entry at the head, at most one tick's travel along it, so a splitter can hand on
-     * more than one entry a tick without an entry jumping ahead to a sparse belt's last one.
+     * Places an entry handed on from another belt's end at its {@link #overshoot}, or as far
+     * short of it as the head and a hand hold it. Placed any nearer the start, a handed-on entry
+     * loses travel each handoff and the entry behind it waits for room (#373).
      */
-    public void offer(T payload, double speed) {
-        load(payload, offerAt(speed));
+    public void offer(T payload, double length, double at, @Nullable Hand<T> hand) {
+        load(payload, placement(length, at, hand));
     }
 
-    private double offerAt(double speed) {
-        return entries.isEmpty() ? 0 : Math.min(entries.peekFirst().position - SPACING, speed);
+    private double placement(double length, double at, @Nullable Hand<T> hand) {
+        var placed = Math.max(at, 0);
+        if (!entries.isEmpty()) placed = Math.min(placed, entries.peekFirst().position - SPACING);
+        if (hand != null) placed = Math.min(placed, Math.max(hand.point, 0));
+        return Math.min(placed, length - SPACING);
     }
 
     /**
