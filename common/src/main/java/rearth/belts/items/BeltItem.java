@@ -116,6 +116,14 @@ public class BeltItem extends Item {
             }
             
             list.add(targetBlockPos);
+            var supports = new ArrayList<>(getStoredMidpoints(stack, context.getLevel()));
+            supports.add(Pair.of(targetBlockPos, supportCandidate.getValue(HorizontalDirectionalBlock.FACING)));
+            var refusal = plannedPath(context.getLevel(), stack.get(ComponentContent.BELT_START.get()),
+              stack.get(ComponentContent.BELT_DIR.get()), supports, null, null).refusal();
+            if (refusal.isPresent()) {
+                context.getPlayer().sendSystemMessage(Component.translatable(refusal.get().bound().messageKey()));
+                return InteractionResult.FAIL;
+            }
             stack.set(ComponentContent.MIDPOINTS.get(), list);
             context.getPlayer().sendSystemMessage(Component.translatable("message.belts.midpoint_added"));
             
