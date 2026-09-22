@@ -234,7 +234,8 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             return null;
         }
         if (!held.taking || held.onHalf != onHalf) return null;
-        return new BeltContents.Hand<>(held.point, item -> {
+        var point = !onHalf && endInventoryRefuses() ? getBeltLength() : held.point;
+        return new BeltContents.Hand<>(point, item -> {
             // Asked first: a creative inventory's add answers true when full and voids the item.
             var inventory = player.getInventory();
             if ((inventory.getSlotWithRemainingSpace(item) >= 0 || inventory.getFreeSlot() >= 0)
@@ -242,6 +243,21 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
             heldHand = new HeldHand(player, held.onHalf, held.point, held.until, false);
             return false;
         });
+    }
+
+    /**
+     * Whether the inventory at the belt's far loader refuses the entry nearest it. The entry that
+     * stops there sits inside the loader's back plate, where no aim reaches it, so a hand on a belt
+     * backed up this way holds its end (PlanetaryFactory #360).
+     */
+    private boolean endInventoryRefuses() {
+        var entries = contents.entries();
+        if (entries.isEmpty()) return false;
+        var end = level.getBlockEntity(target, BlockEntitiesContent.CHUTE_BLOCK.get()).orElse(null);
+        if (end == null || end.splitter || end.support) return false;
+        var inventory = ItemApi.BLOCK.find(level, target.relative(end.getOwnFacing().getOpposite()), null, null, end.getOwnFacing());
+        var item = entries.getLast().payload();
+        return inventory == null || inventory.insert(item, true) != item.getCount();
     }
 
     private record HeldHand(ServerPlayer player, boolean onHalf, double point, long until, boolean taking) {

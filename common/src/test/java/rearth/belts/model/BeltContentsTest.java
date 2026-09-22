@@ -250,6 +250,22 @@ class BeltContentsTest {
     }
 
     @Test
+    void aBackedUpBeltHeldAtItsEndGivesUpEveryEntry() {
+        var belt = new BeltContents<Integer>();
+        var next = new int[1];
+        for (int tick = 0; tick < 20 * 20; tick++) belt.tick(4, TIER_1, () -> next[0]++, item -> false);
+        var fullAt = belt.size();
+
+        var taken = new ArrayList<Integer>();
+        for (int tick = 0; tick < 20 * 4; tick++) {
+            belt.tick(4, TIER_1, () -> null, item -> false, new BeltContents.Hand<>(4, taken::add));
+        }
+
+        assertEquals(fullAt, taken.size());
+        assertEquals(0, belt.size());
+    }
+
+    @Test
     void aHandThatRefusesHoldsTheEntryAtItsPointAndBacksTheBeltUpBehindIt() {
         var belt = new BeltContents<String>();
 
