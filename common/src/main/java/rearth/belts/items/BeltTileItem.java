@@ -27,6 +27,7 @@ import rearth.belts.model.TileShape;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * The tile item (PlanetaryFactory #393). A plain click places one tile facing the look; a
@@ -98,15 +99,10 @@ public class BeltTileItem extends TooltipBlockItem {
         var player = context.getPlayer();
         var corners = corners(stack);
         var path = Stretch.path(spot(start), BeltTileBlock.travel(look), corners, spot(aimedTile(context)));
-        if (path.isEmpty()) {
-            var anchor = corners.isEmpty() ? new Stretch.Step(spot(start), BeltTileBlock.travel(look))
-                           : Stretch.path(spot(start), BeltTileBlock.travel(look), corners.subList(0, corners.size() - 1), corners.getLast())
-                               .orElseThrow().getLast();
-            var facing = Direction.getApproximateNearest(anchor.travel().x(), 0, anchor.travel().z());
-            var tile = new StretchPlan.Tile(pos(anchor.spot()), getBlock().defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, facing),
-              StretchPlan.Action.PLACE);
-            return new StretchPlan(List.of(tile), 0, List.of(), StretchPlan.Refusal.of(StretchPlan.Reason.BEHIND_LOOK));
-        }
+        // Behind the look, the preview still shows the stretch up to its last corner, refused.
+        var behind = path.isEmpty();
+        if (behind) path = corners.isEmpty() ? Optional.of(List.of(new Stretch.Step(spot(start), BeltTileBlock.travel(look))))
+                             : Stretch.path(spot(start), BeltTileBlock.travel(look), corners.subList(0, corners.size() - 1), corners.getLast());
 
         var travels = new HashMap<LineScan.Spot, LineScan.Travel>();
         for (var step : path.get()) travels.put(step.spot(), step.travel());
@@ -114,7 +110,7 @@ public class BeltTileItem extends TooltipBlockItem {
         var tiles = new ArrayList<StretchPlan.Tile>();
         var returned = new ArrayList<ItemStack>();
         var cost = 0;
-        StretchPlan.Refusal refusal = null;
+        StretchPlan.Refusal refusal = behind ? StretchPlan.Refusal.of(StretchPlan.Reason.BEHIND_LOOK) : null;
         for (var step : path.get()) {
             var pos = pos(step.spot());
             var facing = Direction.getApproximateNearest(step.travel().x(), 0, step.travel().z());
@@ -189,8 +185,8 @@ public class BeltTileItem extends TooltipBlockItem {
         level.gameEvent(GameEvent.BLOCK_PLACE, first.pos(), GameEvent.Context.of(player, first.state()));
     }
 
-    // Where a tile placed by this click would go, or the tile aimed at, so a stretch can start or end on one.
-    private static BlockPos aimedTile(BlockPlaceContext context) {
+    /** Where a tile placed by this click would go, or the tile aimed at, so a stretch can start or end on one. */
+    public static BlockPos aimedTile(BlockPlaceContext context) {
         var clicked = context.getClickedPos();
         var aimed = context.replacingClickedOnBlock() ? clicked : clicked.relative(context.getClickedFace().getOpposite());
         return context.getLevel().getBlockState(aimed).getBlock() instanceof BeltTileBlock ? aimed : clicked;
