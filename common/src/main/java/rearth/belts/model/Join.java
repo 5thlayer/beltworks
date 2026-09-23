@@ -5,7 +5,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * An entry handed from one belt's end to the next belt's head, at the sending belt's
  * {@link BeltContents#overshoot}, so it moves its speed across the join as along a belt
- * (PlanetaryFactory #366, #373). With no belt taking it, nothing passes and the sender backs up.
+ * (PlanetaryFactory #373, #394). With no belt taking it, nothing passes and the sender backs up.
  *
  * <p>The sender hands on before it moves, since the overshoot looks a tick ahead; handed on after,
  * the entry would move twice in one tick. A receiver still to move this tick says so in its

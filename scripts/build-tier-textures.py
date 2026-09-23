@@ -15,14 +15,14 @@ from PIL import Image
 
 TEXTURES = Path(__file__).resolve().parent.parent / "common/src/main/resources/assets/belts/textures"
 ART = Path(__file__).resolve().parent / "belt-art"
-# Tier -> (texture prefix, item art, hue). Every tier's belt frames are the tier-1 frames, so the
+# Tier -> (texture prefix, hue). Every tier's belt frames are the tier-1 frames, so the
 # tiers differ only in colour. The written textures are not read back: recolouring a recoloured
 # image drifts by rounding, so every tier starts from the source art.
 TIERS = {
-    "belt": ("", "belt", 0.14),
-    "improved": ("improved_", "improved", 0.0),
-    "express": ("express_", "improved", 0.58),
-    "turbo": ("turbo_", "improved", 0.33),
+    "belt": ("", 0.14),
+    "improved": ("improved_", 0.0),
+    "express": ("express_", 0.58),
+    "turbo": ("turbo_", 0.33),
 }
 FRAMES = ART / "belt/frames"
 # The accent stripes are the only saturated pixels; the rubber and frame are grey.
@@ -201,8 +201,7 @@ def corner_model(prefix, from_left: bool) -> bytes:
 def outputs():
     yield TEXTURES / "block/loader_slate.png", slate()
     yield TEXTURES / "block/loader_mouth.png", mouth()
-    for step, (prefix, art, hue) in enumerate(TIERS.values(), start=1):
-        yield TEXTURES / f"item/{prefix}belt.png", recolour(ART / art / "item.png", hue)
+    for step, (prefix, hue) in enumerate(TIERS.values(), start=1):
         frames = sorted(FRAMES.glob("frame_*.png"))
         colour = tier_colour(recolour(frames[0], hue))
         yield TEXTURES / f"block/{prefix}chute.png", band(colour)

@@ -18,7 +18,6 @@ import rearth.belts.util.SplineUtil;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,25 +37,16 @@ public final class BeltCollisionRegistry {
     private static final double ITEM_HEIGHT = 0.25;
 
     private static final Map<Level, LevelCollisionData> LEVEL_DATA = new WeakHashMap<>();
-    private static final Map<Level, Set<BlockPos>> TILES = new WeakHashMap<>();
-
+    
     private BeltCollisionRegistry() {
     }
 
-    /** The belt starting at this block. */
-    public static void register(ChuteBlockEntity entity) {
-        if (entity.getTarget() == null) return;
-        register(entity, false, entity.getBeltData(), entity.getBeltSpeed());
-    }
-
-    /** A splitter half's own block of belt, a surface of its own beside any belt starting there (#373). */
+    /** A splitter half's own block of belt (#373). */
     public static void registerHalf(ChuteBlockEntity entity) {
-        register(entity, true, entity.getHalfData(), entity.getHalfSpeed() * 20);
-    }
-
-    private static void register(ChuteBlockEntity entity, boolean half, ChuteBlockEntity.@Nullable BeltData beltData, double speed) {
+        var beltData = entity.getHalfData();
         if (beltData == null) return;
-        register(entity.getLevel(), entity.getBlockPos(), half, beltData, t -> SplineUtil.getPositionOnSpline(beltData, t), beltData.totalLength(), speed);
+        register(entity.getLevel(), entity.getBlockPos(), beltData, t -> SplineUtil.getPositionOnSpline(beltData, t), beltData.totalLength(),
+          entity.getHalfSpeed() * 20);
     }
 
     /**
@@ -66,21 +56,18 @@ public final class BeltCollisionRegistry {
      * @param source compared by equality, so an unchanged tile does not rebuild the index
      */
     public static void registerTile(Level level, BlockPos pos, Object source, DoubleFunction<Vec3> path, double speed) {
-        register(level, pos, false, source, path, 1, speed);
-        TILES.computeIfAbsent(level, ignored -> new HashSet<>()).add(pos.immutable());
+        register(level, pos, source, path, 1, speed);
     }
 
     public static void unregisterTile(Level level, BlockPos pos) {
-        unregister(level, pos, false);
-        var tiles = TILES.get(level);
-        if (tiles != null) tiles.remove(pos);
+        unregister(level, pos);
     }
 
-    private static void register(@Nullable Level level, BlockPos pos, boolean half, Object source, DoubleFunction<Vec3> path, double length, double speed) {
+    private static void register(@Nullable Level level, BlockPos pos, Object source, DoubleFunction<Vec3> path, double length, double speed) {
         if (level == null) return;
 
         var levelData = LEVEL_DATA.computeIfAbsent(level, ignored -> new LevelCollisionData());
-        var key = new BeltKey(pos.immutable(), half);
+        var key = pos.immutable();
         var current = levelData.belts.get(key);
         if (current != null && current.source.equals(source) && current.speed == speed) return;
 
@@ -88,23 +75,15 @@ public final class BeltCollisionRegistry {
         levelData.rebuildSectionIndex();
     }
 
-    public static void unregister(ChuteBlockEntity entity) {
-        unregister(entity, false);
-    }
-
     public static void unregisterHalf(ChuteBlockEntity entity) {
-        unregister(entity, true);
+        unregister(entity.getLevel(), entity.getBlockPos());
     }
 
-    private static void unregister(ChuteBlockEntity entity, boolean half) {
-        unregister(entity.getLevel(), entity.getBlockPos(), half);
-    }
-
-    private static void unregister(@Nullable Level level, BlockPos pos, boolean half) {
+    private static void unregister(@Nullable Level level, BlockPos pos) {
         if (level == null) return;
 
         var levelData = LEVEL_DATA.get(level);
-        if (levelData == null || levelData.belts.remove(new BeltKey(pos, half)) == null) return;
+        if (levelData == null || levelData.belts.remove(pos) == null) return;
 
         if (levelData.belts.isEmpty()) {
             LEVEL_DATA.remove(level);
@@ -160,23 +139,6 @@ public final class BeltCollisionRegistry {
         if (closest != null) applyPlayerVelocity(player, closest);
     }
 
-    /**
-     * The blocks whose belts may pass through this block, found by their drawn surface; a
-     * splitter half's own block of belt, and a tile, is not one (PlanetaryFactory #361).
-     */
-    public static List<BlockPos> beltSourcesAt(Level level, BlockPos pos) {
-        var levelData = LEVEL_DATA.get(level);
-        if (levelData == null) return List.of();
-        var tiles = TILES.getOrDefault(level, Set.of());
-        var block = new AABB(pos);
-        var sources = new ArrayList<BlockPos>();
-        for (var belt : levelData.belts.entrySet()) {
-            if (belt.getKey().half || tiles.contains(belt.getKey().pos) || !belt.getValue().bounds.intersects(block)) continue;
-            if (belt.getValue().slabs.stream().anyMatch(slab -> slab.bounds.intersects(block))) sources.add(belt.getKey().pos);
-        }
-        return sources;
-    }
-
     /** The nearest belt a ray from {@code from} to {@code to} meets, and where along its curve. */
     public static @Nullable BeltHit raycast(Level level, Vec3 from, Vec3 to) {
         var levelData = LEVEL_DATA.get(level);
@@ -192,21 +154,15 @@ public final class BeltCollisionRegistry {
                 if (hit.isEmpty()) continue;
                 var distance = from.distanceTo(hit.get());
                 if (nearest == null || distance < nearest.distance) {
-                    nearest = new BeltHit(belt.getKey().pos, belt.getKey().half, segment.progressAt(hit.get()), distance);
+                    nearest = new BeltHit(belt.getKey(), segment.progressAt(hit.get()), distance);
                 }
             }
         }
         return nearest;
     }
 
-    /**
-     * @param half     whether the belt is a splitter half's own block rather than the belt starting there
-     * @param progress the fraction of the belt's curve from its start
-     */
-    public record BeltHit(BlockPos source, boolean half, double progress, double distance) {
-    }
-
-    private record BeltKey(BlockPos pos, boolean half) {
+    /** @param progress the fraction of the belt's path from its start */
+    public record BeltHit(BlockPos source, double progress, double distance) {
     }
 
     private static boolean canBeMoved(Entity entity) {
@@ -358,7 +314,7 @@ public final class BeltCollisionRegistry {
     }
 
     private static final class LevelCollisionData {
-        private final Map<BeltKey, BeltCollision> belts = new HashMap<>();
+        private final Map<BlockPos, BeltCollision> belts = new HashMap<>();
         private final Map<Long, List<CollisionSlab>> sectionIndex = new HashMap<>();
 
         private void rebuildSectionIndex() {

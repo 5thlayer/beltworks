@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/** A support joining two belts hands each item from one's end to the next one's head (#366). */
+/** One belt's end hands each item to the next one's head, as a line does into a splitter half and a half into the line ahead (#373). */
 class JoinTest {
 
     private static final int MINUTE = 20 * 60;

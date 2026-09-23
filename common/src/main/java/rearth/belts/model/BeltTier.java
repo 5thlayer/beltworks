@@ -18,17 +18,17 @@ public enum BeltTier {
       new InserterSwing(0.04, 20000, 0.1, 20000, 1, 2, 1000));
 
     private final int number;
-    private final String beltItem;
+    private final String stem;
     private final String loader;
     private final String splitter;
     private final String beltTexture;
     private final double factorioSpeed;
     private final InserterSwing inserter;
 
-    BeltTier(int number, String beltItem, String loader, String splitter, String beltTexture, double factorioSpeed,
+    BeltTier(int number, String stem, String loader, String splitter, String beltTexture, double factorioSpeed,
              InserterSwing inserter) {
         this.number = number;
-        this.beltItem = beltItem;
+        this.stem = stem;
         this.loader = loader;
         this.splitter = splitter;
         this.beltTexture = beltTexture;
@@ -46,14 +46,9 @@ public enum BeltTier {
         return number;
     }
 
-    /** The belt item's registry path in the {@code belts} namespace. */
-    public String beltItem() {
-        return beltItem;
-    }
-
     /** The belt tile's block and item registry path in the {@code belts} namespace (PlanetaryFactory #398). */
     public String tile() {
-        return beltItem + "_tile";
+        return stem + "_tile";
     }
 
     /** The loader's block and item registry path in the {@code belts} namespace. */

@@ -1,6 +1,5 @@
 package rearth.belts;
 
-import rearth.belts.items.BeltItem;
 import rearth.belts.items.BeltTileItem;
 import rearth.belts.items.SplitterItem;
 import rearth.belts.items.TooltipBlockItem;
@@ -29,21 +28,6 @@ public class ItemContent {
     public static final RegistrySupplier<Item> IMPROVED_SPLITTER = splitter(BeltTier.IMPROVED, BlockContent.IMPROVED_SPLITTER_BLOCK);
     public static final RegistrySupplier<Item> EXPRESS_SPLITTER = splitter(BeltTier.EXPRESS, BlockContent.EXPRESS_SPLITTER_BLOCK);
     public static final RegistrySupplier<Item> TURBO_SPLITTER = splitter(BeltTier.TURBO, BlockContent.TURBO_SPLITTER_BLOCK);
-    // In the creative tab for testing placement; it has no recipe, since the belt item places supports (#366).
-    public static final RegistrySupplier<Item> CONVEYOR_SUPPORT = ITEMS.register("conveyor_support", () -> new TooltipBlockItem(BlockContent.CONVEYOR_SUPPORT_BLOCK.get(), properties("conveyor_support")));
-    public static final RegistrySupplier<Item> BELT = belt(BeltTier.BELT);
-    public static final RegistrySupplier<Item> IMPROVED_BELT = belt(BeltTier.IMPROVED);
-    public static final RegistrySupplier<Item> EXPRESS_BELT = belt(BeltTier.EXPRESS);
-    public static final RegistrySupplier<Item> TURBO_BELT = belt(BeltTier.TURBO);
-
-    public static Item beltFor(BeltTier tier) {
-        return switch (tier) {
-            case BELT -> BELT.get();
-            case IMPROVED -> IMPROVED_BELT.get();
-            case EXPRESS -> EXPRESS_BELT.get();
-            case TURBO -> TURBO_BELT.get();
-        };
-    }
 
     public static Item tileFor(BeltTier tier) {
         return switch (tier) {
@@ -64,10 +48,6 @@ public class ItemContent {
 
     private static RegistrySupplier<Item> splitter(BeltTier tier, RegistrySupplier<Block> block) {
         return ITEMS.register(tier.splitter(), () -> new SplitterItem(block.get(), properties(tier.splitter())));
-    }
-
-    private static RegistrySupplier<Item> belt(BeltTier tier) {
-        return ITEMS.register(tier.beltItem(), () -> new BeltItem(properties(tier.beltItem()), tier));
     }
 
     private static Item.Properties properties(String path) {

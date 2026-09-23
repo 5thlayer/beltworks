@@ -402,7 +402,7 @@ public class BeltTileBlockEntity extends BlockEntity {
     private @Nullable ChuteBlockEntity loaderAt(BlockPos pos, Direction facing) {
         if (level == null || !level.isLoaded(pos)) return null;
         var loader = level.getBlockEntity(pos, BlockEntitiesContent.CHUTE_BLOCK.get()).orElse(null);
-        if (loader == null || loader.isSplitter() || loader.isSupport()) return null;
+        if (loader == null || loader.isSplitter()) return null;
         return loader.getOwnFacing() == facing ? loader : null;
     }
 

@@ -56,7 +56,7 @@ public class BeltTileRenderer implements BlockEntityRenderer<BeltTileBlockEntity
         for (var drawn : place.drawn(partialTicks)) {
             var stack = drawn.entry().payload();
             var block = stack.getItem() instanceof BlockItem;
-            // Two lanes of four per block by id parity, as the spline belt draws them, so items at
+            // Two lanes of four per block by id parity, as a splitter half draws them, so items at
             // a readable size do not overlap. The line itself has one lane (#344).
             var lane = (drawn.entry().id() & 1) == 0 ? 0.125 : -0.125;
             var point = shape.point(drawn.offset(), travel);

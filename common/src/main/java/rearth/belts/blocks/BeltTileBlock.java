@@ -91,7 +91,7 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
         return state.setValue(CORNER, Shape.of(shape));
     }
 
-    // A tile, a loader or a splitter half outputs the way it faces; a support shapes nothing.
+    // A tile, a loader or a splitter half outputs the way it faces.
     public static boolean feeds(BlockState state, LineScan.Travel travel) {
         if (!(state.getBlock() instanceof BeltTileBlock) && !(state.getBlock() instanceof ChuteBlock)) return false;
         return travel.equals(travel(state.getValue(HorizontalDirectionalBlock.FACING)));

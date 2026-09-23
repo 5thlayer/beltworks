@@ -32,9 +32,9 @@ class BeltTierTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"1, belt", "2, improved_belt", "3, express_belt", "4, turbo_belt"})
-    void eachTierNamesItsBeltItem(int tier, String item) {
-        assertEquals(item, BeltTier.of(tier).beltItem());
+    @CsvSource({"1, belt_tile", "2, improved_belt_tile", "3, express_belt_tile", "4, turbo_belt_tile"})
+    void eachTierNamesItsTile(int tier, String item) {
+        assertEquals(item, BeltTier.of(tier).tile());
     }
 
     @ParameterizedTest

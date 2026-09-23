@@ -14,6 +14,6 @@ public class ItemGroupContent {
     
     public static final RegistrySupplier<CreativeModeTab> BELTS_GROUP = GROUPS.register("group", () -> CreativeTabRegistry.create(
       Component.translatable("itemgroup.belts.items"),
-      () -> new ItemStack(ItemContent.BELT.get())
+      () -> new ItemStack(ItemContent.BELT_TILE.get())
     ));
 }
