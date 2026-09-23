@@ -109,6 +109,36 @@ def splitter_belt(prefix, frames, step):
     yield TEXTURES / f"block/{prefix}splitter_belt.png.mcmeta", (json.dumps(meta, indent=2) + "\n").encode()
 
 
+def corner(frame: bytes, support: Image.Image, from_left: bool) -> Image.Image:
+    """A quarter turn of the straight belt about the corner's inner vertex, exit north and entry west
+    (from the left) or east. Radius keeps the lateral position and angle the distance along, so
+    each edge meets the straight tile beside it pixel for pixel (#410)."""
+    # The straight tile's top face is the frame turned 180 degrees.
+    straight = Image.open(io.BytesIO(frame)).convert("RGBA").rotate(180)
+    image = support.copy()
+    for x in range(16):
+        for z in range(16):
+            dx = x + 0.5 if from_left else 16 - (x + 0.5)
+            r = math.hypot(dx, z + 0.5)
+            if r >= 16:
+                continue
+            along = 16 * math.atan2(z + 0.5, dx) / (math.pi / 2)
+            lateral = r if from_left else 16 - r
+            image.putpixel((x, z), straight.getpixel((min(15, int(lateral)), min(15, int(along)))))
+    return image
+
+
+def corner_strips(prefix, frames, step, support):
+    order = [(index * step) % len(frames) for index in range(len(frames) // math.gcd(step, len(frames)))]
+    meta = (json.dumps({"animation": {"frametime": 1, "frames": order}}, indent=2) + "\n").encode()
+    for side, from_left in (("left", True), ("right", False)):
+        strip = Image.new("RGBA", (16, 16 * len(frames)))
+        for index, frame in enumerate(frames):
+            strip.paste(corner(frame, support, from_left), (0, 16 * index))
+        yield TEXTURES / f"block/{prefix}belt_corner_{side}.png", png(strip)
+        yield TEXTURES / f"block/{prefix}belt_corner_{side}.png.mcmeta", meta
+
+
 def outputs():
     yield TEXTURES / "block/loader_slate.png", slate()
     yield TEXTURES / "block/loader_mouth.png", mouth()
@@ -120,6 +150,8 @@ def outputs():
         for frame in frames:
             yield TEXTURES / f"block/{prefix}conveyorbelt/{frame.name}", recolour(frame, hue)
         yield from splitter_belt(prefix, [recolour(frame, hue) for frame in frames], step)
+        support = Image.open(TEXTURES / "block/conveyor_support.png").convert("RGBA")
+        yield from corner_strips(prefix, [recolour(frame, hue) for frame in frames], step, support)
 
 
 def main():
