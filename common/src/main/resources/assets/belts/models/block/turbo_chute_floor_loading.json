@@ -1,0 +1,6 @@
+{
+  "parent": "belts:block/loader_floor_loading",
+  "textures": {
+    "belt": "belts:block/turbo_splitter_belt"
+  }
+}
