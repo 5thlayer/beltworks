@@ -70,4 +70,26 @@ class StretchTest {
     void aStretchIsOneTileMoreThanItsTwoLegs() {
         assertEquals(5 + 7 + 1, Stretch.path(ORIGIN, NORTH, new LineScan.Spot(7, 64, -5)).orElseThrow().size());
     }
+
+    @Test
+    void aLegAfterACornerHeadsTheWayTheCornersLastTileTravels() {
+        var path = Stretch.path(ORIGIN, EAST, List.of(new LineScan.Spot(3, 64, 0)), new LineScan.Spot(3, 64, -2)).orElseThrow();
+
+        assertEquals(List.of(step(0, 0, EAST), step(1, 0, EAST), step(2, 0, EAST), step(3, 0, NORTH), step(3, -1, NORTH), step(3, -2, NORTH)), path);
+    }
+
+    // Looking east, a corner two ahead and two south, then an end two further south and two west: a U.
+    @Test
+    void cornersChainIntoOnePathWithNoTileTwice() {
+        var west = new LineScan.Travel(-1, 0);
+        var path = Stretch.path(ORIGIN, EAST, List.of(new LineScan.Spot(2, 64, 2)), new LineScan.Spot(0, 64, 4)).orElseThrow();
+
+        assertEquals(List.of(step(0, 0, EAST), step(1, 0, EAST), step(2, 0, SOUTH), step(2, 1, SOUTH), step(2, 2, SOUTH),
+          step(2, 3, SOUTH), step(2, 4, west), step(1, 4, west), step(0, 4, west)), path);
+    }
+
+    @Test
+    void aLegTurningBackOnItsCornersHeadingIsRefused() {
+        assertTrue(Stretch.path(ORIGIN, EAST, List.of(new LineScan.Spot(3, 64, 0)), new LineScan.Spot(1, 64, 0)).isEmpty());
+    }
 }

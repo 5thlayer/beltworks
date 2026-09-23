@@ -19,6 +19,8 @@ public class ComponentContent {
       () -> DataComponentType.<BlockPos>builder().persistent(BlockPos.CODEC).networkSynchronized(BlockPos.STREAM_CODEC).build());
     public static final RegistrySupplier<DataComponentType<Direction>> BELT_DIR = COMPONENTS.register("belt_start_dir",
       () -> DataComponentType.<Direction>builder().persistent(Direction.CODEC).networkSynchronized(Direction.STREAM_CODEC).build());
+    public static final RegistrySupplier<DataComponentType<List<BlockPos>>> STRETCH_CORNERS = COMPONENTS.register("stretch_corners",
+      () -> DataComponentType.<List<BlockPos>>builder().persistent(BlockPos.CODEC.listOf()).networkSynchronized(BlockPos.STREAM_CODEC.apply(ByteBufCodecs.list())).build());
     
     public static final RegistrySupplier<DataComponentType<List<PlannedSupport>>> MIDPOINTS = COMPONENTS.register("belt_midpoints",
       () -> DataComponentType.<List<PlannedSupport>>builder().persistent(PlannedSupport.CODEC.listOf()).networkSynchronized(PlannedSupport.STREAM_CODEC.apply(ByteBufCodecs.list())).build());

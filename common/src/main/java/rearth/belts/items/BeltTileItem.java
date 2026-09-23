@@ -31,7 +31,8 @@ import java.util.List;
 /**
  * The tile item (PlanetaryFactory #393). A plain click places one tile facing the look; a
  * sneak-click stores a start and the look, and the next plain click lays a {@link Stretch} to the
- * aimed spot. A sneak-click with a start stored leaves it; a sneak-use in the air forgets it.
+ * aimed spot. A sneak-click with a start stored adds a corner there, and the stretch runs on from it;
+ * a sneak-use in the air forgets the start and its corners.
  */
 public class BeltTileItem extends TooltipBlockItem {
 
@@ -57,16 +58,22 @@ public class BeltTileItem extends TooltipBlockItem {
         var level = context.getLevel();
         var player = context.getPlayer();
         var stack = context.getItemInHand();
+        var plan = stretch(context);
         if (player != null && player.isShiftKeyDown()) {
-            if (!level.isClientSide() && !stack.has(ComponentContent.BELT_START.get())) {
+            if (level.isClientSide()) return InteractionResult.SUCCESS;
+            if (plan == null) {
                 stack.set(ComponentContent.BELT_START.get(), aimedTile(context));
                 stack.set(ComponentContent.BELT_DIR.get(), context.getHorizontalDirection());
                 tell(player, Component.translatable("message.belts.stretch_started"));
+            } else if (plan.refused()) {
+                tell(player, plan.refusal().message());
+            } else {
+                addCorner(stack, context);
             }
             return InteractionResult.SUCCESS;
         }
 
-        var plan = stretch(context);
+
         if (plan == null) return super.place(context);
         if (level.isClientSide()) return plan.refused() ? InteractionResult.FAIL : InteractionResult.SUCCESS;
         if (plan.refused()) {
@@ -78,20 +85,25 @@ public class BeltTileItem extends TooltipBlockItem {
     }
 
     /**
-     * What a plain click with a stored start lays, or null when this click is not one: sneaking, or
-     * no start stored.
+     * What a click with a stored start lays, through its corners to the aimed spot, or null with no
+     * start stored. A sneak-click adds a corner only where this is not refused.
      */
     public @Nullable StretchPlan stretch(BlockPlaceContext context) {
         var stack = context.getItemInHand();
         var start = stack.get(ComponentContent.BELT_START.get());
         var look = stack.get(ComponentContent.BELT_DIR.get());
-        var player = context.getPlayer();
-        if (start == null || look == null || player != null && player.isShiftKeyDown()) return null;
+        if (start == null || look == null) return null;
 
         var level = context.getLevel();
-        var path = Stretch.path(spot(start), BeltTileBlock.travel(look), spot(aimedTile(context)));
+        var player = context.getPlayer();
+        var corners = corners(stack);
+        var path = Stretch.path(spot(start), BeltTileBlock.travel(look), corners, spot(aimedTile(context)));
         if (path.isEmpty()) {
-            var tile = new StretchPlan.Tile(start, getBlock().defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, look),
+            var anchor = corners.isEmpty() ? new Stretch.Step(spot(start), BeltTileBlock.travel(look))
+                           : Stretch.path(spot(start), BeltTileBlock.travel(look), corners.subList(0, corners.size() - 1), corners.getLast())
+                               .orElseThrow().getLast();
+            var facing = Direction.getApproximateNearest(anchor.travel().x(), 0, anchor.travel().z());
+            var tile = new StretchPlan.Tile(pos(anchor.spot()), getBlock().defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, facing),
               StretchPlan.Action.PLACE);
             return new StretchPlan(List.of(tile), 0, List.of(), StretchPlan.Refusal.of(StretchPlan.Reason.BEHIND_LOOK));
         }
@@ -235,6 +247,24 @@ public class BeltTileItem extends TooltipBlockItem {
     private static void clearStart(ItemStack stack) {
         stack.remove(ComponentContent.BELT_START.get());
         stack.remove(ComponentContent.BELT_DIR.get());
+        stack.remove(ComponentContent.STRETCH_CORNERS.get());
+    }
+
+    private static List<LineScan.Spot> corners(ItemStack stack) {
+        return stack.getOrDefault(ComponentContent.STRETCH_CORNERS.get(), List.<BlockPos>of()).stream().map(BeltTileItem::spot).toList();
+    }
+
+    // The corner is where the stretch to the aim ends, level with its start.
+    private static void addCorner(ItemStack stack, BlockPlaceContext context) {
+        var start = stack.get(ComponentContent.BELT_START.get());
+        var corners = corners(stack);
+        var end = Stretch.path(spot(start), BeltTileBlock.travel(stack.get(ComponentContent.BELT_DIR.get())), corners, spot(aimedTile(context)))
+                    .orElseThrow().getLast().spot();
+        if (end.equals(corners.isEmpty() ? spot(start) : corners.getLast())) return;
+        var stored = new ArrayList<>(stack.getOrDefault(ComponentContent.STRETCH_CORNERS.get(), List.<BlockPos>of()));
+        stored.add(pos(end));
+        stack.set(ComponentContent.STRETCH_CORNERS.get(), List.copyOf(stored));
+        if (context.getPlayer() != null) tell(context.getPlayer(), Component.translatable("message.belts.stretch_corner"));
     }
 
     private static LineScan.Spot spot(BlockPos pos) {
