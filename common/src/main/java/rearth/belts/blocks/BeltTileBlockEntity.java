@@ -320,6 +320,20 @@ public class BeltTileBlockEntity extends BlockEntity {
         return index < holding.shares.size() ? holding.shares.get(index) : List.of();
     }
 
+    /** Lets go of what this tile carries without dropping it, for the tile replacing it to {@link #carry} (#393). */
+    public List<TransportLine.Share<ItemStack>> takeCarried() {
+        var holding = holder();
+        if (holding != null) holding.release();
+        var taken = carried;
+        carried = new ArrayList<>();
+        return taken;
+    }
+
+    public void carry(List<TransportLine.Share<ItemStack>> shares) {
+        carried.addAll(shares);
+        setChanged();
+    }
+
     /** What this tile itself carries, for a tooltip (#398). */
     public List<ItemStack> heldHere() {
         return held().stream().map(TransportLine.Share::payload).toList();

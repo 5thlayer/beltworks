@@ -1,6 +1,7 @@
 package rearth.belts;
 
 import rearth.belts.items.BeltItem;
+import rearth.belts.items.BeltTileItem;
 import rearth.belts.items.SplitterItem;
 import rearth.belts.items.TooltipBlockItem;
 import rearth.belts.model.BeltTier;
@@ -54,7 +55,7 @@ public class ItemContent {
     }
 
     private static RegistrySupplier<Item> tile(BeltTier tier, RegistrySupplier<Block> block) {
-        return ITEMS.register(tier.tile(), () -> new TooltipBlockItem(block.get(), properties(tier.tile())));
+        return ITEMS.register(tier.tile(), () -> new BeltTileItem(block.get(), properties(tier.tile())));
     }
 
     private static RegistrySupplier<Item> loader(BeltTier tier, RegistrySupplier<Block> block) {
