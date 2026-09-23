@@ -11,6 +11,7 @@ import rearth.belts.Belts;
 import rearth.belts.BlockEntitiesContent;
 import rearth.belts.client.BeltsClient;
 import rearth.belts.client.renderers.BeltPreview;
+import rearth.belts.client.renderers.BeltTileRenderer;
 
 @Mod(value = Belts.MOD_ID, dist = Dist.CLIENT)
 public final class BeltsModClientNeoForge {
@@ -26,6 +27,7 @@ public final class BeltsModClientNeoForge {
 
     private void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(BlockEntitiesContent.CHUTE_BLOCK.get(), context -> new NeoForgeChuteBeltRenderer());
+        event.registerBlockEntityRenderer(BlockEntitiesContent.BELT_TILE.get(), context -> new BeltTileRenderer());
     }
 
     private void extractOutline(ExtractBlockOutlineRenderStateEvent event) {

@@ -14,6 +14,7 @@ public final class BeltsClient {
         ClientTickEvent.CLIENT_LEVEL_PRE.register(level -> {
             var player = Minecraft.getInstance().player;
             if (player != null) BeltCollisionRegistry.moveLocalPlayer(level, player);
+            TileLines.tick(level);
         });
     }
     

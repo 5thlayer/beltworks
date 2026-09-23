@@ -233,6 +233,17 @@ public final class BeltContents<T> {
         }
     }
 
+    /** Every entry as an addition, start first, for a copy that starts from nothing (#395). */
+    public List<Added<T>> snapshot() {
+        return entries.stream().map(entry -> new Added<>(entry.id, entry.payload, entry.position)).toList();
+    }
+
+    /** Replaces this belt's entries with a {@link #snapshot} of another's, ids and all. */
+    public void reset(List<Added<T>> snapshot) {
+        clear();
+        for (var entry : snapshot) restore(entry.payload(), entry.position(), entry.id());
+    }
+
     private void load(T payload, double at) {
         var entry = new Entry<>(nextId++, payload, at);
         entries.addFirst(entry);

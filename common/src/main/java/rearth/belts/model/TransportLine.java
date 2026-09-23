@@ -95,7 +95,60 @@ public final class TransportLine<T> {
         return overflow;
     }
 
+    /**
+     * What each tile of the line carries, in travel order and indexed by tile, so each tile can
+     * save its own items and a line can stop at a chunk's edge without the tiles past it (#395).
+     */
+    public List<List<Share<T>>> shares() {
+        var shares = new ArrayList<List<Share<T>>>(tiers.size());
+        for (var tile = 0; tile < tiers.size(); tile++) shares.add(new ArrayList<>());
+        for (var load : spill()) shares.get(load.tile()).add(new Share<>(load.offset(), load.payload()));
+        return shares;
+    }
+
+    /** Puts back each tile's {@link #shares}, first tile first, and returns what no longer fits. */
+    public List<T> restoreShares(List<List<Share<T>>> shares) {
+        var loads = new ArrayList<Load<T>>();
+        for (var tile = 0; tile < shares.size(); tile++) {
+            for (var held : shares.get(tile)) loads.add(new Load<>(tile, held.offset(), held.payload()));
+        }
+        return restore(loads);
+    }
+
+    /**
+     * Where each item is drawn this far into the next tick: moved on at the line's speed and held
+     * back behind the item ahead and at the end, as a tick would, and on the one tile its centre
+     * is on.
+     */
+    public List<Drawn<T>> drawn(float partialTicks) {
+        var entries = contents.entries();
+        var advance = speed * partialTicks;
+        var positions = new double[entries.size()];
+        var limit = length() - BeltContents.SPACING;
+        for (var index = entries.size() - 1; index >= 0; index--) {
+            positions[index] = Math.min(entries.get(index).position() + advance, limit);
+            limit = positions[index] - BeltContents.SPACING;
+        }
+
+        var drawn = new ArrayList<Drawn<T>>(entries.size());
+        for (var index = 0; index < entries.size(); index++) {
+            // A gained entry the copy placed behind a lagging head can start short of the line (#351).
+            var centre = Math.clamp(positions[index] + BeltContents.SPACING / 2, 0, length() - 1e-6);
+            var tile = (int) centre;
+            drawn.add(new Drawn<>(tile, centre - tile, entries.get(index)));
+        }
+        return drawn;
+    }
+
     /** One tile's share of a line's items: its index along the line and where in the tile it sits. */
     public record Load<T>(int tile, double offset, T payload) {
+    }
+
+    /** An item a tile holds, and where in the tile it sits, from its back edge. */
+    public record Share<T>(double offset, T payload) {
+    }
+
+    /** An item drawn on a tile of the line, its centre this far along the tile. */
+    public record Drawn<T>(int tile, double offset, BeltContents.Entry<T> entry) {
     }
 }
