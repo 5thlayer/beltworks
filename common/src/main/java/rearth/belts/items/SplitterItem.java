@@ -1,10 +1,12 @@
 package rearth.belts.items;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -12,9 +14,11 @@ import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import org.jetbrains.annotations.Nullable;
 import rearth.belts.BlockEntitiesContent;
+import rearth.belts.blocks.BeltTileBlock;
 import rearth.belts.blocks.SplitterBlock;
 import rearth.belts.collision.BeltCollisionRegistry;
 import rearth.belts.model.BeltPath;
+import rearth.belts.model.TransportLine;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -47,10 +51,17 @@ public class SplitterItem extends BlockItem {
         var player = context.getPlayer();
         for (var half : halves) {
             if (!level.isInWorldBounds(half.pos()) || player != null && !level.mayInteract(player, half.pos())
-                  || !level.getBlockState(half.pos()).canBeReplaced()
+                  || !level.getBlockState(half.pos()).canBeReplaced() && !replacesTile(level.getBlockState(half.pos()), half.state().getValue(SplitterBlock.FACING))
                   || !level.isUnobstructed(half.state(), half.pos(), CollisionContext.empty())) return false;
         }
         return true;
+    }
+
+    /** A straight tile running the way the half faces, which the half takes the place of (PlanetaryFactory #394). */
+    public static boolean replacesTile(BlockState present, Direction facing) {
+        return present.getBlock() instanceof BeltTileBlock
+                 && present.getValue(BeltTileBlock.CORNER) == BeltTileBlock.Shape.STRAIGHT
+                 && present.getValue(BeltTileBlock.FACING) == facing;
     }
 
     /**
@@ -94,7 +105,23 @@ public class SplitterItem extends BlockItem {
             return InteractionResult.FAIL;
         }
 
-        for (var half : plan.halves()) level.setBlock(half.pos(), half.state(), Block.UPDATE_ALL);
+        var carried = new ArrayList<List<TransportLine.Share<ItemStack>>>();
+        for (var half : plan.halves()) {
+            var tile = level.getBlockEntity(half.pos(), BlockEntitiesContent.BELT_TILE.get()).orElse(null);
+            carried.add(tile == null ? List.of() : tile.takeCarried());
+            if (tile != null && !level.isClientSide() && player != null && !player.hasInfiniteMaterials()) {
+                player.getInventory().placeItemBackInInventory(new ItemStack(tile.getBlockState().getBlock().asItem()));
+            }
+            level.setBlock(half.pos(), half.state(), Block.UPDATE_ALL);
+        }
+        if (!level.isClientSide()) {
+            for (var at = 0; at < plan.halves().size(); at++) {
+                var shares = carried.get(at);
+                if (shares.isEmpty()) continue;
+                level.getBlockEntity(plan.halves().get(at).pos(), BlockEntitiesContent.CHUTE_BLOCK.get())
+                  .ifPresent(half -> half.carry(shares, player));
+            }
+        }
         if (!level.isClientSide()) {
             for (var cut : plan.cuts()) {
                 var half = level.getBlockEntity(cut.half(), BlockEntitiesContent.CHUTE_BLOCK.get());

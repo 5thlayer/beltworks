@@ -36,9 +36,10 @@ public class SplitterBlock extends ChuteBlock {
 
     public static final EnumProperty<Side> SIDE = EnumProperty.create("side", Side.class);
 
-    private static final VoxelShape SHAPE = Shapes.box(0, 0, 0, 1, 9.28 / 16f, 1);
-    // At the belt's surface, where the renderer draws it, so what stands on a half rides its belt.
-    private static final VoxelShape COLLISION = Shapes.box(0, 0, 0, 1, 0.5 - 2 / 16d + 0.08, 1);
+    // A tile's slab, with the divider on top (PlanetaryFactory #394).
+    private static final VoxelShape SHAPE = Shapes.box(0, 0, 0, 1, 8 / 16d, 1);
+    // At the belt's surface, a tile's height, so what stands on a half rides its belt.
+    private static final VoxelShape COLLISION = Shapes.box(0, 0, 0, 1, 6 / 16d, 1);
 
     public SplitterBlock(Properties settings, BeltTier tier) {
         super(settings, tier);

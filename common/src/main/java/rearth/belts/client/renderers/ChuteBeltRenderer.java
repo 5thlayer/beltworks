@@ -28,7 +28,6 @@ import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 import rearth.belts.Belts;
 import rearth.belts.BlockEntitiesContent;
-import rearth.belts.blocks.ChuteBlock;
 import rearth.belts.blocks.ChuteBlockEntity;
 import rearth.belts.model.BeltContents;
 import rearth.belts.model.BeltTier;
@@ -86,11 +85,9 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
         BlockEntityRenderer.super.extractRenderState(entity, state, partialTicks, cameraPosition, breakProgress);
 
         state.quads = List.of();
-        state.splitterQuads = List.of();
         state.items.clear();
         state.filter = null;
         state.beltSprite = null;
-        state.splitterSprite = null;
 
         var level = entity.getLevel();
         if (level == null) return;
@@ -99,8 +96,6 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
         state.beltSprite = beltSprite(entity.getBeltTier(), gameTime + partialTicks);
         if (entity.isSplitter()) {
             // The belt's tier is the belt item's; the splitter's own surface is its block's.
-            state.splitterSprite = beltSprite(((ChuteBlock) entity.getBlockState().getBlock()).tier(), gameTime + partialTicks);
-            state.splitterQuads = createSplitterSurface(entity, state.lightCoords);
             addHalfItems(entity, state, partialTicks);
         }
 
@@ -171,6 +166,11 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
         }
     }
 
+    // From where a spline belt's items are drawn down to where a tile's are, since a half is drawn
+    // as a tile (PlanetaryFactory #394): BeltTileRenderer's surface plus its lift for each kind.
+    private static final double HALF_BLOCK_DROP = 6 / 16d + 0.07 - (0.8 - 3 / 16d);
+    private static final double HALF_FLAT_DROP = 6 / 16d + 0.02 - (0.8 - 3 / 16d - 0.12);
+
     /** A splitter half's items, each segment's along its own half of the block (#373). */
     private static void addHalfItems(ChuteBlockEntity entity, RenderState state, float partialTicks) {
         var half = entity.getHalf();
@@ -184,7 +184,10 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
             for (int index = 0; index < entries.size(); index++) {
                 var progress = Math.clamp(start + positions[index] + BeltContents.SPACING / 2, 0, 1);
                 var entry = entries.get(index);
-                state.items.add(renderedItem(entity, halfData, progress, speed, entry, shaded(state.lightCoords, entry.id())));
+                var item = renderedItem(entity, halfData, progress, speed, entry, shaded(state.lightCoords, entry.id()));
+                var drop = entry.payload().getItem() instanceof BlockItem ? HALF_BLOCK_DROP : HALF_FLAT_DROP;
+                state.items.add(new RenderedItem(item.position().add(0, drop, 0), item.yaw(), item.pitch(), item.scale(),
+                  item.lightCoords(), item.itemState()));
             }
         }
     }
@@ -222,7 +225,6 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
     @Override
     public void submit(RenderState state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState cameraRenderState) {
         submitQuads(poseStack, collector, state.quads, state.beltSprite);
-        submitQuads(poseStack, collector, state.splitterQuads, state.splitterSprite);
 
         for (var item : state.items) {
             poseStack.pushPose();
@@ -277,7 +279,11 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
                                              Direction facing, BeltTier tier, int argb) {
         var light = LightCoordsUtil.pack(15, 15);
         var quads = createSplitterSurface(facing, TEXTURE_REPEAT, TEXTURE_REPEAT, light);
+        poseStack.pushPose();
+        // On a tile's top face, where the placed half's block model draws its belt (#394).
+        poseStack.translate(0, 6 / 16f + 0.01f - (0.5f - 2 / 16f + 0.08f), 0);
         submitTinted(poseStack, collector, camera, pos, quads, tier, argb, light);
+        poseStack.popPose();
     }
 
     private static void submitTinted(PoseStack poseStack, SubmitNodeCollector collector, Vec3 camera, BlockPos pos,
@@ -376,17 +382,7 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
         return beltData == null ? TEXTURE_REPEAT : beltData.totalLength() / segmentCount(beltData.totalLength());
     }
 
-    /**
-     * A splitter half's belt surface, back face to front face. The back half carries on the belt
-     * that ends here and the front half leads into the one that starts here, at each belt's own
-     * texture density, so the only break in the pattern is under the strut (#349).
-     */
-    private static List<Quad> createSplitterSurface(ChuteBlockEntity entity, int light) {
-        var incoming = entity.incomingBelt();
-        return createSplitterSurface(entity.getOwnFacing(), textureRepeat(incoming == null ? null : incoming.getBeltData()),
-          textureRepeat(entity.getBeltData()), light);
-    }
-
+    /** A splitter half's belt surface, back face to front face, one texture density either side of the midline. */
     private static List<Quad> createSplitterSurface(Direction facing, double inRepeat, double outRepeat, int light) {
         var result = new ArrayList<Quad>();
         var forward = Vec3.atLowerCornerOf(facing.getUnitVec3i());
@@ -519,10 +515,8 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
 
     public static class RenderState extends BlockEntityRenderState {
         private List<Quad> quads = List.of();
-        private List<Quad> splitterQuads = List.of();
         private final List<RenderedItem> items = new ArrayList<>();
         private TextureAtlasSprite beltSprite;
-        private TextureAtlasSprite splitterSprite;
         private ItemStackRenderState filter;
         private Direction filterFacing = Direction.NORTH;
     }

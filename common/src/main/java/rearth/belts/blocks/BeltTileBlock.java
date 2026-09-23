@@ -24,6 +24,7 @@ import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
+import rearth.belts.items.SplitterItem;
 import rearth.belts.model.BeltTier;
 import rearth.belts.model.LineScan;
 import rearth.belts.model.TileShape;
@@ -55,6 +56,13 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
         return SHAPE;
+    }
+
+    // A splitter placed across a straight line takes the tile's place (PlanetaryFactory #394).
+    @Override
+    protected boolean canBeReplaced(BlockState state, BlockPlaceContext context) {
+        return context.getItemInHand().getItem() instanceof SplitterItem
+                 && SplitterItem.replacesTile(state, context.getHorizontalDirection());
     }
 
     @Override

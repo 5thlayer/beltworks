@@ -18,6 +18,7 @@ import rearth.belts.TileLineUpdate;
 import rearth.belts.model.BeltContents;
 import rearth.belts.model.BeltTier;
 import rearth.belts.model.LineScan;
+import rearth.belts.model.Splitter;
 import rearth.belts.model.TileShape;
 import rearth.belts.model.TransportLine;
 
@@ -51,6 +52,9 @@ public class BeltTileBlockEntity extends BlockEntity {
 
     private @Nullable BlockPos head;
     private boolean rescan = true;
+    // The game time the line this tile holds last moved, so a splitter handing it an item knows
+    // whether the line is still to move this tick (#394).
+    private long movedAt = Long.MIN_VALUE;
     // Saved and about to be removed with its chunk, so no line counts it any more (#395).
     private boolean unloaded;
 
@@ -79,13 +83,28 @@ public class BeltTileBlockEntity extends BlockEntity {
         if (unloaded) return;
         if (rescan) rebuild();
         if (line == null) return;
-        if (line.tick(this::takeFromLoader, this::giveToLoader)) {
-            shares = null;
-            // Every chunk, since each saves its own tiles' items and a chunk not marked is skipped.
-            for (var tile : inChunks) level.blockEntityChanged(tile);
-        }
+        if (line.tick(this::takeFromLoader, this::giveToLoader)) lineChanged();
+        movedAt = level.getGameTime();
         var changes = line.contents().drainChanges();
         if (!changes.isEmpty()) send(new TileLineUpdate(worldPosition, List.of(), tiers(), line.ring(), false, changes));
+    }
+
+    public void lineChanged() {
+        var holding = holder();
+        if (holding == null || level == null) return;
+        holding.shares = null;
+        // Every chunk, since each saves its own tiles' items and a chunk not marked is skipped.
+        for (var tile : holding.inChunks) level.blockEntityChanged(tile);
+    }
+
+    /**
+     * The line this tile heads, as a splitter half behind it hands it items, or null where this
+     * tile is not a line's head entered from {@code travel} (#394).
+     */
+    public Splitter.@Nullable Lane<ItemStack> entryLane(Direction travel) {
+        if (line == null || line.ring() || !shape().entry(BeltTileBlock.travel(travel())).equals(BeltTileBlock.travel(travel))) return null;
+        var pending = movedAt == level.getGameTime() ? 0 : line.speed();
+        return new Splitter.Lane<>(line.contents(), line.length(), line.speed(), null, pending);
     }
 
     /** Tells this tile its run has changed under it, so it scans again on its next tick. */
@@ -284,6 +303,8 @@ public class BeltTileBlockEntity extends BlockEntity {
         var travel = members.getLast().travel();
         var loader = loaderAt(last.relative(travel), travel.getOpposite());
         if (loader != null) return loader.acceptFromLine(item);
+        var half = splitterAt(last.relative(travel), travel);
+        if (half != null) return half.offerFromLine(item, line.contents().overshoot(line.length(), line.speed()));
         return sideLoad(last.relative(travel), travel, item);
     }
 
@@ -297,6 +318,12 @@ public class BeltTileBlockEntity extends BlockEntity {
         holding.shares = null;
         for (var tile : holding.inChunks) level.blockEntityChanged(tile);
         return true;
+    }
+
+    private @Nullable ChuteBlockEntity splitterAt(BlockPos pos, Direction travel) {
+        if (level == null || !level.isLoaded(pos)) return null;
+        var half = level.getBlockEntity(pos, BlockEntitiesContent.CHUTE_BLOCK.get()).orElse(null);
+        return half != null && half.isSplitter() && half.getOwnFacing() == travel ? half : null;
     }
 
     private @Nullable ChuteBlockEntity loaderAt(BlockPos pos, Direction facing) {

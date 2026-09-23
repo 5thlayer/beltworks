@@ -42,6 +42,7 @@ import rearth.belts.model.FlowLimit;
 import rearth.belts.model.Join;
 import rearth.belts.model.LoaderEnergy;
 import rearth.belts.model.Splitter;
+import rearth.belts.model.TransportLine;
 import rearth.belts.model.SupportSlots;
 import rearth.belts.util.SplineUtil;
 
@@ -283,6 +284,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         if (splitterModel.tick(level.getGameTime(), side(level), right.get().side(level))) {
             setChanged();
             right.get().setChanged();
+            for (var half : List.of(this, right.get())) half.tileAhead().ifPresent(BeltTileBlockEntity::lineChanged);
         }
         halfMovedAt = right.get().halfMovedAt = level.getGameTime();
     }
@@ -301,9 +303,45 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
 
     // Tick order between blocks is the level's, so each join asks whether its receiver has moved (#373).
     private @Nullable Splitter.Lane<ItemStack> outgoingLane() {
-        if (target == null || target.equals(BlockPos.ZERO) || beltData == null) return null;
+        if (target == null || target.equals(BlockPos.ZERO) || beltData == null) {
+            if (!splitter) return null;
+            return tileAhead().map(tile -> tile.entryLane(getOwnFacing())).orElse(null);
+        }
         var speed = beltTier.blocksPerTick();
         return new Splitter.Lane<>(contents, getBeltLength(), speed, hand(level, false), movedAt == level.getGameTime() ? 0 : speed);
+    }
+
+    // A half with no belt leaving it feeds the tile line in front of it, where that line starts (#394).
+    private Optional<BeltTileBlockEntity> tileAhead() {
+        var ahead = worldPosition.relative(getOwnFacing());
+        if (!level.isLoaded(ahead)) return Optional.empty();
+        return level.getBlockEntity(ahead, BlockEntitiesContent.BELT_TILE.get());
+    }
+
+    /**
+     * Takes the items a tile replaced by this half carried, each where it sat in the tile, and
+     * hands back to the placer what no longer fits (#394).
+     */
+    public void carry(List<TransportLine.Share<ItemStack>> shares, @Nullable Player player) {
+        if (!splitter) return;
+        for (var share : shares) {
+            if (share.offset() < Splitter.MIDLINE) half.entering().restore(share.payload(), share.offset());
+            else half.leaving().restore(share.payload(), share.offset() - Splitter.MIDLINE);
+        }
+        var spilled = new ArrayList<>(half.entering().fit(Splitter.MIDLINE));
+        spilled.addAll(half.leaving().fit(Splitter.MIDLINE));
+        setChanged();
+        giveBack(player, spilled, worldPosition);
+    }
+
+    /**
+     * Takes the item at the end of a tile line whose last tile faces into this half's back, at the
+     * line's {@link BeltContents#overshoot} (#394).
+     */
+    public boolean offerFromLine(ItemStack item, double overshoot) {
+        if (!splitter || !Join.offer(item, overshoot, enteringLane())) return false;
+        setChanged();
+        return true;
     }
 
     private Splitter.Lane<ItemStack> enteringLane() {

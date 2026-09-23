@@ -1,10 +1,12 @@
 package rearth.belts.model;
 
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -17,9 +19,10 @@ class SplitterTest {
     private static final int MINUTE = 20 * 60;
     private static final int TIER_1_PER_MINUTE = 15 * 60;
 
-    @Test
-    void oneInputSplitsEvenlyAcrossBothOutputs() {
-        var line = new Line();
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void oneInputSplitsEvenlyAcrossBothOutputs(boolean tiles) {
+        var line = new Line(tiles);
         var in = line.fed(BeltTier.BELT);
         var left = line.drained(BeltTier.BELT);
         var right = line.drained(BeltTier.BELT);
@@ -33,9 +36,10 @@ class SplitterTest {
         assertEquals(TIER_1_PER_MINUTE / 2, right.delivered, 1);
     }
 
-    @Test
-    void twoInputsMergeByAlternating() {
-        var line = new Line();
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void twoInputsMergeByAlternating(boolean tiles) {
+        var line = new Line(tiles);
         var left = line.fed(BeltTier.BELT);
         var right = line.fed(BeltTier.BELT);
         var out = line.drained(BeltTier.BELT);
@@ -50,9 +54,10 @@ class SplitterTest {
         assertEquals(TIER_1_PER_MINUTE / 2, out.from("1"), 1);
     }
 
-    @Test
-    void aBackedUpOutputSendsEverythingToTheOther() {
-        var line = new Line();
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void aBackedUpOutputSendsEverythingToTheOther(boolean tiles) {
+        var line = new Line(tiles);
         var in = line.fed(BeltTier.BELT);
         var blocked = line.blocked(BeltTier.BELT);
         var free = line.drained(BeltTier.BELT);
@@ -65,9 +70,10 @@ class SplitterTest {
         assertEquals(TIER_1_PER_MINUTE, free.delivered, 1);
     }
 
-    @Test
-    void aSplitterCapsTheLineAtItsOwnTier() {
-        var line = new Line();
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void aSplitterCapsTheLineAtItsOwnTier(boolean tiles) {
+        var line = new Line(tiles);
         var in = line.fed(BeltTier.EXPRESS);
         var out = line.drained(BeltTier.EXPRESS);
         line.splitter(BeltTier.BELT, in, null, out, null);
@@ -97,10 +103,11 @@ class SplitterTest {
         assertEquals((15 + 5) * 60 * 5 / 2, right.delivered, 4);
     }
 
-    /** Two splitters, then two more fed crosswise, as Factorio's 4x4 balancer is built. */
-    @Test
-    void fourSplittersBalanceUnequalInputsAcrossFourOutputs() {
-        var line = new Line();
+    /** Two splitters, then two more fed crosswise, as Factorio's 4x4 balancer is built, on spline belts or tile lines. */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void fourSplittersBalanceUnequalInputsAcrossFourOutputs(boolean tiles) {
+        var line = new Line(tiles);
         var full = line.fed(BeltTier.BELT);
         var trickle = line.fedAt(BeltTier.BELT, 5.0 / 20);
         var aLeft = line.between(BeltTier.BELT);
@@ -199,9 +206,10 @@ class SplitterTest {
         assertEquals(4, splitter.left.leaving().size(), "the left's second half backs up, as no belt leaves it");
     }
 
-    @Test
-    void aBalancerLosesAndCreatesNothing() {
-        var line = new Line();
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void aBalancerLosesAndCreatesNothing(boolean tiles) {
+        var line = new Line(tiles);
         var a = line.fedCount(BeltTier.BELT, 300);
         var b = line.fedCount(BeltTier.BELT, 100);
         var aLeft = line.between(BeltTier.BELT);
@@ -240,9 +248,19 @@ class SplitterTest {
     private static final class Line {
         private final List<Belt> belts = new ArrayList<>();
         private final List<Runnable> splitters = new ArrayList<>();
+        private final boolean tiles;
         private long now;
         private int inputs;
         BeltContents.Hand<String> hand;
+
+        Line() {
+            this(false);
+        }
+
+        /** With every belt a line of tiles rather than a spline belt (PlanetaryFactory #394). */
+        Line(boolean tiles) {
+            this.tiles = tiles;
+        }
 
         Belt fed(BeltTier tier) {
             return fedAt(tier, Double.MAX_VALUE);
@@ -251,7 +269,7 @@ class SplitterTest {
         Belt fedAt(BeltTier tier, double itemsPerTick) {
             var name = String.valueOf(inputs++);
             var limit = itemsPerTick == Double.MAX_VALUE ? null : new FlowLimit(itemsPerTick);
-            return add(new Belt(tier, () -> {
+            return add(new Belt(tiles, tier, () -> {
                 if (limit == null) return name;
                 if (!limit.ready(now)) return null;
                 limit.pass();
@@ -262,11 +280,11 @@ class SplitterTest {
         Belt fedCount(BeltTier tier, int count) {
             var name = String.valueOf(inputs++);
             var left = new int[] {count};
-            return add(new Belt(tier, () -> left[0]-- > 0 ? name : null, null));
+            return add(new Belt(tiles, tier, () -> left[0]-- > 0 ? name : null, null));
         }
 
         Belt drained(BeltTier tier) {
-            var belt = new Belt(tier, () -> null, null);
+            var belt = new Belt(tiles, tier, () -> null, null);
             belt.sink = item -> {
                 belt.delivered++;
                 belt.sources.add(item);
@@ -276,11 +294,11 @@ class SplitterTest {
         }
 
         Belt blocked(BeltTier tier) {
-            return add(new Belt(tier, () -> null, item -> false));
+            return add(new Belt(tiles, tier, () -> null, item -> false));
         }
 
         Belt between(BeltTier tier) {
-            return add(new Belt(tier, () -> null, item -> false));
+            return add(new Belt(tiles, tier, () -> null, item -> false));
         }
 
         Halves splitter(BeltTier tier, Belt inLeft, Belt inRight, Belt outLeft, Belt outRight) {
@@ -300,7 +318,7 @@ class SplitterTest {
 
         void run(int ticks) {
             for (int tick = 0; tick < ticks; tick++, now++) {
-                for (var belt : belts) belt.contents.tick(Belt.LENGTH, belt.tier.blocksPerTick(), belt.source, belt.sink);
+                for (var belt : belts) belt.tick();
                 splitters.forEach(Runnable::run);
             }
         }
@@ -318,7 +336,7 @@ class SplitterTest {
         }
 
         private static Splitter.Lane<String> lane(Belt belt) {
-            return belt == null ? null : new Splitter.Lane<>(belt.contents, Belt.LENGTH, belt.tier.blocksPerTick());
+            return belt == null ? null : new Splitter.Lane<>(belt.contents, belt.length(), belt.speed());
         }
     }
 
@@ -329,21 +347,37 @@ class SplitterTest {
         static final double LENGTH = 4;
 
         final BeltTier tier;
-        final BeltContents<String> contents = new BeltContents<>();
+        final @Nullable TransportLine<String> line;
+        final BeltContents<String> contents;
         final Supplier<String> source;
         // A belt that ends at a splitter hands its end on to the splitter's half.
         Predicate<String> sink;
         int delivered;
         final List<String> sources = new ArrayList<>();
 
-        Belt(BeltTier tier, Supplier<String> source, Predicate<String> sink) {
+        Belt(boolean tiles, BeltTier tier, Supplier<String> source, Predicate<String> sink) {
             this.tier = tier;
+            line = tiles ? new TransportLine<>(Collections.nCopies((int) LENGTH, tier)) : null;
+            contents = line != null ? line.contents() : new BeltContents<>();
             this.source = source;
             this.sink = sink == null ? item -> false : sink;
         }
 
+        double length() {
+            return line != null ? line.length() : LENGTH;
+        }
+
+        double speed() {
+            return line != null ? line.speed() : tier.blocksPerTick();
+        }
+
+        void tick() {
+            if (line != null) line.tick(source, sink);
+            else contents.tick(LENGTH, tier.blocksPerTick(), source, sink);
+        }
+
         double overshoot() {
-            return contents.overshoot(LENGTH, tier.blocksPerTick());
+            return contents.overshoot(length(), speed());
         }
 
         long from(String input) {
