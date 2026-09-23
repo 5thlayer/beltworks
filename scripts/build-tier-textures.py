@@ -15,14 +15,16 @@ from PIL import Image
 
 TEXTURES = Path(__file__).resolve().parent.parent / "common/src/main/resources/assets/belts/textures"
 ART = Path(__file__).resolve().parent / "belt-art"
-# Tier -> (texture prefix, source art, hue). The written textures are not read back: recolouring
-# a recoloured image drifts by rounding, so every tier starts from upstream's art.
+# Tier -> (texture prefix, item art, hue). Every tier's belt frames are the tier-1 frames, so the
+# tiers differ only in colour. The written textures are not read back: recolouring a recoloured
+# image drifts by rounding, so every tier starts from the source art.
 TIERS = {
     "belt": ("", "belt", 0.14),
     "improved": ("improved_", "improved", 0.0),
     "express": ("express_", "improved", 0.58),
     "turbo": ("turbo_", "improved", 0.33),
 }
+FRAMES = ART / "belt/frames"
 # The accent stripes are the only saturated pixels; the rubber and frame are grey.
 MIN_SATURATION = 0.3
 # The loader's body is blue and its trim yellow; only the body takes the tier's colour.
@@ -99,7 +101,7 @@ def splitter_belt(prefix, frames, step):
 def outputs():
     for step, (prefix, art, hue) in enumerate(TIERS.values(), start=1):
         yield TEXTURES / f"item/{prefix}belt.png", recolour(ART / art / "item.png", hue)
-        frames = sorted((ART / art / "frames").glob("frame_*.png"))
+        frames = sorted(FRAMES.glob("frame_*.png"))
         colour = tier_colour(recolour(frames[0], hue))
         yield TEXTURES / f"block/{prefix}chute.png", recolour_loader(ART / "chute/block.png", hue, colour)
         for frame in frames:
