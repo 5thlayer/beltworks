@@ -32,8 +32,9 @@ public record BeltLinePayload(TileLineUpdate update) implements CustomPacketPayl
 
     private static final StreamCodec<RegistryFriendlyByteBuf, TileLineUpdate> UPDATE_CODEC = StreamCodec.composite(
       BlockPos.STREAM_CODEC, TileLineUpdate::head,
-      Direction.STREAM_CODEC, TileLineUpdate::travel,
+      Direction.STREAM_CODEC.apply(ByteBufCodecs.list()), TileLineUpdate::travels,
       ByteBufCodecs.VAR_INT.map(BeltTier::of, BeltTier::number).apply(ByteBufCodecs.list()), TileLineUpdate::tiers,
+      ByteBufCodecs.BOOL, TileLineUpdate::ring,
       ByteBufCodecs.BOOL, TileLineUpdate::reset,
       CHANGES_CODEC, TileLineUpdate::changes,
       TileLineUpdate::new);

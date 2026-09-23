@@ -53,4 +53,46 @@ class TileShapeTest {
 
         assertEquals(TileShape.FROM_LEFT, TileShape.at(new LineScan.Spot(0, 0, 0), EAST, feeds));
     }
+
+    private static void near(double expected, double actual) {
+        assertEquals(expected, actual, 1e-9);
+    }
+
+    @Test
+    void aStraightTileIsCrossedAlongItsTravel() {
+        var start = TileShape.STRAIGHT.point(0, EAST);
+        var end = TileShape.STRAIGHT.point(1, EAST);
+
+        near(-0.5, start.x());
+        near(0.5, end.x());
+        near(0, end.z());
+        near(1, end.headingX());
+    }
+
+    // Facing east and fed from the north: in at the middle of the north edge heading south, out at
+    // the middle of the east edge heading east.
+    @Test
+    void aCornerIsAQuarterCircleFromItsEntryEdgeToItsExitEdge() {
+        var start = TileShape.FROM_LEFT.point(0, EAST);
+        var middle = TileShape.FROM_LEFT.point(0.5, EAST);
+        var end = TileShape.FROM_LEFT.point(1, EAST);
+
+        near(0, start.x());
+        near(-0.5, start.z());
+        near(1, start.headingZ());
+        near(0.5, end.x());
+        near(0, end.z());
+        near(1, end.headingX());
+        // Half a block from the corner it turns about, (0.5, -0.5).
+        near(0.5, Math.hypot(middle.x() - 0.5, middle.z() + 0.5));
+    }
+
+    @Test
+    void aCornerFedFromTheRightMirrorsOneFedFromTheLeft() {
+        var start = TileShape.FROM_RIGHT.point(0, EAST);
+
+        near(0, start.x());
+        near(0.5, start.z());
+        near(-1, start.headingZ());
+    }
 }

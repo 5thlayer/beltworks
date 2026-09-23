@@ -66,6 +66,10 @@ public class BeltTileBlockEntity extends BlockEntity {
         return tier;
     }
 
+    public TileShape shape() {
+        return getBlockState().getValue(BeltTileBlock.CORNER).model();
+    }
+
     /** The way items on this tile travel. */
     public Direction travel() {
         return getBlockState().getValue(HorizontalDirectionalBlock.FACING);
@@ -81,7 +85,7 @@ public class BeltTileBlockEntity extends BlockEntity {
             for (var tile : inChunks) level.blockEntityChanged(tile);
         }
         var changes = line.contents().drainChanges();
-        if (!changes.isEmpty()) send(new TileLineUpdate(worldPosition, travel(), tiers(), false, changes));
+        if (!changes.isEmpty()) send(new TileLineUpdate(worldPosition, List.of(), tiers(), line.ring(), false, changes));
     }
 
     /** Tells this tile its run has changed under it, so it scans again on its next tick. */
@@ -188,7 +192,7 @@ public class BeltTileBlockEntity extends BlockEntity {
             member.carried.addAll(held.get(at));
             member.setChanged();
         }
-        send(TileLineUpdate.gone(worldPosition, travel()));
+        send(TileLineUpdate.gone(worldPosition));
         line = null;
         members = List.of();
         tiles = List.of();
@@ -220,7 +224,7 @@ public class BeltTileBlockEntity extends BlockEntity {
     }
 
     private TileLineUpdate wholeLine() {
-        return new TileLineUpdate(worldPosition, travel(), tiers(), true,
+        return new TileLineUpdate(worldPosition, members.stream().map(BeltTileBlockEntity::travel).toList(), tiers(), line.ring(), true,
           new BeltContents.Changes<>(List.of(), line.contents().snapshot()));
     }
 
@@ -250,19 +254,11 @@ public class BeltTileBlockEntity extends BlockEntity {
         level.addFreshEntity(new ItemEntity(level, at.x, at.y, at.z, stack));
     }
 
-    private LineScan.@Nullable Travel travelAt(LineScan.Spot spot) {
-        return tileAt(pos(spot)).map(tile -> travel(tile.travel())).orElse(null);
-    }
-
     private LineScan.@Nullable Piece pieceAt(LineScan.Spot spot) {
-        var travel = travelAt(spot);
-        if (travel == null) return null;
-        var shape = TileShape.at(spot, travel, (from, feeding) -> feeding.equals(travelAt(from)));
-        return new LineScan.Piece(travel, shape.entry(travel));
-    }
-
-    private static LineScan.Travel travel(Direction facing) {
-        return new LineScan.Travel(facing.getStepX(), facing.getStepZ());
+        return tileAt(pos(spot)).map(tile -> {
+            var travel = BeltTileBlock.travel(tile.travel());
+            return new LineScan.Piece(travel, tile.shape().entry(travel));
+        }).orElse(null);
     }
 
     private static LineScan.Spot spot(BlockPos pos) {
@@ -273,18 +269,19 @@ public class BeltTileBlockEntity extends BlockEntity {
         return new BlockPos(spot.x(), spot.y(), spot.z());
     }
 
-    /** The loader feeding the head of the line, which faces the way the line travels. */
+    /** The loader feeding the head of the line, facing the way items enter it. */
     private @Nullable ItemStack takeFromLoader() {
-        var travel = travel();
+        var entry = shape().entry(BeltTileBlock.travel(travel()));
+        var travel = Direction.getApproximateNearest(entry.x(), 0, entry.z());
         var loader = loaderAt(worldPosition.relative(travel.getOpposite()), travel);
         return loader == null ? null : loader.extractOne();
     }
 
     /** The loader past the last tile, which faces back along the line, into it. */
     private boolean giveToLoader(ItemStack item) {
-        if (tiles.isEmpty()) return false;
+        if (members.isEmpty()) return false;
         var last = tiles.getLast();
-        var travel = travel();
+        var travel = members.getLast().travel();
         var loader = loaderAt(last.relative(travel), travel.getOpposite());
         return loader != null && loader.acceptFromLine(item);
     }
@@ -313,6 +310,19 @@ public class BeltTileBlockEntity extends BlockEntity {
     /** What this tile itself carries, for a tooltip (#398). */
     public List<ItemStack> heldHere() {
         return held().stream().map(TransportLine.Share::payload).toList();
+    }
+
+    // A tile turned into or out of a corner is in another line; the run is cut as a break cuts it.
+    @Override
+    public void setBlockState(BlockState state) {
+        var before = getBlockState();
+        super.setBlockState(state);
+        if (level == null || level.isClientSide() || before.equals(state)) return;
+        var holding = holder();
+        if (holding != null) holding.release();
+        invalidate();
+        invalidate(head);
+        for (var side : Direction.Plane.HORIZONTAL) invalidate(worldPosition.relative(side));
     }
 
     // Catches every removal, so a break, an explosion or a command leaves the run scanning again.

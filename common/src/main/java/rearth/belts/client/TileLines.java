@@ -91,10 +91,14 @@ public final class TileLines {
 
         forget(update.head());
         if (update.isGone()) return;
-        var line = new TransportLine<ItemStack>(update.tiers());
+        var line = new TransportLine<ItemStack>(update.tiers(), update.ring());
         line.contents().reset(update.changes().added());
         var tiles = new ArrayList<BlockPos>(update.tiers().size());
-        for (var tile = 0; tile < update.tiers().size(); tile++) tiles.add(update.head().relative(update.travel(), tile));
+        var next = update.head();
+        for (var travel : update.travels()) {
+            tiles.add(next);
+            next = next.relative(travel);
+        }
         var copy = new Copy(line, List.copyOf(tiles));
         BY_HEAD.put(update.head(), copy);
         // The server sends a line's end before any of its tiles joins another, so a tile is on one copy.

@@ -14,6 +14,7 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
+import rearth.belts.blocks.BeltTileBlock;
 import rearth.belts.blocks.BeltTileBlockEntity;
 import rearth.belts.client.TileLines;
 
@@ -49,9 +50,8 @@ public class BeltTileRenderer implements BlockEntityRenderer<BeltTileBlockEntity
         var place = TileLines.at(level, entity.getBlockPos());
         if (place == null) return;
 
-        var travel = entity.travel();
-        var forward = new Vec3(travel.getStepX(), 0, travel.getStepZ());
-        var yaw = (float) Math.toDegrees(Math.atan2(-forward.z, forward.x));
+        var travel = BeltTileBlock.travel(entity.travel());
+        var shape = entity.shape();
         var resolver = Minecraft.getInstance().getItemModelResolver();
         for (var drawn : place.drawn(partialTicks)) {
             var stack = drawn.entry().payload();
@@ -59,8 +59,10 @@ public class BeltTileRenderer implements BlockEntityRenderer<BeltTileBlockEntity
             // Two lanes of four per block by id parity, as the spline belt draws them, so items at
             // a readable size do not overlap. The line itself has one lane (#344).
             var lane = (drawn.entry().id() & 1) == 0 ? 0.125 : -0.125;
-            var at = new Vec3(0.5, SURFACE + (block ? BLOCK_LIFT : FLAT_LIFT), 0.5)
-                       .add(forward.scale(drawn.offset() - 0.5))
+            var point = shape.point(drawn.offset(), travel);
+            var forward = new Vec3(point.headingX(), 0, point.headingZ());
+            var yaw = (float) Math.toDegrees(Math.atan2(-forward.z, forward.x));
+            var at = new Vec3(0.5 + point.x(), SURFACE + (block ? BLOCK_LIFT : FLAT_LIFT), 0.5 + point.z())
                        .add(forward.cross(new Vec3(0, 1, 0)).scale(lane));
             var itemState = new ItemStackRenderState();
             resolver.updateForTopItem(itemState, stack, ItemDisplayContext.FIXED, level, null, 0);

@@ -39,6 +39,33 @@ public enum TileShape {
         };
     }
 
+    /**
+     * Where an item this far along a tile of this shape is, from the tile's centre, and which way it
+     * is heading. A corner is a quarter circle joining the middles of its entry and exit edges, so
+     * it is one block of line like any tile and only drawn round (#391).
+     */
+    public Point point(double offset, LineScan.Travel travel) {
+        if (this == STRAIGHT) {
+            var along = offset - 0.5;
+            return new Point(travel.x() * along, travel.z() * along, travel.x(), travel.z());
+        }
+        var side = this == FROM_LEFT ? left(travel) : right(travel);
+        var angle = offset * Math.PI / 2;
+        var cos = Math.cos(angle);
+        var sin = Math.sin(angle);
+        var centreX = 0.5 * (side.x() + travel.x());
+        var centreZ = 0.5 * (side.z() + travel.z());
+        return new Point(
+          centreX - 0.5 * (cos * travel.x() + sin * side.x()),
+          centreZ - 0.5 * (cos * travel.z() + sin * side.z()),
+          sin * travel.x() - cos * side.x(),
+          sin * travel.z() - cos * side.z());
+    }
+
+    /** A point on a tile, from its centre, and the unit heading of an item there. */
+    public record Point(double x, double z, double headingX, double headingZ) {
+    }
+
     // Minecraft's z grows southward, so a quarter turn anticlockwise seen from above is (z, -x).
     static LineScan.Travel left(LineScan.Travel travel) {
         return new LineScan.Travel(travel.z(), -travel.x());
