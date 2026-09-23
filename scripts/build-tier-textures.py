@@ -31,8 +31,7 @@ MIN_SATURATION = 0.3
 SLATE = (84, 90, 100)
 SLATE_EDGE = (56, 60, 68)
 SLATE_LIGHT = (112, 118, 128)
-MOUTH = (22, 24, 28)
-MOUTH_SHADOW = (10, 11, 13)
+MOUTH = (0, 0, 0)
 
 
 def recolour(source: Path, hue: float) -> bytes:
@@ -81,11 +80,7 @@ def slate() -> bytes:
 
 
 def mouth() -> bytes:
-    image = Image.new("RGBA", (16, 16), (*MOUTH, 255))
-    for x in range(16):
-        for y in range(4):
-            image.putpixel((x, y), (*MOUTH_SHADOW, 255))
-    return png(image)
+    return png(Image.new("RGBA", (16, 16), (*MOUTH, 255)))
 
 
 def band(colour) -> bytes:
