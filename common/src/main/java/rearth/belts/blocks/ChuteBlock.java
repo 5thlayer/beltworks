@@ -8,8 +8,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponentGetter;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.RandomSource;
-import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -17,10 +15,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.LevelReader;
-import net.minecraft.world.level.ScheduledTickAccess;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
@@ -30,44 +25,23 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
-import net.minecraft.world.level.block.state.properties.AttachFace;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.phys.shapes.Shapes;
-import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 import rearth.belts.BlockEntitiesContent;
 import rearth.belts.model.BeltTier;
-import rearth.belts.util.MathHelpers;
 
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
 public class ChuteBlock extends HorizontalDirectionalBlock implements EntityBlock {
-    
-    public static final EnumProperty<Floor> FLOOR = EnumProperty.create("floor", Floor.class);
-
-    private static final Map<Direction, VoxelShape> SHAPES = new HashMap<>();
-    
-    private VoxelShape createShapeForDirection(Direction direction) {
-        return Shapes.or(
-          MathHelpers.rotateVoxelShape(Shapes.box(2 / 16f, 4 / 16f, 14 / 16f, 14 / 16f, 1f, 1f), direction, AttachFace.FLOOR),
-          MathHelpers.rotateVoxelShape(Shapes.box(3 / 16f, 5 / 16f, 16 / 16f, 13 / 16f, 15 / 16f, 18 / 16f), direction, AttachFace.FLOOR)
-        ).optimize();
-    }
     
     private final BeltTier tier;
 
     public ChuteBlock(BlockBehaviour.Properties settings, BeltTier tier) {
         super(settings);
         this.tier = tier;
-        registerDefaultState(defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH)
-                               .setValue(FLOOR, Floor.NONE));
+        registerDefaultState(defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH));
     }
     
     /** The tier whose items a second this loader moves, whatever belt it is on (ADR-0076). */
@@ -112,14 +86,8 @@ public class ChuteBlock extends HorizontalDirectionalBlock implements EntityBloc
     }
     
     @Override
-    protected VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
-        var dir = state.getValue(BlockStateProperties.HORIZONTAL_FACING);
-        return SHAPES.computeIfAbsent(dir, this::createShapeForDirection);
-    }
-    
-    @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(BlockStateProperties.HORIZONTAL_FACING, FLOOR);
+        builder.add(BlockStateProperties.HORIZONTAL_FACING);
     }
     
     @Nullable
@@ -130,26 +98,8 @@ public class ChuteBlock extends HorizontalDirectionalBlock implements EntityBloc
         if (targetFacing.getAxis().isVertical())
             targetFacing = ctx.getHorizontalDirection().getOpposite();
         
-        var ahead = ctx.getLevel().getBlockState(ctx.getClickedPos().relative(targetFacing));
         return Objects.requireNonNull(super.getStateForPlacement(ctx))
-                 .setValue(BlockStateProperties.HORIZONTAL_FACING, targetFacing)
-                 .setValue(FLOOR, floorFor(targetFacing, ahead));
-    }
-    
-    @Override
-    protected BlockState updateShape(BlockState state, LevelReader world, ScheduledTickAccess ticks, BlockPos pos, Direction direction,
-                                     BlockPos neighborPos, BlockState neighborState, RandomSource random) {
-        var facing = state.getValue(BlockStateProperties.HORIZONTAL_FACING);
-        if (direction != facing) return state;
-        return state.setValue(FLOOR, floorFor(facing, neighborState));
-    }
-    
-    public static Floor floorFor(Direction facing, BlockState ahead) {
-        if (!(ahead.getBlock() instanceof BeltTileBlock)) return Floor.NONE;
-        var runs = ahead.getValue(BlockStateProperties.HORIZONTAL_FACING);
-        if (runs == facing) return Floor.LOADING;
-        if (runs == facing.getOpposite()) return Floor.UNLOADING;
-        return Floor.NONE;
+                 .setValue(BlockStateProperties.HORIZONTAL_FACING, targetFacing);
     }
     
     @Override
@@ -185,18 +135,5 @@ public class ChuteBlock extends HorizontalDirectionalBlock implements EntityBloc
         world.getBlockEntity(pos, BlockEntitiesContent.CHUTE_BLOCK.get()).ifPresent(chute -> chute.releaseBelts(player));
         
         return super.playerWillDestroy(world, pos, state, player);
-    }
-
-    /**
-     * The belt floor a loader draws across its own block to meet the tile in front of it, scrolling
-     * the way items move (PlanetaryFactory #399).
-     */
-    public enum Floor implements StringRepresentable {
-        NONE, LOADING, UNLOADING;
-
-        @Override
-        public String getSerializedName() {
-            return name().toLowerCase(Locale.ROOT);
-        }
     }
 }

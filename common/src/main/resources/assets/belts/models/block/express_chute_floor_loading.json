@@ -1,6 +1,0 @@
-{
-  "parent": "belts:block/loader_floor_loading",
-  "textures": {
-    "belt": "belts:block/express_splitter_belt"
-  }
-}

@@ -1,7 +1,6 @@
 {
-  "parent": "belts:block/chute",
+  "parent": "belts:block/loader_housing",
   "textures": {
-    "0": "belts:block/express_chute",
-    "particle": "belts:block/express_chute"
+    "band": "belts:block/express_chute"
   }
 }

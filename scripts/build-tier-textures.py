@@ -1,9 +1,9 @@
 # /// script
 # dependencies = ["pillow"]
 # ///
-"""Recolour the belt and loader textures to Factorio's yellow, red, blue and green tiers, from
-SimpleBelts' original art in `scripts/belt-art/`. Run with `uv run scripts/build-tier-textures.py`; `--check`
-fails on drift."""
+"""Recolour the belt textures to Factorio's yellow, red, blue and green tiers, from SimpleBelts'
+original art in `scripts/belt-art/`, and draw the loader's housing and its tier band. Run with
+`uv run scripts/build-tier-textures.py`; `--check` fails on drift."""
 import colorsys
 import io
 import json
@@ -27,24 +27,22 @@ TIERS = {
 FRAMES = ART / "belt/frames"
 # The accent stripes are the only saturated pixels; the rubber and frame are grey.
 MIN_SATURATION = 0.3
-# The loader's body is blue and its trim yellow; only the body takes the tier's colour.
-LOADER_BODY_HUES = (0.5, 0.75)
-# The body's dominant shade, painted the tier's colour exactly; the other body shades keep their
-# saturation and brightness relative to it (#400).
-LOADER_BODY = (63, 71, 92)
-# The panes share the body's hue at almost no brightness, and keep the plain hue rotation.
-LOADER_BODY_MIN_VALUE = 0.2
-LOADER_BODY_MIN_SATURATION = 0.2
+# The loader is a slate housing whose mouth is framed by a band of its tier's colour (#408).
+SLATE = (84, 90, 100)
+SLATE_EDGE = (56, 60, 68)
+SLATE_LIGHT = (112, 118, 128)
+MOUTH = (22, 24, 28)
+MOUTH_SHADOW = (10, 11, 13)
 
 
-def recolour(source: Path, hue: float, only_hues=(0.0, 1.0)) -> bytes:
+def recolour(source: Path, hue: float) -> bytes:
     image = Image.open(source).convert("RGBA")
     pixels = image.load()
     for x in range(image.width):
         for y in range(image.height):
             r, g, b, a = pixels[x, y]
             h, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
-            if a and s >= MIN_SATURATION and only_hues[0] <= h <= only_hues[1]:
+            if a and s >= MIN_SATURATION:
                 r, g, b = (round(c * 255) for c in colorsys.hsv_to_rgb(hue, s, v))
                 pixels[x, y] = (r, g, b, a)
     out = io.BytesIO()
@@ -64,23 +62,41 @@ def tier_colour(frame: bytes):
     return max(counts, key=counts.get)
 
 
-def recolour_loader(source: Path, hue: float, colour) -> bytes:
-    image = Image.open(io.BytesIO(recolour(source, hue, LOADER_BODY_HUES))).convert("RGBA")
-    original = Image.open(source).convert("RGBA")
-    th, ts, tv = colorsys.rgb_to_hsv(*(c / 255 for c in colour))
-    _, bs, bv = colorsys.rgb_to_hsv(*(c / 255 for c in LOADER_BODY))
-    pixels = image.load()
-    for x in range(image.width):
-        for y in range(image.height):
-            r, g, b, a = original.getpixel((x, y))
-            h, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
-            if (a == 255 and LOADER_BODY_HUES[0] <= h <= LOADER_BODY_HUES[1]
-                    and s >= LOADER_BODY_MIN_SATURATION and v >= LOADER_BODY_MIN_VALUE):
-                shade = colorsys.hsv_to_rgb(th, min(1.0, ts * s / bs), min(1.0, tv * v / bv))
-                pixels[x, y] = (*(round(c * 255) for c in shade), a)
+def png(image) -> bytes:
     out = io.BytesIO()
     image.save(out, format="PNG")
     return out.getvalue()
+
+
+def slate() -> bytes:
+    image = Image.new("RGBA", (16, 16), (*SLATE, 255))
+    for i in range(16):
+        for x, y in ((i, 0), (i, 15), (0, i), (15, i)):
+            image.putpixel((x, y), (*SLATE_EDGE, 255))
+    for x in range(1, 15):
+        image.putpixel((x, 1), (*SLATE_LIGHT, 255))
+    for x, y in ((2, 3), (13, 3), (2, 13), (13, 13)):
+        image.putpixel((x, y), (*SLATE_LIGHT, 255))
+    return png(image)
+
+
+def mouth() -> bytes:
+    image = Image.new("RGBA", (16, 16), (*MOUTH, 255))
+    for x in range(16):
+        for y in range(4):
+            image.putpixel((x, y), (*MOUTH_SHADOW, 255))
+    return png(image)
+
+
+def band(colour) -> bytes:
+    h, s, v = colorsys.rgb_to_hsv(*(c / 255 for c in colour))
+    image = Image.new("RGBA", (16, 16))
+    for y in range(16):
+        value = min(1.0, v * 1.2) if y == 0 else v * 0.7 if y == 15 else v
+        shade = tuple(round(c * 255) for c in colorsys.hsv_to_rgb(h, s, value))
+        for x in range(16):
+            image.putpixel((x, y), (*shade, 255))
+    return png(image)
 
 
 def splitter_belt(prefix, frames, step):
@@ -99,11 +115,13 @@ def splitter_belt(prefix, frames, step):
 
 
 def outputs():
+    yield TEXTURES / "block/loader_slate.png", slate()
+    yield TEXTURES / "block/loader_mouth.png", mouth()
     for step, (prefix, art, hue) in enumerate(TIERS.values(), start=1):
         yield TEXTURES / f"item/{prefix}belt.png", recolour(ART / art / "item.png", hue)
         frames = sorted(FRAMES.glob("frame_*.png"))
         colour = tier_colour(recolour(frames[0], hue))
-        yield TEXTURES / f"block/{prefix}chute.png", recolour_loader(ART / "chute/block.png", hue, colour)
+        yield TEXTURES / f"block/{prefix}chute.png", band(colour)
         for frame in frames:
             yield TEXTURES / f"block/{prefix}conveyorbelt/{frame.name}", recolour(frame, hue)
         yield from splitter_belt(prefix, [recolour(frame, hue) for frame in frames], step)

@@ -1,6 +1,0 @@
-{
-  "parent": "belts:block/loader_floor_unloading",
-  "textures": {
-    "belt": "belts:block/splitter_belt"
-  }
-}

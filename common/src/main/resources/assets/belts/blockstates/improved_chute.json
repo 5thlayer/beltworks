@@ -1,117 +1,19 @@
 {
-  "multipart": [
-    {
-      "when": {
-        "facing": "north"
-      },
-      "apply": {
-        "model": "belts:block/improved_chute"
-      }
+  "variants": {
+    "facing=north": {
+      "model": "belts:block/improved_chute"
     },
-    {
-      "when": {
-        "facing": "east"
-      },
-      "apply": {
-        "model": "belts:block/improved_chute",
-        "y": 90
-      }
+    "facing=east": {
+      "model": "belts:block/improved_chute",
+      "y": 90
     },
-    {
-      "when": {
-        "facing": "south"
-      },
-      "apply": {
-        "model": "belts:block/improved_chute",
-        "y": 180
-      }
+    "facing=south": {
+      "model": "belts:block/improved_chute",
+      "y": 180
     },
-    {
-      "when": {
-        "facing": "west"
-      },
-      "apply": {
-        "model": "belts:block/improved_chute",
-        "y": 270
-      }
-    },
-    {
-      "when": {
-        "facing": "north",
-        "floor": "loading"
-      },
-      "apply": {
-        "model": "belts:block/improved_chute_floor_loading"
-      }
-    },
-    {
-      "when": {
-        "facing": "east",
-        "floor": "loading"
-      },
-      "apply": {
-        "model": "belts:block/improved_chute_floor_loading",
-        "y": 90
-      }
-    },
-    {
-      "when": {
-        "facing": "south",
-        "floor": "loading"
-      },
-      "apply": {
-        "model": "belts:block/improved_chute_floor_loading",
-        "y": 180
-      }
-    },
-    {
-      "when": {
-        "facing": "west",
-        "floor": "loading"
-      },
-      "apply": {
-        "model": "belts:block/improved_chute_floor_loading",
-        "y": 270
-      }
-    },
-    {
-      "when": {
-        "facing": "north",
-        "floor": "unloading"
-      },
-      "apply": {
-        "model": "belts:block/improved_chute_floor_unloading"
-      }
-    },
-    {
-      "when": {
-        "facing": "east",
-        "floor": "unloading"
-      },
-      "apply": {
-        "model": "belts:block/improved_chute_floor_unloading",
-        "y": 90
-      }
-    },
-    {
-      "when": {
-        "facing": "south",
-        "floor": "unloading"
-      },
-      "apply": {
-        "model": "belts:block/improved_chute_floor_unloading",
-        "y": 180
-      }
-    },
-    {
-      "when": {
-        "facing": "west",
-        "floor": "unloading"
-      },
-      "apply": {
-        "model": "belts:block/improved_chute_floor_unloading",
-        "y": 270
-      }
+    "facing=west": {
+      "model": "belts:block/improved_chute",
+      "y": 270
     }
-  ]
+  }
 }
