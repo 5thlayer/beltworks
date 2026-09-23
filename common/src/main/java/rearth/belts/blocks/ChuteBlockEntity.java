@@ -411,19 +411,6 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         return splitter;
     }
 
-    /**
-     * Whether a tile in front of this loader runs along its facing, so a click with an item sets the
-     * filter rather than using the item. Read from the world, so the client agrees (PlanetaryFactory
-     * ADR-0084).
-     */
-    public boolean isUsed() {
-        if (splitter || level == null) return false;
-        var facing = getOwnFacing();
-        var ahead = level.getBlockState(worldPosition.relative(facing));
-        if (!(ahead.getBlock() instanceof BeltTileBlock)) return false;
-        return ahead.getValue(HorizontalDirectionalBlock.FACING).getAxis() == facing.getAxis();
-    }
-
     @Override
     public void setRemoved() {
         BeltCollisionRegistry.unregisterHalf(this);

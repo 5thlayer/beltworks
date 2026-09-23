@@ -66,9 +66,12 @@ public class ChuteBlock extends HorizontalDirectionalBlock implements EntityBloc
         return super.useItemOn(stack, state, world, pos, player, hand, hit);
     }
     
-    /** Whether a click holding this stack sets the filter, answered before the held item is asked (PlanetaryFactory #372). */
+    /**
+     * Whether a click holding this stack sets the filter. A loader with no belt yet takes one too, so it
+     * is set before the line reaches it; placing against a loader takes a sneak (PlanetaryFactory ADR-0084).
+     */
     public boolean setsFilter(ChuteBlockEntity entity, ItemStack stack) {
-        return entity.isUsed() && !stack.isEmpty();
+        return !stack.isEmpty();
     }
 
     @Override
@@ -77,7 +80,6 @@ public class ChuteBlock extends HorizontalDirectionalBlock implements EntityBloc
         var candidate = world.getBlockEntity(pos, BlockEntitiesContent.CHUTE_BLOCK.get());
         if (candidate.isPresent()) {
             var entity = candidate.get();
-            if (!entity.isUsed()) return super.useWithoutItem(state, world, pos, player, hit);
             if (!world.isClientSide())
                 entity.resetFilterItem(player);
             return InteractionResult.SUCCESS;
