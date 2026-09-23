@@ -40,7 +40,8 @@ public class SplitterItem extends BlockItem {
         var facing = context.getHorizontalDirection();
         var left = getBlock().defaultBlockState().setValue(SplitterBlock.FACING, facing)
                      .setValue(SplitterBlock.SIDE, SplitterBlock.Side.LEFT);
-        var leftPos = context.getClickedPos();
+        // On the tile it was aimed at, so the preview shows it refused there rather than on the belt.
+        var leftPos = onTopOfATile(context) ? context.getClickedPos().below() : context.getClickedPos();
         return List.of(new Half(leftPos, left),
           new Half(SplitterBlock.partner(leftPos, left), left.setValue(SplitterBlock.SIDE, SplitterBlock.Side.RIGHT)));
     }
@@ -57,8 +58,8 @@ public class SplitterItem extends BlockItem {
         return true;
     }
 
-    // A tile the splitter does not face along is not replaced, so a click on its top lands above
-    // it; a splitter sitting on a belt is no placement (PlanetaryFactory #394).
+    // A tile the splitter does not face along is not replaced, so a click on its top lands above it
+    // (PlanetaryFactory #394).
     private static boolean onTopOfATile(BlockPlaceContext context) {
         return !context.replacingClickedOnBlock() && context.getClickedFace() == Direction.UP
                  && context.getLevel().getBlockState(context.getClickedPos().below()).getBlock() instanceof BeltTileBlock;
@@ -78,7 +79,7 @@ public class SplitterItem extends BlockItem {
     public @Nullable Plan plan(BlockPlaceContext context) {
         if (!context.canPlace()) return null;
         var halves = halves(context);
-        if (!fits(context, halves) || onTopOfATile(context)) return new Plan(halves, List.of(), true, null);
+        if (!fits(context, halves)) return new Plan(halves, List.of(), true, null);
 
         var level = context.getLevel();
         var cuts = new ArrayList<Cut>();
