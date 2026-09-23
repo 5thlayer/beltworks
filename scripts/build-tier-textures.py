@@ -109,34 +109,93 @@ def splitter_belt(prefix, frames, step):
     yield TEXTURES / f"block/{prefix}splitter_belt.png.mcmeta", (json.dumps(meta, indent=2) + "\n").encode()
 
 
-def corner(frame: bytes, support: Image.Image, from_left: bool) -> Image.Image:
+def corner(frame: bytes, from_left: bool) -> Image.Image:
     """A quarter turn of the straight belt about the corner's inner vertex, exit north and entry west
     (from the left) or east. Radius keeps the lateral position and angle the distance along, so
-    each edge meets the straight tile beside it pixel for pixel (#410)."""
+    each edge meets the straight tile beside it pixel for pixel (#410). The model's slices stop
+just past the arc, so what lies outside it repeats the edge stripe."""
     # The straight tile's top face is the frame turned 180 degrees.
     straight = Image.open(io.BytesIO(frame)).convert("RGBA").rotate(180)
-    image = support.copy()
+    image = Image.new("RGBA", (16, 16))
     for x in range(16):
         for z in range(16):
             dx = x + 0.5 if from_left else 16 - (x + 0.5)
-            r = math.hypot(dx, z + 0.5)
-            if r >= 16:
-                continue
+            r = min(15.99, math.hypot(dx, z + 0.5))
             along = 16 * math.atan2(z + 0.5, dx) / (math.pi / 2)
             lateral = r if from_left else 16 - r
             image.putpixel((x, z), straight.getpixel((min(15, int(lateral)), min(15, int(along)))))
     return image
 
 
-def corner_strips(prefix, frames, step, support):
+def corner_strips(prefix, frames, step):
     order = [(index * step) % len(frames) for index in range(len(frames) // math.gcd(step, len(frames)))]
     meta = (json.dumps({"animation": {"frametime": 1, "frames": order}}, indent=2) + "\n").encode()
     for side, from_left in (("left", True), ("right", False)):
         strip = Image.new("RGBA", (16, 16 * len(frames)))
         for index, frame in enumerate(frames):
-            strip.paste(corner(frame, support, from_left), (0, 16 * index))
+            strip.paste(corner(frame, from_left), (0, 16 * index))
         yield TEXTURES / f"block/{prefix}belt_corner_{side}.png", png(strip)
         yield TEXTURES / f"block/{prefix}belt_corner_{side}.png.mcmeta", meta
+
+
+MODELS = TEXTURES.parent / "models/block"
+SLICE = 1
+
+
+def corner_model(prefix, from_left: bool) -> bytes:
+    """The corner as 1px slices, each as deep as the arc at its middle, so the outer wall steps
+    round the curve instead of standing square (#410)."""
+    def wall(u0, u1):
+        # u is read off the face's own position, so the side art's legs run on round the curve
+        # instead of every slice repeating its first column.
+        return {"uv": [u0, 4, u1, 16], "texture": "#side"}
+
+    def depth(start):
+        middle = start + SLICE / 2
+        return round(math.sqrt(256 - middle * middle)) if start < 16 else 0
+
+    outward = "east" if from_left else "west"
+    def culled(faces, box):
+        # A face on the block's boundary names it, so the preview, which draws unculled faces
+        # regardless, does not z-fight the ground or the next tile there (#410).
+        (x0, y0, z0), (x1, y1, z1) = box
+        bounds = {"down": y0 == 0, "north": z0 == 0, "south": z1 == 16, "west": x0 == 0, "east": x1 == 16}
+        for side, face in faces.items():
+            if bounds.get(side):
+                face["cullface"] = side
+        return faces
+
+    elements = []
+    for start in range(0, 16, SLICE):
+        x0, x1 = (start, start + SLICE) if from_left else (16 - start - SLICE, 16 - start)
+        faces = {
+            "up": {"uv": [x0, 0, x1, depth(start)], "texture": "#belt"},
+            "down": {"uv": [x0, 0, x1, depth(start)], "texture": "#frame"},
+            "north": wall(16 - x1, 16 - x0),
+            "south": wall(x0, x1),
+        }
+        if start == 0:
+            faces["west" if from_left else "east"] = wall(0, 16)
+        box = ([x0, 0, 0], [x1, 6, depth(start)])
+        elements.append({"from": box[0], "to": box[1], "faces": culled(faces, box)})
+        # The step's riser is its own flat element, since a whole side face would run on inside
+        # the next slice, where the translucent placement preview shows it.
+        rise = depth(start + SLICE)
+        if rise < depth(start):
+            edge = x1 if from_left else x0
+            box = ([edge, 0, rise], [edge, 6, depth(start)])
+            elements.append({"from": box[0], "to": box[1], "faces": culled({outward: wall(16 - depth(start), 16 - rise) if from_left else wall(rise, depth(start))}, box)})
+    model = {
+        "parent": "minecraft:block/block",
+        "textures": {
+            "belt": f"belts:block/{prefix}belt_corner_{'left' if from_left else 'right'}",
+            "frame": "belts:block/conveyor_support",
+            "particle": f"belts:block/{prefix}splitter_belt",
+            "side": "belts:block/belt_tile_side",
+        },
+        "elements": elements,
+    }
+    return (json.dumps(model, indent=2) + "\n").encode()
 
 
 def outputs():
@@ -150,8 +209,9 @@ def outputs():
         for frame in frames:
             yield TEXTURES / f"block/{prefix}conveyorbelt/{frame.name}", recolour(frame, hue)
         yield from splitter_belt(prefix, [recolour(frame, hue) for frame in frames], step)
-        support = Image.open(TEXTURES / "block/conveyor_support.png").convert("RGBA")
-        yield from corner_strips(prefix, [recolour(frame, hue) for frame in frames], step, support)
+        yield from corner_strips(prefix, [recolour(frame, hue) for frame in frames], step)
+        for side in ("left", "right"):
+            yield MODELS / f"{prefix}belt_tile_corner_{side}.json", corner_model(prefix, side == "left")
 
 
 def main():
