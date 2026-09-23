@@ -12,7 +12,7 @@ import rearth.belts.Belts;
 
 /**
  * A player's hand on the belt that starts at {@code belt}, or on the splitter half there, at a
- * fraction of its curve, resent each tick the use button is held; a negative progress lets go (#350).
+ * fraction of its curve, or on the belt tile there, resent each tick the use button is held; a negative progress lets go (#350).
  */
 public record BeltHandPayload(BlockPos belt, boolean half, double progress) implements CustomPacketPayload {
 
@@ -38,6 +38,13 @@ public record BeltHandPayload(BlockPos belt, boolean half, double progress) impl
         var level = player.level();
         // Checked first, so a packet cannot make the server load a chunk.
         if (!level.hasChunkAt(payload.belt)) return;
+        level.getBlockEntity(payload.belt, BlockEntitiesContent.BELT_TILE.get()).ifPresent(tile -> {
+            if (payload.progress < 0) {
+                tile.releaseHand(player);
+            } else {
+                tile.holdHand(player);
+            }
+        });
         level.getBlockEntity(payload.belt, BlockEntitiesContent.CHUTE_BLOCK.get()).ifPresent(belt -> {
             if (payload.progress < 0) {
                 belt.releaseHand(player);

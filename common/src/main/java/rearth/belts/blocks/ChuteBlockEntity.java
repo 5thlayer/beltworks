@@ -84,7 +84,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
     private static boolean tearingDownSplitter;
 
     // The client resends a hold every tick the button is down, so a hold it stopped sending lapses.
-    private static final int HAND_LAPSE_TICKS = 5;
+    static final int HAND_LAPSE_TICKS = 5;
     private @Nullable HeldHand heldHand;
 
     // A loader either loads its own belt or unloads another's, never both, so one limit serves.
@@ -237,13 +237,17 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         if (!held.taking || held.onHalf != onHalf) return null;
         var point = !onHalf && endInventoryRefuses() ? getBeltLength() : held.point;
         return new BeltContents.Hand<>(point, item -> {
-            // Asked first: a creative inventory's add answers true when full and voids the item.
-            var inventory = player.getInventory();
-            if ((inventory.getSlotWithRemainingSpace(item) >= 0 || inventory.getFreeSlot() >= 0)
-                  && inventory.add(item.copy())) return true;
+            if (intoInventory(player, item)) return true;
             heldHand = new HeldHand(player, held.onHalf, held.point, held.until, false);
             return false;
         });
+    }
+
+    /** Whether a hand's holder took the item. */
+    static boolean intoInventory(Player player, ItemStack item) {
+        // Asked first: a creative inventory's add answers true when full and voids the item.
+        var inventory = player.getInventory();
+        return (inventory.getSlotWithRemainingSpace(item) >= 0 || inventory.getFreeSlot() >= 0) && inventory.add(item.copy());
     }
 
     /**

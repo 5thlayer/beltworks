@@ -3,6 +3,8 @@ package rearth.belts.blocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
@@ -15,6 +17,7 @@ import org.jetbrains.annotations.Nullable;
 import rearth.belts.BeltSync;
 import rearth.belts.BlockEntitiesContent;
 import rearth.belts.TileLineUpdate;
+import rearth.belts.collision.BeltCollisionRegistry;
 import rearth.belts.model.BeltContents;
 import rearth.belts.model.BeltTier;
 import rearth.belts.model.LineScan;
@@ -61,6 +64,9 @@ public class BeltTileBlockEntity extends BlockEntity {
     // This tile's own share of the items while no line holds them.
     private List<TransportLine.Share<ItemStack>> carried = new ArrayList<>();
 
+    // On the tile rather than the line, so a rebuilt line keeps it (#396).
+    private @Nullable HeldHand heldHand;
+
     public BeltTileBlockEntity(BlockPos pos, BlockState state) {
         super(BlockEntitiesContent.BELT_TILE.get(), pos, state);
         tier = ((BeltTileBlock) state.getBlock()).tier();
@@ -81,12 +87,79 @@ public class BeltTileBlockEntity extends BlockEntity {
 
     public void tick() {
         if (unloaded) return;
+        registerRide();
         if (rescan) rebuild();
         if (line == null) return;
-        if (line.tick(this::takeFromLoader, this::giveToLoader)) lineChanged();
+        if (line.tick(this::takeFromLoader, this::giveToLoader, hand())) lineChanged();
         movedAt = level.getGameTime();
         var changes = line.contents().drainChanges();
         if (!changes.isEmpty()) send(new TileLineUpdate(worldPosition, List.of(), tiers(), line.ring(), false, changes));
+    }
+
+    // A tile's items are drawn from the line update, so on the client only the ride is kept.
+    public void clientTick() {
+        registerRide();
+    }
+
+    private void registerRide() {
+        var shape = shape();
+        var travel = BeltTileBlock.travel(travel());
+        var centre = worldPosition.getCenter();
+        BeltCollisionRegistry.registerTile(level, worldPosition, new Ride(shape, travel), progress -> {
+            var point = shape.point(progress, travel);
+            return centre.add(point.x(), 0, point.z());
+        }, tier.blocksPerTick() * 20);
+    }
+
+    private record Ride(TileShape shape, LineScan.Travel travel) {
+    }
+
+    @Override
+    public void setRemoved() {
+        if (level != null) BeltCollisionRegistry.unregisterTile(level, worldPosition);
+        super.setRemoved();
+    }
+
+    /**
+     * Makes this tile's front the player's end for its line, until they release it or it lapses.
+     * Once their inventory refuses an item the hand stops taking until it is released, and the
+     * line runs on past it (#350, #396).
+     */
+    public void holdHand(ServerPlayer player) {
+        var reach = player.blockInteractionRange() + 1;
+        if (player.getEyePosition().distanceToSqr(worldPosition.getCenter()) > reach * reach) return;
+        var taking = heldHand == null || heldHand.player != player || heldHand.taking;
+        heldHand = new HeldHand(player, level.getGameTime() + HAND_LAPSE_TICKS, taking);
+    }
+
+    public void releaseHand(Player player) {
+        if (heldHand != null && heldHand.player == player) heldHand = null;
+    }
+
+    // The first live hand on the line's tiles; the line has one end, so it takes one hand.
+    private BeltContents.@Nullable Hand<ItemStack> hand() {
+        for (var at = 0; at < members.size(); at++) {
+            var member = members.get(at);
+            var held = member.heldHand;
+            if (held == null) continue;
+            var player = held.player;
+            if (level.getGameTime() > held.until || player.isRemoved() || !player.isAlive() || player.level() != level) {
+                member.heldHand = null;
+                continue;
+            }
+            if (!held.taking) continue;
+            return new BeltContents.Hand<>(TransportLine.handPoint(at), item -> {
+                if (ChuteBlockEntity.intoInventory(player, item)) return true;
+                member.heldHand = new HeldHand(player, held.until, false);
+                return false;
+            });
+        }
+        return null;
+    }
+
+    private static final int HAND_LAPSE_TICKS = ChuteBlockEntity.HAND_LAPSE_TICKS;
+
+    private record HeldHand(ServerPlayer player, long until, boolean taking) {
     }
 
     public void lineChanged() {

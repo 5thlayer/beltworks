@@ -276,6 +276,41 @@ class TransportLineTest {
         assertEquals(64, ring.size());
     }
 
+    // A hand on a tile takes whatever is on it, so its point is the tile's front (#396).
+    @Test
+    void aHandsPointIsItsTilesFront() {
+        assertEquals(4 - BeltContents.SPACING, TransportLine.handPoint(3), 1e-9);
+    }
+
+    @Test
+    void aHandOnATileTakesAtTheLinesRateWhileItKeepsLoading() {
+        var line = line(8, 1);
+        for (var tick = 0; tick < 20 * 10; tick++) line.tick(() -> "item", item -> true);
+
+        var taken = new int[1];
+        var delivered = new int[1];
+        var point = TransportLine.handPoint(4);
+        var pastTheTile = line.contents().entries().stream().filter(entry -> entry.position() > point).count();
+        var hand = new BeltContents.Hand<String>(point, item -> ++taken[0] > 0);
+        for (var tick = 0; tick < 20 * 60; tick++) line.tick(() -> "item", item -> ++delivered[0] > 0, hand);
+
+        assertTrue(Math.abs(taken[0] - 15 * 60) <= 1, "taken " + taken[0]);
+        assertEquals(pastTheTile, delivered[0]);
+    }
+
+    // A backed-up line's head sits flush with its last tile's front, where a hand on that tile holds (#408).
+    @Test
+    void aHandOnTheLastTileOfABackedUpLineTakesAtTheLinesRate() {
+        var line = line(8, 1);
+        for (var tick = 0; tick < 20 * 20; tick++) line.tick(() -> "item", item -> false);
+
+        var taken = new int[1];
+        var hand = new BeltContents.Hand<String>(TransportLine.handPoint(7), item -> ++taken[0] > 0);
+        for (var tick = 0; tick < 20 * 60; tick++) line.tick(() -> "item", item -> false, hand);
+
+        assertTrue(Math.abs(taken[0] - 15 * 60) <= 1, "taken " + taken[0]);
+    }
+
     private static double positionOf(TransportLine<Integer> line, int payload) {
         return line.contents().entries().stream().filter(entry -> entry.payload() == payload).findFirst().orElseThrow().position();
     }

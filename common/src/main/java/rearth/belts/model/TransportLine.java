@@ -1,5 +1,7 @@
 package rearth.belts.model;
 
+import org.jetbrains.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
@@ -63,8 +65,21 @@ public final class TransportLine<T> {
 
     /** One tick of the whole line: loaded at the first tile, delivered past the last. */
     public boolean tick(Supplier<T> source, Predicate<T> sink) {
+        return tick(source, sink, null);
+    }
+
+    /** A tick with a player's hand held on the line; a ring takes no hand. */
+    public boolean tick(Supplier<T> source, Predicate<T> sink, BeltContents.@Nullable Hand<T> hand) {
         if (ring) return contents.cycle(length(), speed);
-        return contents.tick(length(), speed, source, sink);
+        return contents.tick(length(), speed, source, sink, hand);
+    }
+
+    /**
+     * The entry position a hand on this tile holds: the tile's front, so it takes whatever is on
+     * the tile rather than what crosses an aimed point (#396).
+     */
+    public static double handPoint(int tile) {
+        return tile + 1 - BeltContents.SPACING;
     }
 
     /**

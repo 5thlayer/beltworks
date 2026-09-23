@@ -2,13 +2,16 @@ package rearth.belts.neoforge.client;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import org.jetbrains.annotations.Nullable;
+import rearth.belts.blocks.BeltTileBlock;
 import rearth.belts.collision.BeltCollisionRegistry;
 import rearth.belts.items.BeltItem;
+import rearth.belts.items.BeltTileItem;
 import rearth.belts.items.SplitterItem;
 import rearth.belts.neoforge.BeltHandPayload;
 
@@ -44,16 +47,21 @@ final class BeltHandClient {
     }
 
     /**
-     * The belt under the crosshair within reach, unless a block or an entity is nearer. A held belt
-     * or splitter is never a hand: its click lays a belt or places across one, and a splitter half's
+     * The belt under the crosshair within reach, unless a block or an entity is nearer. A held belt,
+     * tile or splitter is never a hand: its click lays a belt or places across one, and a splitter half's
      * raised surface would otherwise swallow a belt item's click on the half (PlanetaryFactory #361).
      */
     private static BeltCollisionRegistry.@Nullable BeltHit aim(Minecraft minecraft) {
         var player = minecraft.player;
         if (player == null || minecraft.level == null) return null;
         var held = player.getMainHandItem().getItem();
-        if (held instanceof SplitterItem || held instanceof BeltItem) return null;
+        if (held instanceof SplitterItem || held instanceof BeltItem || held instanceof BeltTileItem) return null;
         var eye = player.getEyePosition();
+        // A tile is aimed as a whole block, since its surface is too thin to aim at reliably (#396).
+        if (minecraft.hitResult instanceof BlockHitResult block && block.getType() == HitResult.Type.BLOCK
+              && minecraft.level.getBlockState(block.getBlockPos()).getBlock() instanceof BeltTileBlock) {
+            return new BeltCollisionRegistry.BeltHit(block.getBlockPos(), false, 1, eye.distanceTo(block.getLocation()));
+        }
         var reach = eye.add(player.getViewVector(1).scale(player.blockInteractionRange()));
         var hit = BeltCollisionRegistry.raycast(minecraft.level, eye, reach);
         if (hit == null) return null;

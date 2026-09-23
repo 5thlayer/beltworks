@@ -142,7 +142,9 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
 
     @Override
     public @Nullable <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level world, BlockState state, BlockEntityType<T> type) {
-        if (world.isClientSide()) return null;
+        if (world.isClientSide()) return (level, pos, blockState, blockEntity) -> {
+            if (blockEntity instanceof BeltTileBlockEntity tile) tile.clientTick();
+        };
         return (level, pos, blockState, blockEntity) -> {
             if (blockEntity instanceof BeltTileBlockEntity tile) tile.tick();
         };

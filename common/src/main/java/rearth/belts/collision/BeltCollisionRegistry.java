@@ -18,11 +18,13 @@ import rearth.belts.util.SplineUtil;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.function.DoubleFunction;
 
 public final class BeltCollisionRegistry {
 
@@ -36,6 +38,7 @@ public final class BeltCollisionRegistry {
     private static final double ITEM_HEIGHT = 0.25;
 
     private static final Map<Level, LevelCollisionData> LEVEL_DATA = new WeakHashMap<>();
+    private static final Map<Level, Set<BlockPos>> TILES = new WeakHashMap<>();
 
     private BeltCollisionRegistry() {
     }
@@ -52,15 +55,36 @@ public final class BeltCollisionRegistry {
     }
 
     private static void register(ChuteBlockEntity entity, boolean half, ChuteBlockEntity.@Nullable BeltData beltData, double speed) {
-        var level = entity.getLevel();
-        if (level == null || beltData == null) return;
+        if (beltData == null) return;
+        register(entity.getLevel(), entity.getBlockPos(), half, beltData, t -> SplineUtil.getPositionOnSpline(beltData, t), beltData.totalLength(), speed);
+    }
+
+    /**
+     * A belt tile's block of belt, along its straight or its corner's arc, so what stands on it
+     * rides at the tile's own speed and a hand aims at it (PlanetaryFactory #396).
+     *
+     * @param source compared by equality, so an unchanged tile does not rebuild the index
+     */
+    public static void registerTile(Level level, BlockPos pos, Object source, DoubleFunction<Vec3> path, double speed) {
+        register(level, pos, false, source, path, 1, speed);
+        TILES.computeIfAbsent(level, ignored -> new HashSet<>()).add(pos.immutable());
+    }
+
+    public static void unregisterTile(Level level, BlockPos pos) {
+        unregister(level, pos, false);
+        var tiles = TILES.get(level);
+        if (tiles != null) tiles.remove(pos);
+    }
+
+    private static void register(@Nullable Level level, BlockPos pos, boolean half, Object source, DoubleFunction<Vec3> path, double length, double speed) {
+        if (level == null) return;
 
         var levelData = LEVEL_DATA.computeIfAbsent(level, ignored -> new LevelCollisionData());
-        var key = new BeltKey(entity.getBlockPos().immutable(), half);
+        var key = new BeltKey(pos.immutable(), half);
         var current = levelData.belts.get(key);
-        if (current != null && current.sourceData == beltData && current.speed == speed) return;
+        if (current != null && current.source.equals(source) && current.speed == speed) return;
 
-        levelData.belts.put(key, createCollision(beltData, speed));
+        levelData.belts.put(key, createCollision(source, path, length, speed));
         levelData.rebuildSectionIndex();
     }
 
@@ -73,11 +97,14 @@ public final class BeltCollisionRegistry {
     }
 
     private static void unregister(ChuteBlockEntity entity, boolean half) {
-        var level = entity.getLevel();
+        unregister(entity.getLevel(), entity.getBlockPos(), half);
+    }
+
+    private static void unregister(@Nullable Level level, BlockPos pos, boolean half) {
         if (level == null) return;
 
         var levelData = LEVEL_DATA.get(level);
-        if (levelData == null || levelData.belts.remove(new BeltKey(entity.getBlockPos(), half)) == null) return;
+        if (levelData == null || levelData.belts.remove(new BeltKey(pos, half)) == null) return;
 
         if (levelData.belts.isEmpty()) {
             LEVEL_DATA.remove(level);
@@ -135,15 +162,16 @@ public final class BeltCollisionRegistry {
 
     /**
      * The blocks whose belts may pass through this block, found by their drawn surface; a
-     * splitter half's own block of belt is not one (PlanetaryFactory #361).
+     * splitter half's own block of belt, and a tile, is not one (PlanetaryFactory #361).
      */
     public static List<BlockPos> beltSourcesAt(Level level, BlockPos pos) {
         var levelData = LEVEL_DATA.get(level);
         if (levelData == null) return List.of();
+        var tiles = TILES.getOrDefault(level, Set.of());
         var block = new AABB(pos);
         var sources = new ArrayList<BlockPos>();
         for (var belt : levelData.belts.entrySet()) {
-            if (belt.getKey().half || !belt.getValue().bounds.intersects(block)) continue;
+            if (belt.getKey().half || tiles.contains(belt.getKey().pos) || !belt.getValue().bounds.intersects(block)) continue;
             if (belt.getValue().slabs.stream().anyMatch(slab -> slab.bounds.intersects(block))) sources.add(belt.getKey().pos);
         }
         return sources;
@@ -205,15 +233,15 @@ public final class BeltCollisionRegistry {
         player.resetFallDistance();
     }
 
-    private static BeltCollision createCollision(ChuteBlockEntity.BeltData beltData, double speed) {
-        var segmentCount = Math.max(1, (int) Math.ceil(beltData.totalLength() / SAMPLE_LENGTH));
+    private static BeltCollision createCollision(Object source, DoubleFunction<Vec3> path, double length, double speed) {
+        var segmentCount = Math.max(1, (int) Math.ceil(length / SAMPLE_LENGTH));
         var segments = new ArrayList<PathSegment>(segmentCount);
         var slabs = new ArrayList<CollisionSlab>(segmentCount);
         AABB bounds = null;
 
-        var from = surfacePoint(SplineUtil.getPositionOnSpline(beltData, 0));
+        var from = surfacePoint(path.apply(0));
         for (int i = 0; i < segmentCount; i++) {
-            var to = surfacePoint(SplineUtil.getPositionOnSpline(beltData, (i + 1d) / segmentCount));
+            var to = surfacePoint(path.apply((i + 1d) / segmentCount));
             var tangent = to.subtract(from);
             if (tangent.lengthSqr() < 1.0E-8) {
                 from = to;
@@ -234,11 +262,11 @@ public final class BeltCollisionRegistry {
         }
 
         if (bounds == null) {
-            var point = surfacePoint(SplineUtil.getPositionOnSpline(beltData, 0));
+            var point = surfacePoint(path.apply(0));
             bounds = new AABB(point, point).inflate(BELT_HALF_WIDTH, BELT_THICKNESS, BELT_HALF_WIDTH);
         }
 
-        return new BeltCollision(beltData, speed, List.copyOf(segments), List.copyOf(slabs), bounds);
+        return new BeltCollision(source, speed, List.copyOf(segments), List.copyOf(slabs), bounds);
     }
 
     private static Vec3 surfacePoint(Vec3 point) {
@@ -302,15 +330,15 @@ public final class BeltCollisionRegistry {
     }
 
     private static final class BeltCollision {
-        private final ChuteBlockEntity.BeltData sourceData;
+        private final Object source;
         private final double speed;
         private final List<PathSegment> segments;
         private final List<CollisionSlab> slabs;
         private final AABB bounds;
 
-        private BeltCollision(ChuteBlockEntity.BeltData sourceData, double speed, List<PathSegment> segments,
+        private BeltCollision(Object source, double speed, List<PathSegment> segments,
                               List<CollisionSlab> slabs, AABB bounds) {
-            this.sourceData = sourceData;
+            this.source = source;
             this.speed = speed;
             this.segments = segments;
             this.slabs = slabs;
