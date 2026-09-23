@@ -31,7 +31,7 @@ import java.util.List;
 /**
  * The tile item (PlanetaryFactory #393). A plain click places one tile facing the look; a
  * sneak-click stores a start and the look, and the next plain click lays a {@link Stretch} to the
- * aimed spot. A sneak-use in the air forgets the start.
+ * aimed spot. A sneak-click with a start stored leaves it; a sneak-use in the air forgets it.
  */
 public class BeltTileItem extends TooltipBlockItem {
 
@@ -58,7 +58,7 @@ public class BeltTileItem extends TooltipBlockItem {
         var player = context.getPlayer();
         var stack = context.getItemInHand();
         if (player != null && player.isShiftKeyDown()) {
-            if (!level.isClientSide()) {
+            if (!level.isClientSide() && !stack.has(ComponentContent.BELT_START.get())) {
                 stack.set(ComponentContent.BELT_START.get(), aimedTile(context));
                 stack.set(ComponentContent.BELT_DIR.get(), context.getHorizontalDirection());
                 tell(player, Component.translatable("message.belts.stretch_started"));
