@@ -52,13 +52,11 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
         builder.add(BlockStateProperties.HORIZONTAL_FACING);
     }
 
-    // The way the player looks, as a Factorio belt is laid, and back toward them when sneaking,
-    // which stands in for the rotate key until it exists (#383).
+    // The way the player looks, as a Factorio belt is laid; the pack's Rotate turns the look itself
+    // (PlanetaryFactory ADR-0083).
     @Override
     public @Nullable BlockState getStateForPlacement(BlockPlaceContext ctx) {
-        Direction look = ctx.getHorizontalDirection();
-        return defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING,
-                ctx.isSecondaryUseActive() ? look.getOpposite() : look);
+        return defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, ctx.getHorizontalDirection());
     }
 
     @Override
