@@ -18,9 +18,16 @@ public final class TransportLine<T> {
 
     private final List<BeltTier> tiers;
     private final double speed;
+    private final boolean ring;
     private final BeltContents<T> contents = new BeltContents<>();
 
     public TransportLine(List<BeltTier> tiers) {
+        this(tiers, false);
+    }
+
+    /** A line whose last tile feeds its first, which loads and delivers nothing (#391). */
+    public TransportLine(List<BeltTier> tiers, boolean ring) {
+        this.ring = ring;
         if (tiers.isEmpty()) throw new IllegalArgumentException("a transport line has at least one tile");
         this.tiers = List.copyOf(tiers);
         this.speed = tiers.stream().mapToDouble(BeltTier::blocksPerTick).min().orElseThrow();
@@ -50,13 +57,22 @@ public final class TransportLine<T> {
         return (int) Math.round(length() / BeltContents.SPACING);
     }
 
+    public boolean ring() {
+        return ring;
+    }
+
     /** One tick of the whole line: loaded at the first tile, delivered past the last. */
     public boolean tick(Supplier<T> source, Predicate<T> sink) {
+        if (ring) return contents.cycle(length(), speed);
         return contents.tick(length(), speed, source, sink);
     }
 
     /** Moves the items one tick with nothing loaded or delivered, as a client's copy does. */
     public void advance() {
+        if (ring) {
+            contents.cycle(length(), speed);
+            return;
+        }
         contents.advance(length(), speed);
     }
 
@@ -123,6 +139,15 @@ public final class TransportLine<T> {
     public List<Drawn<T>> drawn(float partialTicks) {
         var entries = contents.entries();
         var advance = speed * partialTicks;
+        if (ring) {
+            var drawn = new ArrayList<Drawn<T>>(entries.size());
+            for (var entry : entries) {
+                var centre = (entry.position() + advance + BeltContents.SPACING / 2) % length();
+                var tile = (int) centre;
+                drawn.add(new Drawn<>(tile, centre - tile, entry));
+            }
+            return drawn;
+        }
         var positions = new double[entries.size()];
         var limit = length() - BeltContents.SPACING;
         for (var index = entries.size() - 1; index >= 0; index--) {

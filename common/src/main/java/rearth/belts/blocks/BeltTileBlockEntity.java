@@ -18,6 +18,7 @@ import rearth.belts.TileLineUpdate;
 import rearth.belts.model.BeltContents;
 import rearth.belts.model.BeltTier;
 import rearth.belts.model.LineScan;
+import rearth.belts.model.TileShape;
 import rearth.belts.model.TransportLine;
 
 import java.util.ArrayList;
@@ -105,9 +106,9 @@ public class BeltTileBlockEntity extends BlockEntity {
         if (level == null) return;
         // A tile placed against a run brings the whole run's heads and tails into question.
         var first = head == null;
-        var scanned = LineScan.through(spot(worldPosition), this::travelAt);
-        if (scanned.isEmpty()) return;
-        var run = scanned.stream().map(BeltTileBlockEntity::pos).toList();
+        var scan = LineScan.through(spot(worldPosition), this::pieceAt);
+        if (scan.spots().isEmpty()) return;
+        var run = scan.spots().stream().map(BeltTileBlockEntity::pos).toList();
         var scannedHead = run.getFirst();
         if (!scannedHead.equals(head)) invalidate(head);
         head = scannedHead;
@@ -124,10 +125,10 @@ public class BeltTileBlockEntity extends BlockEntity {
             }
             return;
         }
-        buildLine(run);
+        buildLine(run, scan.ring());
     }
 
-    private void buildLine(List<BlockPos> run) {
+    private void buildLine(List<BlockPos> run, boolean ring) {
         var tierList = new ArrayList<BeltTier>(run.size());
         var found = new ArrayList<BeltTileBlockEntity>(run.size());
         for (var pos : run) {
@@ -163,7 +164,7 @@ public class BeltTileBlockEntity extends BlockEntity {
         members = List.copyOf(found);
         tiles = run;
         inChunks = List.copyOf(crossed.values());
-        line = new TransportLine<>(tierList);
+        line = new TransportLine<>(tierList, ring);
         shares = null;
         for (var spilled : line.restoreShares(held)) drop(spilled);
         line.contents().drainChanges();
@@ -250,10 +251,18 @@ public class BeltTileBlockEntity extends BlockEntity {
     }
 
     private LineScan.@Nullable Travel travelAt(LineScan.Spot spot) {
-        return tileAt(pos(spot)).map(tile -> {
-            var facing = tile.travel();
-            return new LineScan.Travel(facing.getStepX(), facing.getStepZ());
-        }).orElse(null);
+        return tileAt(pos(spot)).map(tile -> travel(tile.travel())).orElse(null);
+    }
+
+    private LineScan.@Nullable Piece pieceAt(LineScan.Spot spot) {
+        var travel = travelAt(spot);
+        if (travel == null) return null;
+        var shape = TileShape.at(spot, travel, (from, feeding) -> feeding.equals(travelAt(from)));
+        return new LineScan.Piece(travel, shape.entry(travel));
+    }
+
+    private static LineScan.Travel travel(Direction facing) {
+        return new LineScan.Travel(facing.getStepX(), facing.getStepZ());
     }
 
     private static LineScan.Spot spot(BlockPos pos) {

@@ -129,4 +129,31 @@ class TransportLineTest {
     void aLineOfNoTilesIsRefused() {
         assertThrows(IllegalArgumentException.class, () -> new TransportLine<String>(List.of()));
     }
+
+    // A ring has no end: its items go round, none leaves and none is made (#391).
+    @Test
+    void aRingMovesItsItemsRoundAtItsTiersSpeed() {
+        var ring = new TransportLine<String>(Collections.nCopies(6, BeltTier.of(1)), true);
+        ring.contents().restore("a", 0);
+        ring.contents().restore("b", 5.5);
+
+        // Tier 1 moves 3/32 of a block a tick, so 64 ticks is six blocks: once round.
+        for (var tick = 0; tick < 64; tick++) ring.tick(() -> "never", item -> { throw new AssertionError(); });
+        assertEquals(List.of(0.0, 5.5), ring.contents().entries().stream().map(BeltContents.Entry::position).toList());
+
+        for (var tick = 0; tick < 8; tick++) ring.tick(() -> "never", item -> false);
+        assertEquals(List.of("b", "a"), ring.contents().entries().stream().map(BeltContents.Entry::payload).toList());
+        assertEquals(List.of(0.25, 0.75), ring.contents().entries().stream().map(BeltContents.Entry::position).toList());
+    }
+
+    @Test
+    void aFullRingHoldsEightATileAndStillMoves() {
+        var ring = new TransportLine<Integer>(Collections.nCopies(4, BeltTier.of(1)), true);
+        for (var slot = 0; slot < 32; slot++) ring.contents().restore(slot, slot * BeltContents.SPACING);
+
+        assertEquals(32, ring.capacity());
+        assertTrue(ring.tick(() -> null, item -> false));
+        assertEquals(32, ring.size());
+        assertEquals(0.09375, ring.contents().entries().getFirst().position());
+    }
 }

@@ -16,14 +16,32 @@ class LineScanTest {
     private static final LineScan.Travel WEST = new LineScan.Travel(-1, 0);
     private static final LineScan.Travel NORTH = new LineScan.Travel(0, -1);
 
+    private static final LineScan.Travel SOUTH = new LineScan.Travel(0, 1);
+
     private final Map<LineScan.Spot, LineScan.Travel> world = new HashMap<>();
 
     private void tile(int x, int z, LineScan.Travel travel) {
         world.put(new LineScan.Spot(x, 0, z), travel);
     }
 
+    // Each tile's shape is derived from the tiles around it, as the world derives it.
+    private LineScan.Piece piece(LineScan.Spot spot) {
+        var travel = world.get(spot);
+        if (travel == null) return null;
+        var shape = TileShape.at(spot, travel, (from, feeding) -> feeding.equals(world.get(from)));
+        return new LineScan.Piece(travel, shape.entry(travel));
+    }
+
+    private LineScan.Scan scan(int x, int z) {
+        return LineScan.through(new LineScan.Spot(x, 0, z), this::piece);
+    }
+
     private List<LineScan.Spot> through(int x, int z) {
-        return LineScan.through(new LineScan.Spot(x, 0, z), world::get);
+        return scan(x, z).spots();
+    }
+
+    private static LineScan.Spot at(int x, int z) {
+        return new LineScan.Spot(x, 0, z);
     }
 
     @Test
@@ -56,15 +74,6 @@ class LineScanTest {
     }
 
     @Test
-    void aTileOfAnotherDirectionEndsTheLine() {
-        tile(0, 0, EAST);
-        tile(1, 0, EAST);
-        tile(2, 0, NORTH);
-
-        assertEquals(List.of(new LineScan.Spot(0, 0, 0), new LineScan.Spot(1, 0, 0)), through(1, 0));
-    }
-
-    @Test
     void aFacingTileDoesNotJoinTheLine() {
         tile(0, 0, EAST);
         tile(1, 0, WEST);
@@ -88,6 +97,66 @@ class LineScanTest {
         tile(0, 1, EAST);
 
         assertEquals(List.of(new LineScan.Spot(0, 0, 0)), through(0, 0));
+    }
+
+    // The L of #391: up a column, then east along a row, one line through the corner.
+    @Test
+    void aCornerIsInsideItsLine() {
+        tile(0, 2, NORTH);
+        tile(0, 1, NORTH);
+        tile(0, 0, EAST);
+        tile(1, 0, EAST);
+        tile(2, 0, EAST);
+
+        var line = through(2, 0);
+
+        assertEquals(List.of(at(0, 2), at(0, 1), at(0, 0), at(1, 0), at(2, 0)), line);
+        assertEquals(line, through(0, 2));
+    }
+
+    @Test
+    void aSideLoadIsTwoLines() {
+        tile(0, 0, EAST);
+        tile(1, 0, EAST);
+        tile(2, 0, EAST);
+        tile(1, 2, NORTH);
+        tile(1, 1, NORTH);
+
+        assertEquals(List.of(at(0, 0), at(1, 0), at(2, 0)), through(1, 0));
+        assertEquals(List.of(at(1, 2), at(1, 1)), through(1, 1));
+    }
+
+    @Test
+    void aTileFedFromBothSidesStartsTheLine() {
+        tile(1, 0, EAST);
+        tile(2, 0, EAST);
+        tile(1, -1, SOUTH);
+        tile(1, 1, NORTH);
+
+        assertEquals(List.of(at(1, 0), at(2, 0)), through(2, 0));
+        assertEquals(List.of(at(1, -1)), through(1, -1));
+    }
+
+    @Test
+    void aRingIsOneLineWithTheSameHeadFromEveryTile() {
+        tile(0, 0, EAST);
+        tile(1, 0, SOUTH);
+        tile(1, 1, WEST);
+        tile(0, 1, NORTH);
+
+        var scan = scan(1, 1);
+
+        assertTrue(scan.ring());
+        assertEquals(4, scan.spots().size());
+        for (var spot : List.of(at(0, 0), at(1, 0), at(0, 1))) assertEquals(scan, scan(spot.x(), spot.z()));
+    }
+
+    @Test
+    void aLineWithAnEndIsNoRing() {
+        tile(0, 0, EAST);
+        tile(1, 0, EAST);
+
+        assertEquals(false, scan(0, 0).ring());
     }
 
     // Tiles are merged by their direction of travel, whatever tier they are (#347).

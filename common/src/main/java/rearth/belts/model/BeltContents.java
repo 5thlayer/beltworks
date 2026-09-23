@@ -4,6 +4,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -91,6 +92,20 @@ public final class BeltContents<T> {
             load(payload, at);
             changed = true;
         }
+    }
+
+    /**
+     * One tick of a ring, which has no end: every entry moves on together, wrapping past the last
+     * block to the first, so the gaps between them never close (PlanetaryFactory #391).
+     */
+    public boolean cycle(double length, double speed) {
+        if (entries.isEmpty()) return false;
+        var moved = new ArrayList<>(entries);
+        for (var entry : moved) entry.position = (entry.position + speed) % length;
+        moved.sort(Comparator.comparingDouble(Entry::position));
+        entries.clear();
+        entries.addAll(moved);
+        return true;
     }
 
     /** Moves the entries one tick with nothing loaded or delivered, as a client's copy does between changes. */

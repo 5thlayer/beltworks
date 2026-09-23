@@ -3,14 +3,16 @@ package rearth.belts.model;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 
 /**
- * Which tiles are one transport line: the contiguous run of tiles of one direction of travel
- * through a tile, head first (PlanetaryFactory #398).
+ * Which tiles are one transport line: the contiguous run of tiles each feeding the next, through a
+ * tile, head first (PlanetaryFactory #398, #391).
  *
- * <p>A run is collinear, since every tile of it travels the same way, so the walk is monotone on
- * one axis and cannot close on itself.
+ * <p>A tile feeds the tile in front of it only when that tile enters from its side, so a side-load
+ * is two lines meeting rather than one. A run whose last tile feeds its first is a ring.
  */
 public final class LineScan {
 
@@ -29,29 +31,64 @@ public final class LineScan {
     public record Travel(int x, int z) {
     }
 
-    /** The world the scan reads: a tile's direction of travel, or null where there is no tile. */
+    /** A tile as the scan sees it: the way items leave it and the way they enter it. */
+    public record Piece(Travel travel, Travel entry) {
+    }
+
+    /** The world the scan reads: the tile at a spot, or null where there is none. */
     public interface Tiles {
 
         @Nullable
-        Travel travelAt(Spot spot);
+        Piece pieceAt(Spot spot);
     }
 
     /**
-     * The line through this tile, head first, or nothing when there is no tile there. The head is
-     * the tile nothing of the line feeds, and the last is the one the line delivers from.
+     * A line's tiles, head first. A ring's head is its least spot, so every tile of it scans to the
+     * same line.
      */
-    public static List<Spot> through(Spot spot, Tiles tiles) {
-        var travel = tiles.travelAt(spot);
-        if (travel == null) return List.of();
+    public record Scan(List<Spot> spots, boolean ring) {
+
+        static final Scan NONE = new Scan(List.of(), false);
+    }
+
+    private static final Comparator<Spot> ORDER =
+      Comparator.comparingInt(Spot::x).thenComparingInt(Spot::y).thenComparingInt(Spot::z);
+
+    /** The line through this tile, or nothing when there is no tile there. */
+    public static Scan through(Spot spot, Tiles tiles) {
+        var piece = tiles.pieceAt(spot);
+        if (piece == null) return Scan.NONE;
 
         var line = new ArrayList<Spot>();
-        for (var back = spot.step(travel, -1); travel.equals(tiles.travelAt(back)); back = back.step(travel, -1)) {
-            line.addFirst(back);
-        }
+        var seen = new HashSet<Spot>();
         line.add(spot);
-        for (var on = spot.step(travel, 1); travel.equals(tiles.travelAt(on)); on = on.step(travel, 1)) {
-            line.add(on);
+        seen.add(spot);
+        for (var at = spot; ; ) {
+            var here = tiles.pieceAt(at);
+            var next = at.step(here.travel(), 1);
+            var ahead = tiles.pieceAt(next);
+            if (ahead == null || !ahead.entry().equals(here.travel())) break;
+            if (next.equals(spot)) return ring(line);
+            // A walk forward only returns to where it started, but a bound costs nothing.
+            if (!seen.add(next)) break;
+            line.add(next);
+            at = next;
         }
-        return List.copyOf(line);
+        for (var at = spot; ; ) {
+            var entry = tiles.pieceAt(at).entry();
+            var back = at.step(entry, -1);
+            var behind = tiles.pieceAt(back);
+            if (behind == null || !behind.travel().equals(entry) || !seen.add(back)) break;
+            line.addFirst(back);
+            at = back;
+        }
+        return new Scan(List.copyOf(line), false);
+    }
+
+    private static Scan ring(List<Spot> line) {
+        var head = line.indexOf(line.stream().min(ORDER).orElseThrow());
+        var rotated = new ArrayList<Spot>(line.size());
+        for (var at = 0; at < line.size(); at++) rotated.add(line.get((head + at) % line.size()));
+        return new Scan(List.copyOf(rotated), true);
     }
 }
