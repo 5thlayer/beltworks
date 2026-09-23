@@ -23,7 +23,8 @@ public record BeltChangesPayload(BlockPos belt, ChuteBlockEntity.Track track, Be
       ByteBufCodecs.VAR_INT, BeltContents.Added::id,
       ItemStack.STREAM_CODEC, BeltContents.Added::payload,
       ByteBufCodecs.FLOAT, added -> (float) added.position(),
-      BeltContents.Added::new);
+      ByteBufCodecs.BOOL, BeltContents.Added::side,
+      (id, payload, position, side) -> new BeltContents.Added<>(id, payload, position, side));
 
     private static final StreamCodec<RegistryFriendlyByteBuf, BeltContents.Changes<ItemStack>> CHANGES_CODEC = StreamCodec.composite(
       ByteBufCodecs.VAR_INT.apply(ByteBufCodecs.list()), BeltContents.Changes::removed,

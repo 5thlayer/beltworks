@@ -6,9 +6,11 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -28,10 +30,16 @@ public final class BeltContents<T> {
     /** Factorio's belt holds eight items per tile across two lanes; this belt has one lane for all eight (#344). */
     public static final double SPACING = 0.125;
 
+    // A ring's positions wrap by a modulo each tick and drift by rounding, which would leave its last
+    // slot a hair short of a spacing and never filled (#409).
+    private static final double GAP_TOLERANCE = 1e-9;
+
     private final Deque<Entry<T>> entries = new ArrayDeque<>();
     private int nextId;
     private final List<Integer> removed = new ArrayList<>();
     private final Map<Integer, Entry<T>> added = new LinkedHashMap<>();
+    // Gained mid-belt rather than at the head, so a copy places them by position (#409).
+    private final Set<Integer> sided = new HashSet<>();
 
     public boolean tick(double length, double speed, Supplier<T> source, Predicate<T> sink) {
         return tick(length, speed, source, sink, null);
@@ -163,6 +171,53 @@ public final class BeltContents<T> {
         return Math.min(placed, length - SPACING);
     }
 
+    /**
+     * Places an entry side-loaded onto a tile spanning {@code [from, from + 1)}, never into the room
+     * an entry already on the belt needs: they are never slowed, so the belt from behind goes first
+     * (PlanetaryFactory #409). It abuts the nearest entry on the tile where it can, and sits at
+     * {@code at} only on a tile with room and nothing to abut, so the free room is never cut into
+     * slivers too short for an item and a ring loaded from its side fills. A ring's positions wrap.
+     *
+     * @return whether there was a gap for it
+     */
+    public boolean insert(T payload, double from, double at, double length, boolean ring) {
+        var positions = new ArrayList<Double>();
+        for (var entry : entries) {
+            positions.add(entry.position);
+            if (ring) {
+                positions.add(entry.position - length);
+                positions.add(entry.position + length);
+            }
+        }
+        var upper = Math.min(from + 1, length) - SPACING;
+        var placed = Double.NaN;
+        for (var position : positions) {
+            for (var abutting : new double[] {position - SPACING, position + SPACING}) {
+                if (fits(abutting, from, upper, positions) && !(Math.abs(abutting - at) >= Math.abs(placed - at))) placed = abutting;
+            }
+        }
+        if (Double.isNaN(placed)) {
+            if (!fits(at, from, upper, positions)) return false;
+            placed = at;
+        }
+
+        var sorted = new ArrayList<>(entries);
+        var entry = new Entry<>(nextId++, payload, placed);
+        sorted.add(entry);
+        sorted.sort(Comparator.comparingDouble(Entry::position));
+        entries.clear();
+        entries.addAll(sorted);
+        added.put(entry.id, entry);
+        sided.add(entry.id);
+        return true;
+    }
+
+    private static boolean fits(double placed, double from, double upper, List<Double> positions) {
+        if (placed < from - GAP_TOLERANCE || placed > upper + GAP_TOLERANCE) return false;
+        for (var position : positions) if (Math.abs(position - placed) < SPACING - GAP_TOLERANCE) return false;
+        return true;
+    }
+
     /** Removes the entries at or past this position, head first, as a belt cut short there loses them. */
     public List<Entry<T>> takeFrom(double position) {
         var taken = new ArrayList<Entry<T>>();
@@ -219,9 +274,10 @@ public final class BeltContents<T> {
     public Changes<T> drainChanges() {
         if (removed.isEmpty() && added.isEmpty()) return Changes.none();
         var changes = new Changes<>(List.copyOf(removed),
-          added.values().stream().map(entry -> new Added<>(entry.id, entry.payload, entry.position)).toList());
+          added.values().stream().map(entry -> new Added<>(entry.id, entry.payload, entry.position, sided.contains(entry.id))).toList());
         removed.clear();
         added.clear();
+        sided.clear();
         return changes;
     }
 
@@ -242,8 +298,16 @@ public final class BeltContents<T> {
         }
         for (var gained : changes.added()) {
             if (entries.stream().anyMatch(entry -> entry.id == gained.id())) continue;
-            var at = entries.isEmpty() ? gained.position() : Math.min(gained.position(), entries.peekFirst().position - SPACING);
-            entries.addFirst(new Entry<>(gained.id(), gained.payload(), at));
+            if (!gained.side()) {
+                var at = entries.isEmpty() ? gained.position() : Math.min(gained.position(), entries.peekFirst().position - SPACING);
+                entries.addFirst(new Entry<>(gained.id(), gained.payload(), at));
+            } else {
+                var sorted = new ArrayList<>(entries);
+                sorted.add(new Entry<>(gained.id(), gained.payload(), gained.position()));
+                sorted.sort(Comparator.comparingDouble(Entry::position));
+                entries.clear();
+                entries.addAll(sorted);
+            }
             nextId = Math.max(nextId, gained.id() + 1);
         }
     }
@@ -266,6 +330,7 @@ public final class BeltContents<T> {
     }
 
     private void removed(Entry<T> entry) {
+        sided.remove(entry.id);
         if (added.remove(entry.id) == null) removed.add(entry.id);
     }
 
@@ -286,6 +351,7 @@ public final class BeltContents<T> {
         entries.clear();
         removed.clear();
         added.clear();
+        sided.clear();
     }
 
     /**
@@ -309,8 +375,15 @@ public final class BeltContents<T> {
         }
     }
 
-    /** An entry gained, in the order it was loaded, at its position when drained. */
-    public record Added<T>(int id, T payload, double position) {
+    /**
+     * An entry gained, in the order it was loaded, at its position when drained, and whether it was
+     * side-loaded mid-belt rather than loaded at the head.
+     */
+    public record Added<T>(int id, T payload, double position, boolean side) {
+
+        public Added(int id, T payload, double position) {
+            this(id, payload, position, false);
+        }
     }
 
     public static final class Entry<T> {

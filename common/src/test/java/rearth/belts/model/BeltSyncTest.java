@@ -176,4 +176,20 @@ class BeltSyncTest {
     private static Map<Integer, Double> positions(BeltContents<?> belt) {
         return belt.entries().stream().collect(Collectors.toMap(BeltContents.Entry::id, BeltContents.Entry::position));
     }
+
+    // A side-load lands mid-belt, so a copy places it by position rather than at its head (#409).
+    @Test
+    void aSideLoadedEntryReachesTheCopyWhereItWasPlaced() {
+        var server = new BeltContents<String>();
+        server.restore("behind", 0.5);
+        server.restore("ahead", 3.5);
+        var copy = new BeltContents<String>();
+        copy.reset(server.snapshot());
+
+        assertTrue(server.insert("side", 2, 2.4375, 4, false));
+        copy.apply(server.drainChanges());
+
+        assertEquals(List.of("behind", "side", "ahead"), copy.entries().stream().map(BeltContents.Entry::payload).toList());
+        assertEquals(2.4375, copy.entries().get(1).position());
+    }
 }

@@ -67,6 +67,14 @@ public final class TransportLine<T> {
         return contents.tick(length(), speed, source, sink);
     }
 
+    /**
+     * Takes an item side-loaded onto this tile of the line, centred on it, when the line has a gap
+     * there (PlanetaryFactory #409).
+     */
+    public boolean sideLoad(T payload, int tile) {
+        return contents.insert(payload, tile, tile + 0.5 - BeltContents.SPACING / 2, length(), ring);
+    }
+
     /** Moves the items one tick with nothing loaded or delivered, as a client's copy does. */
     public void advance() {
         if (ring) {

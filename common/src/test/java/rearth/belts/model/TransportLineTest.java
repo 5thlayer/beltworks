@@ -170,4 +170,113 @@ class TransportLineTest {
         assertTrue(overflow.isEmpty());
         assertEquals(List.of(0.5, 3.95), rebuilt.contents().entries().stream().map(BeltContents.Entry::position).toList());
     }
+
+    // A side-load is two lines meeting: the fed line takes it into a gap at the fed tile (#409).
+    @Test
+    void aSideLoadEntersAGapAtTheMiddleOfTheFedTile() {
+        var line = line(4, 1);
+
+        assertTrue(line.sideLoad("side", 2));
+
+        assertEquals(List.of(2.4375), line.contents().entries().stream().map(BeltContents.Entry::position).toList());
+    }
+
+    @Test
+    void aSideLoadIntoAFullLineBacksUp() {
+        var line = line(4, 1);
+        for (var tick = 0; tick < 20 * 20; tick++) line.tick(() -> "item", item -> false);
+
+        assertEquals(32, line.size());
+        assertTrue(!line.sideLoad("side", 2));
+        assertEquals(32, line.size());
+    }
+
+    @Test
+    void theLineFromBehindGoesFirst() {
+        var line = line(8, 1);
+        var delivered = new ArrayList<String>();
+        var sideTaken = 0;
+        // Until the line from behind reaches the fed tile, the side has it to itself.
+        for (var tick = 0; tick < 20 * 5; tick++) line.tick(() -> "behind", item -> true);
+
+        for (var tick = 0; tick < 20 * 60; tick++) {
+            line.tick(() -> "behind", item -> delivered.add(item));
+            if (line.sideLoad("side", 4)) sideTaken++;
+        }
+
+        assertEquals(0, sideTaken);
+        assertEquals(15 * 60, delivered.size());
+    }
+
+    // A through line fed every other slot leaves gaps, and the side fills them with nothing lost.
+    @Test
+    void aSideLoadFillsTheGapsTheLineFromBehindLeaves() {
+        var line = line(8, 1);
+        var delivered = new int[2];
+        var offered = new int[2];
+
+        for (var tick = 0; tick < 20 * 60; tick++) {
+            var feed = tick % 4 < 2;
+            line.tick(() -> {
+                if (!feed || offered[0] >= 400) return null;
+                offered[0]++;
+                return "behind";
+            }, item -> {
+                delivered[item.equals("behind") ? 0 : 1]++;
+                return true;
+            });
+            if (offered[1] < 400 && line.sideLoad("side", 4)) offered[1]++;
+        }
+        for (var tick = 0; tick < 20 * 10; tick++) line.tick(() -> null, item -> {
+            delivered[item.equals("behind") ? 0 : 1]++;
+            return true;
+        });
+
+        assertEquals(offered[0], delivered[0]);
+        assertEquals(offered[1], delivered[1]);
+        assertTrue(offered[1] > 0);
+        assertTrue(line.contents().isEmpty());
+    }
+
+    // A ring has no source of its own; a side-load fills it to eight a tile and it keeps moving (#391).
+    @Test
+    void aSideLoadedRingFillsToEightATileAndMoves() {
+        var ring = new TransportLine<Integer>(Collections.nCopies(8, BeltTier.of(1)), true);
+        var loaded = 0;
+
+        for (var tick = 0; tick < 20 * 20; tick++) {
+            ring.tick(() -> null, item -> { throw new AssertionError(); });
+            if (ring.sideLoad(loaded, 1)) loaded++;
+        }
+
+        assertEquals(64, loaded);
+        assertEquals(64, ring.size());
+        var before = positionOf(ring, 0);
+        ring.tick(() -> null, item -> false);
+        assertEquals((before + 0.09375) % 8, positionOf(ring, 0), 1e-9);
+    }
+
+    // A side line hands items on as they reach its end, three every four ticks at tier 1, so the
+    // ring's free room passes the fed tile between arrivals and must not be cut into slivers.
+    @Test
+    void aRingSideLoadedAtABeltsPaceStillFills() {
+        var ring = new TransportLine<Integer>(Collections.nCopies(8, BeltTier.of(1)), true);
+        var loaded = 0;
+        var waiting = false;
+
+        for (var tick = 0; tick < 20 * 40; tick++) {
+            ring.tick(() -> null, item -> { throw new AssertionError(); });
+            if (tick % 4 != 3) waiting = true;
+            if (waiting && ring.sideLoad(loaded, 1)) {
+                loaded++;
+                waiting = false;
+            }
+        }
+
+        assertEquals(64, ring.size());
+    }
+
+    private static double positionOf(TransportLine<Integer> line, int payload) {
+        return line.contents().entries().stream().filter(entry -> entry.payload() == payload).findFirst().orElseThrow().position();
+    }
 }

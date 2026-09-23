@@ -277,13 +277,26 @@ public class BeltTileBlockEntity extends BlockEntity {
         return loader == null ? null : loader.extractOne();
     }
 
-    /** The loader past the last tile, which faces back along the line, into it. */
+    /** The loader past the last tile, which faces back along the line, or the side of a line there. */
     private boolean giveToLoader(ItemStack item) {
         if (members.isEmpty()) return false;
         var last = tiles.getLast();
         var travel = members.getLast().travel();
         var loader = loaderAt(last.relative(travel), travel.getOpposite());
-        return loader != null && loader.acceptFromLine(item);
+        if (loader != null) return loader.acceptFromLine(item);
+        return sideLoad(last.relative(travel), travel, item);
+    }
+
+    // Only into the side of a straight tile: a corner's side is its entry, and head-on is no feed (#409).
+    private boolean sideLoad(BlockPos pos, Direction travel, ItemStack item) {
+        var fed = tileAt(pos).orElse(null);
+        if (fed == null || fed.shape() != TileShape.STRAIGHT || fed.travel().getAxis() == travel.getAxis()) return false;
+        var holding = fed.holder();
+        if (holding == null || holding == this || holding.line == null || fed.index >= holding.line.tileCount()) return false;
+        if (!holding.line.sideLoad(item, fed.index)) return false;
+        holding.shares = null;
+        for (var tile : holding.inChunks) level.blockEntityChanged(tile);
+        return true;
     }
 
     private @Nullable ChuteBlockEntity loaderAt(BlockPos pos, Direction facing) {
