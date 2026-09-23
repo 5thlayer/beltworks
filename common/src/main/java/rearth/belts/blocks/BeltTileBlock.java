@@ -27,7 +27,7 @@ import rearth.belts.model.BeltTier;
  */
 public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityBlock {
 
-    private static final VoxelShape SHAPE = Block.box(0, 0, 0, 16, 2, 16);
+    private static final VoxelShape SHAPE = Block.box(0, 0, 0, 16, 8, 16);
 
     private final BeltTier tier;
 
@@ -52,10 +52,13 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
         builder.add(BlockStateProperties.HORIZONTAL_FACING);
     }
 
-    // The way the player looks, as a Factorio belt is laid; there is no rotate key yet (#383).
+    // The way the player looks, as a Factorio belt is laid, and back toward them when sneaking,
+    // which stands in for the rotate key until it exists (#383).
     @Override
     public @Nullable BlockState getStateForPlacement(BlockPlaceContext ctx) {
-        return defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, ctx.getHorizontalDirection());
+        Direction look = ctx.getHorizontalDirection();
+        return defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING,
+                ctx.isSecondaryUseActive() ? look.getOpposite() : look);
     }
 
     @Override

@@ -74,14 +74,14 @@
   "item.belts.turbo_splitter": "Turbo splitter",
   "block.belts.belt_tile": "Belt tile",
   "item.belts.belt_tile": "Belt tile",
-  "item.belts.belt_tile.tooltip": "One block of belt, carrying 15 items a second. Tiles in a line carry items as one; a line of mixed tiers runs at its slowest tile.",
+  "item.belts.belt_tile.tooltip": "One block of belt, carrying 15 items a second. Tiles in a line carry items as one; a line of mixed tiers runs at its slowest tile. Placed running the way you look, or toward you while sneaking.",
   "block.belts.improved_belt_tile": "Fast belt tile",
   "item.belts.improved_belt_tile": "Fast belt tile",
-  "item.belts.improved_belt_tile.tooltip": "One block of belt, carrying 30 items a second. Tiles in a line carry items as one; a line of mixed tiers runs at its slowest tile.",
+  "item.belts.improved_belt_tile.tooltip": "One block of belt, carrying 30 items a second. Tiles in a line carry items as one; a line of mixed tiers runs at its slowest tile. Placed running the way you look, or toward you while sneaking.",
   "block.belts.express_belt_tile": "Express belt tile",
   "item.belts.express_belt_tile": "Express belt tile",
-  "item.belts.express_belt_tile.tooltip": "One block of belt, carrying 45 items a second. Tiles in a line carry items as one; a line of mixed tiers runs at its slowest tile.",
+  "item.belts.express_belt_tile.tooltip": "One block of belt, carrying 45 items a second. Tiles in a line carry items as one; a line of mixed tiers runs at its slowest tile. Placed running the way you look, or toward you while sneaking.",
   "block.belts.turbo_belt_tile": "Turbo belt tile",
   "item.belts.turbo_belt_tile": "Turbo belt tile",
-  "item.belts.turbo_belt_tile.tooltip": "One block of belt, carrying 60 items a second. Tiles in a line carry items as one; a line of mixed tiers runs at its slowest tile."
+  "item.belts.turbo_belt_tile.tooltip": "One block of belt, carrying 60 items a second. Tiles in a line carry items as one; a line of mixed tiers runs at its slowest tile. Placed running the way you look, or toward you while sneaking."
 }
