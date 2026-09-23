@@ -107,7 +107,8 @@ public final class TransportLine<T> {
             }
             contents.restore(load.payload(), load.tile() + load.offset());
         }
-        overflow.addAll(contents.fit(length()));
+        // A ring has no end to back up against, so its entries stay where they were saved.
+        if (!ring) overflow.addAll(contents.fit(length()));
         return overflow;
     }
 

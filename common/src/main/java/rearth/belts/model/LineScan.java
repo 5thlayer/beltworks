@@ -69,8 +69,7 @@ public final class LineScan {
             var ahead = tiles.pieceAt(next);
             if (ahead == null || !ahead.entry().equals(here.travel())) break;
             if (next.equals(spot)) return ring(line);
-            // A walk forward only returns to where it started, but a bound costs nothing.
-            if (!seen.add(next)) break;
+            seen.add(next);
             line.add(next);
             at = next;
         }

@@ -156,4 +156,18 @@ class TransportLineTest {
         assertEquals(32, ring.size());
         assertEquals(0.09375, ring.contents().entries().getFirst().position());
     }
+
+    // A ring's rear entry may sit within a spacing of its length, which a line's end would push back.
+    @Test
+    void aRingRestoresItsItemsWhereTheyWere() {
+        var ring = new TransportLine<String>(Collections.nCopies(4, BeltTier.of(1)), true);
+        ring.contents().restore("a", 0.5);
+        ring.contents().restore("b", 3.95);
+
+        var rebuilt = new TransportLine<String>(Collections.nCopies(4, BeltTier.of(1)), true);
+        var overflow = rebuilt.restoreShares(ring.shares());
+
+        assertTrue(overflow.isEmpty());
+        assertEquals(List.of(0.5, 3.95), rebuilt.contents().entries().stream().map(BeltContents.Entry::position).toList());
+    }
 }

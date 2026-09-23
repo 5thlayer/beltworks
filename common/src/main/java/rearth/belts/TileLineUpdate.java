@@ -14,6 +14,7 @@ import java.util.List;
  * the head stops holding it. The tiles are found from the head by each one's travel, since a line
  * turns at its corners (#391).
  *
+ * @param travels each tile's travel, head first, on a reset only; a change names no tiles
  * @param reset whether {@code changes} holds every entry of a line the client should start afresh
  */
 public record TileLineUpdate(BlockPos head, List<Direction> travels, List<BeltTier> tiers,
