@@ -160,14 +160,13 @@ public class ChuteBeltRenderer implements BlockEntityRenderer<ChuteBlockEntity, 
             poseStack.popPose();
         }
 
+        // On the slate above the mouth, outside the housing, which is solid (PlanetaryFactory #408).
         if (state.filter != null) {
-            var direction = Vec3.atLowerCornerOf(state.filterFacing.getUnitVec3i());
+            var facing = state.filterFacing;
             poseStack.pushPose();
-            poseStack.translate(0.5 + direction.x * -0.43f, 0.7, 0.5 + direction.z * -0.43f);
-            if (state.filterFacing.getAxis() == Direction.Axis.X) {
-                poseStack.mulPose(Axis.YP.rotationDegrees(90));
-            }
-            poseStack.scale(0.4f, 0.4f, 0.4f);
+            poseStack.translate(0.5 + facing.getStepX() * 0.52, 14 / 16d, 0.5 + facing.getStepZ() * 0.52);
+            poseStack.mulPose(Axis.YP.rotationDegrees(180 - facing.toYRot()));
+            poseStack.scale(0.3f, 0.3f, 0.3f);
             state.filter.submit(poseStack, collector, state.lightCoords, OverlayTexture.NO_OVERLAY, 0);
             poseStack.popPose();
         }
