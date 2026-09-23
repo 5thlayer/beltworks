@@ -3,7 +3,8 @@
   "textures": {
     "belt": "belts:block/improved_splitter_belt",
     "frame": "belts:block/conveyor_support",
-    "particle": "belts:block/improved_splitter_belt"
+    "particle": "belts:block/improved_splitter_belt",
+    "side": "belts:block/belt_tile_side"
   },
   "elements": [
     {
@@ -14,7 +15,7 @@
       ],
       "to": [
         16,
-        8,
+        6,
         16
       ],
       "faces": {
@@ -40,38 +41,38 @@
         "north": {
           "uv": [
             0,
-            8,
+            4,
             16,
             16
           ],
-          "texture": "#frame"
+          "texture": "#side"
         },
         "south": {
           "uv": [
             0,
-            8,
+            4,
             16,
             16
           ],
-          "texture": "#frame"
+          "texture": "#side"
         },
         "east": {
           "uv": [
             0,
-            8,
+            4,
             16,
             16
           ],
-          "texture": "#frame"
+          "texture": "#side"
         },
         "west": {
           "uv": [
             0,
-            8,
+            4,
             16,
             16
           ],
-          "texture": "#frame"
+          "texture": "#side"
         }
       }
     }

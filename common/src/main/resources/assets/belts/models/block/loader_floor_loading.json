@@ -2,7 +2,8 @@
   "parent": "minecraft:block/block",
   "textures": {
     "frame": "belts:block/conveyor_support",
-    "particle": "#belt"
+    "particle": "#belt",
+    "side": "belts:block/belt_tile_side"
   },
   "elements": [
     {
@@ -13,16 +14,16 @@
       ],
       "to": [
         16,
-        8,
+        6,
         14
       ],
       "faces": {
         "up": {
           "uv": [
             0,
-            0,
+            2,
             16,
-            14
+            16
           ],
           "texture": "#belt",
           "rotation": 180
@@ -36,10 +37,52 @@
           ],
           "texture": "#frame"
         },
-        "south": {
+        "east": {
+          "uv": [
+            2,
+            4,
+            16,
+            16
+          ],
+          "texture": "#side"
+        },
+        "west": {
           "uv": [
             0,
-            8,
+            4,
+            14,
+            16
+          ],
+          "texture": "#side"
+        }
+      }
+    },
+    {
+      "from": [
+        0,
+        0,
+        14
+      ],
+      "to": [
+        16,
+        5.99,
+        16
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "texture": "#belt",
+          "rotation": 180
+        },
+        "down": {
+          "uv": [
+            0,
+            14,
             16,
             16
           ],
@@ -48,20 +91,20 @@
         "east": {
           "uv": [
             0,
-            8,
-            14,
+            4,
+            2,
             16
           ],
-          "texture": "#frame"
+          "texture": "#side"
         },
         "west": {
           "uv": [
-            2,
-            8,
+            14,
+            4,
             16,
             16
           ],
-          "texture": "#frame"
+          "texture": "#side"
         }
       }
     }

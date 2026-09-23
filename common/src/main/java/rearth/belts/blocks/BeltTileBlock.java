@@ -27,7 +27,7 @@ import rearth.belts.model.BeltTier;
  */
 public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityBlock {
 
-    private static final VoxelShape SHAPE = Block.box(0, 0, 0, 16, 8, 16);
+    private static final VoxelShape SHAPE = Block.box(0, 0, 0, 16, 6, 16);
 
     private final BeltTier tier;
 
