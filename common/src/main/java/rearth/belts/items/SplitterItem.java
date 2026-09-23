@@ -57,6 +57,13 @@ public class SplitterItem extends BlockItem {
         return true;
     }
 
+    // A tile the splitter does not face along is not replaced, so a click on its top lands above
+    // it; a splitter sitting on a belt is no placement (PlanetaryFactory #394).
+    private static boolean onTopOfATile(BlockPlaceContext context) {
+        return !context.replacingClickedOnBlock() && context.getClickedFace() == Direction.UP
+                 && context.getLevel().getBlockState(context.getClickedPos().below()).getBlock() instanceof BeltTileBlock;
+    }
+
     /** A straight tile running the way the half faces, which the half takes the place of (PlanetaryFactory #394). */
     public static boolean replacesTile(BlockState present, Direction facing) {
         return present.getBlock() instanceof BeltTileBlock
@@ -71,7 +78,7 @@ public class SplitterItem extends BlockItem {
     public @Nullable Plan plan(BlockPlaceContext context) {
         if (!context.canPlace()) return null;
         var halves = halves(context);
-        if (!fits(context, halves)) return new Plan(halves, List.of(), true, null);
+        if (!fits(context, halves) || onTopOfATile(context)) return new Plan(halves, List.of(), true, null);
 
         var level = context.getLevel();
         var cuts = new ArrayList<Cut>();
