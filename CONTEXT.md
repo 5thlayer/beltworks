@@ -18,6 +18,10 @@ _Avoid_: the fork, SimpleBelts, Belt Works, belts (that was Upstream's mod id, n
 PlanetaryFactory, the modpack that is the Mod's first consumer.
 _Avoid_: the modpack, PF
 
+**Proving set**:
+The inventories the Mod is checked against before a release to show that it works with any tech mod: vanilla's containers and each tech mod the Mod names. A tech mod joins once it ships a build for the Mod's Minecraft version.
+_Avoid_: supported mods, compat list (the Mod works with mods outside it)
+
 ### Belts
 
 **Belt**:
