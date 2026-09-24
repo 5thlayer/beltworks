@@ -316,6 +316,38 @@ def slope_model(prefix, pitch) -> bytes:
     return (json.dumps(model, indent=2) + "\n").encode()
 
 
+def wedge_model() -> bytes:
+    """The wedge under a middle or top over air (PlanetaryFactory #420): 1px slices stepping up at 45
+    degrees under a plane along the slope, drawn rising north as the slopes are."""
+    elements = []
+    for d in range(1, 16):
+        z0, z1 = 15 - d, 16 - d
+        faces = {"down": {"uv": [0, z0, 16, z1], "texture": "#frame", "cullface": "down"},
+                 "east": {"uv": [z0, 16 - d, z1, 16], "texture": "#frame"},
+                 "west": {"uv": [16 - z1, 16 - d, 16 - z0, 16], "texture": "#frame"}}
+        if d == 15:
+            faces["north"] = {"uv": [0, 1, 16, 16], "texture": "#frame", "cullface": "north"}
+        for side in ("east", "west"):
+            faces[side]["cullface"] = side
+        elements.append({"from": [0, 0, z0], "to": [16, d, z1], "faces": faces})
+    elements.append({"from": [0, 15, 0], "to": [16, 16, 1],
+                     "faces": {"north": {"uv": [0, 0, 16, 1], "texture": "#frame", "cullface": "north"},
+                               "east": {"uv": [0, 0, 1, 1], "texture": "#frame", "cullface": "east"},
+                               "west": {"uv": [15, 0, 16, 1], "texture": "#frame", "cullface": "west"}}})
+    length = round(16 * math.sqrt(2), 4)
+    elements.append({
+        "from": [0, 0, round(16 - length, 4)], "to": [16, 0, 16],
+        "rotation": {"origin": [8, 0, 16], "axis": "x", "angle": 45},
+        "faces": {"up": {"uv": [0, 0, 16, 16], "texture": "#frame"}},
+    })
+    model = {
+        "parent": "minecraft:block/block",
+        "textures": {"frame": "belts:block/conveyor_support", "particle": "belts:block/conveyor_support"},
+        "elements": elements,
+    }
+    return (json.dumps(model, indent=2) + "\n").encode()
+
+
 BLOCKSTATES = TEXTURES.parent / "blockstates"
 FACINGS = {"north": 0, "east": 90, "south": 180, "west": 270}
 SHAPES = {"straight": "", "from_left": "_corner_left", "from_right": "_corner_right"}
@@ -337,7 +369,19 @@ def tile_blockstate(prefix) -> bytes:
     return (json.dumps({"variants": variants}, indent=2) + "\n").encode()
 
 
+def wedge_blockstate() -> bytes:
+    variants = {}
+    for facing, turn in FACINGS.items():
+        variant = {"model": "belts:block/belt_wedge"}
+        if turn:
+            variant["y"] = turn
+        variants[f"facing={facing}"] = variant
+    return (json.dumps({"variants": variants}, indent=2) + "\n").encode()
+
+
 def outputs():
+    yield MODELS / "belt_wedge.json", wedge_model()
+    yield BLOCKSTATES / "belt_wedge.json", wedge_blockstate()
     yield TEXTURES / "block/loader_slate.png", slate()
     yield TEXTURES / "block/loader_mouth.png", mouth()
     for step, (prefix, hue) in enumerate(TIERS.values(), start=1):

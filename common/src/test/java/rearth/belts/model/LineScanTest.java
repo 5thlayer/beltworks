@@ -264,4 +264,17 @@ class LineScanTest {
         assertEquals(List.of(at(0, 0, 0), at(1, 0, 0), at(2, 0, 0)), through(1, 0, 0));
         assertEquals(List.of(at(1, 0, 2), at(1, 0, 1), at(1, 1, 0), at(1, 1, -1)), through(1, 0, 2));
     }
+
+    // A foot, a top, a level tile on the crossed tile, a top and a foot: one line over another (#420).
+    @Test
+    void aFiveTileCrossingIsOneLineOverAnother() {
+        tile(0, 0, -1, SOUTH);
+        tile(0, 0, 0, SOUTH);
+        tile(0, 0, 1, SOUTH);
+        int[] heights = {0, 1, 1, 1, 0};
+        for (int x = -2; x <= 2; x++) tile(x, heights[x + 2], 0, EAST);
+
+        assertEquals(List.of(at(0, 0, -1), at(0, 0, 0), at(0, 0, 1)), through(0, 0, -1));
+        assertEquals(List.of(at(-2, 0, 0), at(-1, 1, 0), at(0, 1, 0), at(1, 1, 0), at(2, 0, 0)), through(-2, 0, 0));
+    }
 }

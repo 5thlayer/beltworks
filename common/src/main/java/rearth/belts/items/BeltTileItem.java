@@ -26,6 +26,7 @@ import rearth.belts.model.Stretch;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -74,7 +75,14 @@ public class BeltTileItem extends TooltipBlockItem {
         }
 
 
-        if (plan == null) return super.place(context);
+        if (plan == null) {
+            var single = single(context);
+            if (single != null && single.refused()) {
+                if (!level.isClientSide() && player != null) tell(player, StretchPlan.Refusal.of(StretchPlan.Reason.WEDGE_BLOCKED).message());
+                return InteractionResult.FAIL;
+            }
+            return super.place(context);
+        }
         if (level.isClientSide()) return plan.refused() ? InteractionResult.FAIL : InteractionResult.SUCCESS;
         if (plan.refused()) {
             if (player != null) tell(player, plan.refusal().message());
@@ -82,6 +90,19 @@ public class BeltTileItem extends TooltipBlockItem {
         }
         execute(plan, level, stack, player);
         return InteractionResult.SUCCESS;
+    }
+
+    /**
+     * The wedges a plain click adds, the placed tile's and those of the tiles it reshapes, or null
+     * where vanilla would place nothing (#420).
+     */
+    public BeltTileBlock.@Nullable Wedges single(BlockPlaceContext context) {
+        var updated = updatePlacementContext(context);
+        if (updated == null || !updated.canPlace()) return null;
+        var state = getBlock().getStateForPlacement(updated);
+        if (state == null) return null;
+        var travel = BeltTileBlock.travel(state.getValue(BlockStateProperties.HORIZONTAL_FACING));
+        return BeltTileBlock.wedges(context.getLevel(), Map.of(spot(updated.getClickedPos()), travel), getBlock());
     }
 
     /**
@@ -139,6 +160,9 @@ public class BeltTileItem extends TooltipBlockItem {
         if (refusal == null && tiles.stream().anyMatch(tile -> tile.action() == StretchPlan.Action.PLACE && !grounded(level, tile.pos()))) {
             refusal = StretchPlan.Refusal.of(StretchPlan.Reason.NO_GROUND);
         }
+        var wedges = BeltTileBlock.wedges(level, travels, getBlock());
+        if (refusal == null && wedges.refused()) refusal = StretchPlan.Refusal.of(StretchPlan.Reason.WEDGE_BLOCKED);
+        wedges.placed().forEach((pos, state) -> tiles.add(new StretchPlan.Tile(pos, state, StretchPlan.Action.WEDGE)));
 
         var creative = player != null && player.hasInfiniteMaterials();
         if (creative) {
@@ -159,6 +183,8 @@ public class BeltTileItem extends TooltipBlockItem {
             ContainerHelper.clearOrCountMatchingItems(player.getInventory(), this::isThisTile, plan.cost(), false);
         }
         for (var tile : plan.tiles()) {
+            // Its tile places it.
+            if (tile.action() == StretchPlan.Action.WEDGE) continue;
             if (tile.action() == StretchPlan.Action.REPLACE) {
                 var carried = level.getBlockEntity(tile.pos(), BlockEntitiesContent.BELT_TILE.get())
                                 .map(old -> old.takeCarried()).orElse(List.of());
@@ -194,9 +220,11 @@ public class BeltTileItem extends TooltipBlockItem {
         return level.isInWorldBounds(pos) && (player == null || level.mayInteract(player, pos));
     }
 
+    // A tile's top holds the level tile of a crossing over it (#420).
     private static boolean grounded(Level level, BlockPos pos) {
         var below = pos.below();
-        return level.getBlockState(below).isFaceSturdy(level, below, Direction.UP);
+        var state = level.getBlockState(below);
+        return state.isFaceSturdy(level, below, Direction.UP) || state.getBlock() instanceof BeltTileBlock;
     }
 
     /** Whether the inventory holds what the stretch hands back once its charge is taken, as {@code Inventory#add} places it. */

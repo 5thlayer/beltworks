@@ -1,6 +1,7 @@
 package rearth.belts;
 
 import rearth.belts.blocks.BeltTileBlock;
+import rearth.belts.blocks.BeltWedgeBlock;
 import rearth.belts.blocks.ChuteBlock;
 import rearth.belts.blocks.SplitterBlock;
 import rearth.belts.model.BeltTier;
@@ -12,6 +13,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.material.PushReaction;
 
 public class BlockContent {
     
@@ -25,6 +27,8 @@ public class BlockContent {
     public static final RegistrySupplier<Block> IMPROVED_BELT_TILE = tile(BeltTier.IMPROVED);
     public static final RegistrySupplier<Block> EXPRESS_BELT_TILE = tile(BeltTier.EXPRESS);
     public static final RegistrySupplier<Block> TURBO_BELT_TILE = tile(BeltTier.TURBO);
+    public static final RegistrySupplier<Block> BELT_WEDGE = BLOCKS.register("belt_wedge", () -> new BeltWedgeBlock(
+      BlockBehaviour.Properties.ofLegacyCopy(Blocks.GLASS).sound(SoundType.POINTED_DRIPSTONE).noOcclusion().pushReaction(PushReaction.BLOCK).setId(ResourceKey.create(Registries.BLOCK, Belts.id("belt_wedge")))));
     public static final RegistrySupplier<Block> SPLITTER_BLOCK = splitter(BeltTier.BELT);
     public static final RegistrySupplier<Block> IMPROVED_SPLITTER_BLOCK = splitter(BeltTier.IMPROVED);
     public static final RegistrySupplier<Block> EXPRESS_SPLITTER_BLOCK = splitter(BeltTier.EXPRESS);

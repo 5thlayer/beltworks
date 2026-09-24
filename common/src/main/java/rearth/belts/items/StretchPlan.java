@@ -23,7 +23,9 @@ public record StretchPlan(List<Tile> tiles, int cost, List<ItemStack> returned, 
         /** A tile of the held tier facing another way, turned to the stretch. */
         TURN,
         /** A tile of another tier, Fast Replaced (ADR-0082). */
-        REPLACE
+        REPLACE,
+        /** A wedge under a middle or top over air, which costs nothing (#420). */
+        WEDGE
     }
 
     public record Tile(BlockPos pos, BlockState state, Action action) {
@@ -34,6 +36,7 @@ public record StretchPlan(List<Tile> tiles, int cost, List<ItemStack> returned, 
         BEHIND_LOOK("message.belts.stretch_behind"),
         BLOCKED("message.belts.stretch_blocked"),
         NO_GROUND("message.belts.stretch_no_ground"),
+        WEDGE_BLOCKED("message.belts.wedge_blocked"),
         NOT_ENOUGH_TILES("message.belts.stretch_not_enough"),
         NO_ROOM_TO_RETURN("message.belts.stretch_no_room");
 

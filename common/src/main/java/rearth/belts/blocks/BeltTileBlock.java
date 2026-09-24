@@ -27,13 +27,16 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
+import rearth.belts.BlockContent;
 import rearth.belts.items.SplitterItem;
 import rearth.belts.model.BeltTier;
 import rearth.belts.model.LineScan;
 import rearth.belts.model.Pitch;
 import rearth.belts.model.TileShape;
+import rearth.belts.model.Wedge;
 
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -132,6 +135,7 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
+        keepWedge(level, pos, state);
         if (oldState.is(this) && oldState.getValue(BlockStateProperties.HORIZONTAL_FACING) == state.getValue(BlockStateProperties.HORIZONTAL_FACING)) return;
         reshapeAround(level, pos);
         // Placed in a state it did not derive; its block entity does not exist yet, so it is
@@ -149,16 +153,107 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
     protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel level, BlockPos pos, boolean movedByPiston) {
         super.affectNeighborsAfterRemoval(state, level, pos, movedByPiston);
         reshapeAround(level, pos);
+        var now = level.getBlockState(pos);
+        if (now.getBlock() instanceof BeltTileBlock) keepWedge(level, pos, now);
+        else if (level.getBlockState(pos.below()).getBlock() instanceof BeltWedgeBlock) level.setBlock(pos.below(), Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+    }
+
+    // Whatever sets a tile's state, a player, a stretch or a re-derivation, sets its wedge too (#420).
+    private static void keepWedge(Level level, BlockPos pos, BlockState state) {
+        var below = pos.below();
+        var there = level.getBlockState(below);
+        if (Wedge.under(state.getValue(PITCH).model(), occupant(level, below)) == Wedge.Verdict.PLACE) {
+            var wedge = wedgeFor(state);
+            if (!there.equals(wedge)) level.setBlock(below, wedge, Block.UPDATE_ALL);
+        } else if (there.getBlock() instanceof BeltWedgeBlock) {
+            level.setBlock(below, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+        }
+    }
+
+    /** What stands at {@code pos}, under a tile, as its wedge reads it. */
+    public static Wedge.Below occupant(BlockGetter level, BlockPos pos) {
+        var state = level.getBlockState(pos);
+        if (state.getBlock() instanceof BeltWedgeBlock) return Wedge.Below.REPLACEABLE;
+        // A loader or a machine may be a full cube, and is still no ground for a wedge to stand in for.
+        if (state.hasBlockEntity() || !state.getFluidState().isEmpty()) return Wedge.Below.OCCUPIED;
+        if (state.canBeReplaced()) return Wedge.Below.REPLACEABLE;
+        if (state.isFaceSturdy(level, pos, Direction.UP)) return Wedge.Below.SOLID;
+        return Wedge.Below.OCCUPIED;
+    }
+
+    private static BlockState wedgeFor(BlockState tile) {
+        var uphill = Wedge.uphill(tile.getValue(PITCH).model(), travel(tile.getValue(BlockStateProperties.HORIZONTAL_FACING)));
+        return BlockContent.BELT_WEDGE.get().defaultBlockState()
+                 .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.getApproximateNearest(uphill.x(), 0, uphill.z()));
+    }
+
+    /**
+     * The wedges placing {@code planned} tiles would add, the tiles' own and those of the tiles
+     * around them it reshapes, or refused where one would land on anything but air, a plant or snow.
+     * A wedge a reshape removes is not named: its tile's upkeep removes it (#420).
+     */
+    public static Wedges wedges(Level level, Map<LineScan.Spot, LineScan.Travel> planned, Block tile) {
+        var around = around(level, planned);
+        var candidates = new LinkedHashMap<BlockPos, BlockState>();
+        for (var entry : planned.entrySet()) {
+            var pos = pos(entry.getKey());
+            var facing = Direction.getApproximateNearest(entry.getValue().x(), 0, entry.getValue().z());
+            candidates.put(pos, tile.defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, facing));
+        }
+        for (var spot : planned.keySet()) tilesAround(level, pos(spot)).forEach(candidates::putIfAbsent);
+
+        var placed = new LinkedHashMap<BlockPos, BlockState>();
+        for (var candidate : candidates.entrySet()) {
+            var pos = candidate.getKey();
+            var current = candidate.getValue();
+            var formed = formed(current, spot(pos), around);
+            var existing = !planned.containsKey(spot(pos));
+            if (existing && formed.getValue(PITCH) == current.getValue(PITCH)) continue;
+            var under = pos.below();
+            var below = planned.containsKey(spot(under)) ? Wedge.Below.OCCUPIED : occupant(level, under);
+            switch (Wedge.under(formed.getValue(PITCH).model(), below)) {
+                case REFUSED -> {
+                    return new Wedges(Map.of(), under);
+                }
+                case PLACE -> {
+                    var wedge = wedgeFor(formed);
+                    if (!level.getBlockState(under).equals(wedge)) placed.put(under, wedge);
+                }
+                case NONE -> {
+                }
+            }
+        }
+        return new Wedges(placed, null);
+    }
+
+    /** The wedges a placement adds, by position, or where one was refused. */
+    public record Wedges(Map<BlockPos, BlockState> placed, @Nullable BlockPos refusedAt) {
+
+        public boolean refused() {
+            return refusedAt != null;
+        }
+    }
+
+    private static BlockPos pos(LineScan.Spot spot) {
+        return new BlockPos(spot.x(), spot.y(), spot.z());
     }
 
     private static void reshapeAround(Level level, BlockPos pos) {
+        tilesAround(level, pos).forEach((at, there) -> {
+            var shaped = shaped(there, level, at);
+            if (!shaped.equals(there)) level.setBlock(at, shaped, Block.UPDATE_ALL);
+        });
+    }
+
+    /** The loaded tiles a change at {@code pos} can reshape, as the world re-derives them and a plan predicts them. */
+    private static Map<BlockPos, BlockState> tilesAround(Level level, BlockPos pos) {
+        var tiles = new LinkedHashMap<BlockPos, BlockState>();
         for (var at : BlockPos.betweenClosed(pos.offset(-DERIVED_REACH, -DERIVED_REACH, -DERIVED_REACH), pos.offset(DERIVED_REACH, DERIVED_REACH, DERIVED_REACH))) {
             if (at.equals(pos) || Math.abs(at.getX() - pos.getX()) + Math.abs(at.getZ() - pos.getZ()) > DERIVED_REACH || !level.isLoaded(at)) continue;
             var there = level.getBlockState(at);
-            if (!(there.getBlock() instanceof BeltTileBlock)) continue;
-            var shaped = shaped(there, level, at);
-            if (!shaped.equals(there)) level.setBlock(at.immutable(), shaped, Block.UPDATE_ALL);
+            if (there.getBlock() instanceof BeltTileBlock) tiles.put(at.immutable(), there);
         }
+        return tiles;
     }
 
     private static BlockState shaped(BlockState state, BlockGetter level, BlockPos pos) {

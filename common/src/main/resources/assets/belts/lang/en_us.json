@@ -5,6 +5,8 @@
   "message.belts.stretch_behind": "A stretch runs ahead of the way you looked when you started it, never back.",
   "message.belts.stretch_blocked": "A block stands in the stretch's way.",
   "message.belts.stretch_no_ground": "A tile of this stretch has no solid ground under it.",
+  "message.belts.wedge_blocked": "A slope here needs a wedge under it, and only air, plants or snow can make way for one.",
+  "block.belts.belt_wedge": "Belt wedge",
   "message.belts.stretch_not_enough": "This stretch needs %s tiles, and you have %s.",
   "message.belts.stretch_no_room": "No room in your inventory for the tiles this stretch replaces.",
   "message.belts.filter_set": "Item Filter Set",
