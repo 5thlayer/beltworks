@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 5thlayer
+// SPDX-License-Identifier: MIT
+
 package rearth.belts.client.renderers;
 
 import com.mojang.blaze3d.vertex.PoseStack;

@@ -41,4 +41,4 @@ The belt path will auto-connect between the two points!
 
 ## Credits
 
-*   Conveyor textures are based on modified assets from [malcolriley’s unused-textures repo](https://github.com/malcolmriley/unused-textures).
+Beltworks builds on Simple Conveyor Belts by Rearth and on malcolmriley's unused-textures, both CC BY 4.0. See [NOTICE](NOTICE) for the full credits, and [LICENSE](LICENSE) for how each file is licensed.

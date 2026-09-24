@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Rearth
+// SPDX-FileCopyrightText: 2026 5thlayer
+// SPDX-License-Identifier: CC-BY-4.0 AND MIT
+
 package rearth.belts.api.item;
 
 import net.minecraft.world.item.ItemStack;

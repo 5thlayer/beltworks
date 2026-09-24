@@ -1,13 +1,14 @@
 modLoader = "javafml"
 loaderVersion = "[4,)"
 #issueTrackerURL = ""
-license = "CC-BY-4.0"
+license = "MIT AND CC-BY-4.0"
 
 [[mods]]
 modId = "belts"
 version = "${version}"
 displayName = "Simple Belts"
-authors = "Rearth; Planetary Factory fork"
+authors = "5thlayer"
+credits = "Builds on Simple Conveyor Belts by Rearth and on malcolmriley's unused-textures, both CC BY 4.0. See NOTICE."
 description = '''
 Spline conveyor belts. Planetary Factory's fork of Rearth's SimpleBelts.
 '''

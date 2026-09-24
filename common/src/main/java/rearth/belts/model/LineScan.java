@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 5thlayer
+// SPDX-License-Identifier: MIT
+
 package rearth.belts.model;
 
 import org.jetbrains.annotations.Nullable;

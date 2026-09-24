@@ -1,0 +1,23 @@
+Beltworks
+Copyright 2026 5thlayer
+
+Beltworks builds on two works, both licensed under Creative Commons
+Attribution 4.0 International (CC BY 4.0,
+https://creativecommons.org/licenses/by/4.0/, full text in
+LICENSES/CC-BY-4.0.txt):
+
+- "Simple Conveyor Belts" by Rearth
+  Source: https://github.com/Rearth/SimpleBelts
+
+- unused-textures by malcolmriley
+  Source: https://github.com/malcolmriley/unused-textures
+
+Beltworks modifies Simple Conveyor Belts' code and textures. Every change
+since the fork point, the 26.1.2 branch (commit 92a97c3), is in this
+repository's git history. Which files still carry that work, and under
+which license, is marked in each file's SPDX header or in REUSE.toml.
+
+Simple Conveyor Belts credits its textures with this note, kept here word
+for word:
+
+    Conveyor textures are based on modified assets from [malcolriley’s unused-textures repo](https://github.com/malcolmriley/unused-textures).

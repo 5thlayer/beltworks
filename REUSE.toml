@@ -1,0 +1,109 @@
+version = 1
+
+# Java files carry their own SPDX headers. This file marks everything that
+# can't hold one, and the last annotation matching a file wins, so the
+# general rules come first and the Upstream-lineage exceptions after them.
+# Lineage is read against the fork point, the `26.1.2` branch (92a97c3):
+# see NOTICE.
+
+# The Mod's own build files, scripts and docs.
+[[annotations]]
+path = [
+    "**/*.gradle",
+    "**/gradle.properties",
+    ".gitignore",
+    "**/*.mods.toml",
+    "**/*.mixins.json",
+    "scripts/*.py",
+    "**/*.md",
+    "NOTICE",
+]
+SPDX-FileCopyrightText = "2026 5thlayer"
+SPDX-License-Identifier = "MIT"
+
+# Build files and docs that still carry Upstream's lines (ADR 0001).
+[[annotations]]
+path = [
+    "build.gradle",
+    "common/build.gradle",
+    "neoforge/build.gradle",
+    "settings.gradle",
+    "gradle.properties",
+    ".gitignore",
+    "neoforge/src/main/resources/META-INF/neoforge.mods.toml",
+    "readme.md",
+]
+SPDX-FileCopyrightText = ["Rearth", "2026 5thlayer"]
+SPDX-License-Identifier = "CC-BY-4.0 AND MIT"
+
+# Upstream's files, unchanged since the fork point.
+[[annotations]]
+path = [
+    "CHANGELOG.md",
+    "neoforge/gradle.properties",
+    "common/src/main/resources/architectury.common.json",
+    "common/src/main/resources/belts.mixins.json",
+]
+SPDX-FileCopyrightText = "Rearth"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# Every asset is CC BY 4.0, whatever its origin (ADR 0001). This covers the
+# art the fork drew from scratch: the loader's band, loader_slate,
+# loader_mouth, belt_tile_side and belt_slope_side.
+[[annotations]]
+path = [
+    "common/src/main/resources/assets/**",
+    "common/src/main/resources/data/**",
+]
+SPDX-FileCopyrightText = "2026 5thlayer"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# Assets that still carry Upstream's lines.
+[[annotations]]
+path = [
+    "common/src/main/resources/assets/belts/blockstates/chute.json",
+    "common/src/main/resources/assets/belts/models/block/chute.json",
+    "common/src/main/resources/assets/belts/lang/en_us.json",
+]
+SPDX-FileCopyrightText = ["Rearth", "2026 5thlayer"]
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# Upstream's assets, unchanged since the fork point.
+[[annotations]]
+path = [
+    "common/src/main/resources/assets/belts/items/chute.json",
+    "common/src/main/resources/assets/belts/models/item/chute.json",
+    "common/src/main/resources/data/belts/loot_table/blocks/chute.json",
+    "common/src/main/resources/data/belts/recipe/belt_item.json",
+    "common/src/main/resources/data/belts/recipe/belt_item_alt.json",
+    "common/src/main/resources/data/belts/recipe/chute_item.json",
+    "common/src/main/resources/data/belts/recipe/improved_belt.json",
+]
+SPDX-FileCopyrightText = "Rearth"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# The belt surface: every tier's frames, corners and splitter strips, and
+# their source art. Re-authored from Upstream's, which came from
+# malcolmriley's unused-textures.
+[[annotations]]
+path = [
+    "common/src/main/resources/assets/belts/textures/block/*conveyorbelt/**",
+    "common/src/main/resources/assets/belts/textures/block/*belt_corner_*",
+    "common/src/main/resources/assets/belts/textures/block/*splitter_belt.png*",
+    "scripts/belt-art/**",
+]
+SPDX-FileCopyrightText = ["Rearth", "malcolmriley", "2026 5thlayer"]
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# Upstream's texture, byte-identical since the fork point.
+[[annotations]]
+path = "common/src/main/resources/assets/belts/textures/block/conveyor_support.png"
+SPDX-FileCopyrightText = ["Rearth", "malcolmriley"]
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# The Gradle wrapper is Gradle's.
+[[annotations]]
+path = ["gradlew", "gradlew.bat", "gradle/wrapper/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "Gradle"
+SPDX-License-Identifier = "Apache-2.0"
