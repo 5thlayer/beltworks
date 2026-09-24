@@ -2,12 +2,18 @@ package rearth.belts.model;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** The tiles one drag of the tile item lays: one leg or two, the first along the stored look (PlanetaryFactory #393). */
+/**
+ * The tiles one drag of the tile item lays: one leg or two, the first along the stored look
+ * (PlanetaryFactory #393), each tile level, one up or one down from the one before (#421).
+ */
 class StretchTest {
 
     private static final LineScan.Travel EAST = new LineScan.Travel(1, 0);
@@ -91,5 +97,176 @@ class StretchTest {
     @Test
     void aLegTurningBackOnItsCornersHeadingIsRefused() {
         assertTrue(Stretch.path(ORIGIN, EAST, List.of(new LineScan.Spot(3, 64, 0)), new LineScan.Spot(1, 64, 0)).isEmpty());
+    }
+
+    /** The ground along x at z = 0: solid up to each column's height, free above, with any spot overridden. */
+    private static final class Ground implements Stretch.Terrain {
+
+        private final Map<Integer, Integer> heights = new HashMap<>();
+        private final Map<LineScan.Spot, Stretch.Ground> overrides = new HashMap<>();
+
+        Ground(int... heights) {
+            for (var x = 0; x < heights.length; x++) this.heights.put(x, heights[x]);
+        }
+
+        Ground with(int x, int y, int z, Stretch.Ground ground) {
+            overrides.put(new LineScan.Spot(x, y, z), ground);
+            return this;
+        }
+
+        @Override
+        public Stretch.Ground at(LineScan.Spot spot) {
+            var override = overrides.get(spot);
+            if (override != null) return override;
+            return spot.y() <= heights.getOrDefault(spot.x(), 63) ? Stretch.Ground.SOLID : Stretch.Ground.FREE;
+        }
+    }
+
+    private static List<Integer> heights(Stretch.Followed followed) {
+        return followed.steps().stream().map(step -> step.spot().y()).toList();
+    }
+
+    private static List<Stretch.Step> east(int to) {
+        return Stretch.path(ORIGIN, EAST, new LineScan.Spot(to, 64, 0)).orElseThrow();
+    }
+
+    @Test
+    void onLevelGroundEveryTileIsLevelWithTheStart() {
+        var followed = Stretch.follow(east(3), new Ground(63, 63, 63, 63), false);
+
+        assertNull(followed.stop());
+        assertEquals(List.of(64, 64, 64, 64), heights(followed));
+    }
+
+    @Test
+    void aStretchStepsUpOntoABlockAndDownOffIt() {
+        var followed = Stretch.follow(east(5), new Ground(63, 63, 64, 64, 63, 63), false);
+
+        assertNull(followed.stop());
+        assertEquals(List.of(64, 64, 65, 65, 64, 64), heights(followed));
+    }
+
+    @Test
+    void aStretchClimbsAStaircaseAColumnAtATime() {
+        var followed = Stretch.follow(east(5), new Ground(63, 63, 64, 65, 66, 66), false);
+
+        assertNull(followed.stop());
+        assertEquals(List.of(64, 64, 65, 66, 67, 67), heights(followed));
+    }
+
+    @Test
+    void aStretchUnderAnOverhangStaysLevel() {
+        var followed = Stretch.follow(east(3), new Ground(63, 63, 63, 63).with(2, 65, 0, Stretch.Ground.SOLID), false);
+
+        assertNull(followed.stop());
+        assertEquals(List.of(64, 64, 64, 64), heights(followed));
+    }
+
+    @Test
+    void aTwoBlockStepUpStopsTheStretchAtItsColumn() {
+        var followed = Stretch.follow(east(4), new Ground(63, 63, 65, 65, 65), false);
+
+        assertEquals(Stretch.Stop.UNEVEN, followed.stop());
+        assertEquals(new LineScan.Spot(2, 64, 0), followed.column());
+        assertEquals(List.of(64, 64), heights(followed));
+    }
+
+    @Test
+    void aTwoBlockDropStopsTheStretchAtItsColumn() {
+        var followed = Stretch.follow(east(4), new Ground(63, 63, 61, 61, 61), false);
+
+        assertEquals(Stretch.Stop.UNEVEN, followed.stop());
+        assertEquals(new LineScan.Spot(2, 64, 0), followed.column());
+    }
+
+    // A tile a block higher than both its neighbours is a crest, which does not connect.
+    @Test
+    void aOneBlockBumpStopsTheStretchAtTheBump() {
+        var followed = Stretch.follow(east(4), new Ground(63, 63, 64, 63, 63), false);
+
+        assertEquals(Stretch.Stop.UNEVEN, followed.stop());
+        assertEquals(new LineScan.Spot(2, 65, 0), followed.column());
+    }
+
+    @Test
+    void aOneBlockDipStopsTheStretchAtTheDip() {
+        var followed = Stretch.follow(east(4), new Ground(63, 63, 62, 63, 63), false);
+
+        assertEquals(Stretch.Stop.UNEVEN, followed.stop());
+        assertEquals(new LineScan.Spot(2, 63, 0), followed.column());
+    }
+
+    @Test
+    void anObstacleWhereTheTileWouldStandBlocksTheStretch() {
+        var followed = Stretch.follow(east(3), new Ground(63, 63, 63, 63).with(2, 64, 0, Stretch.Ground.OBSTACLE), false);
+
+        assertEquals(Stretch.Stop.BLOCKED, followed.stop());
+        assertEquals(new LineScan.Spot(2, 64, 0), followed.column());
+    }
+
+    @Test
+    void anObstacleIsNoGroundToStandOn() {
+        var followed = Stretch.follow(east(3), new Ground(63, 63, 62, 63).with(2, 63, 0, Stretch.Ground.OBSTACLE), false);
+
+        assertEquals(Stretch.Stop.UNEVEN, followed.stop());
+    }
+
+    @Test
+    void aTileOnThePathIsTakenLevelWhateverItStandsOn() {
+        var followed = Stretch.follow(east(3), new Ground(63, 63, 60, 63).with(2, 64, 0, Stretch.Ground.TILE), false);
+
+        assertNull(followed.stop());
+        assertEquals(List.of(64, 64, 64, 64), heights(followed));
+    }
+
+    @Test
+    void aTilesTopIsGroundForALevelTileOverIt() {
+        var followed = Stretch.follow(east(3), new Ground(63, 63, 62, 63).with(2, 63, 0, Stretch.Ground.TILE), false);
+
+        assertNull(followed.stop());
+        assertEquals(List.of(64, 64, 64, 64), heights(followed));
+    }
+
+    // Looking east, an end two ahead and two south, the corner at x = 2 a block up.
+    @Test
+    void aCornerOnAStepIsRefused() {
+        var path = Stretch.path(ORIGIN, EAST, new LineScan.Spot(2, 64, 2)).orElseThrow();
+        var ground = new Ground(63, 63, 64).with(2, 64, 1, Stretch.Ground.SOLID).with(2, 64, 2, Stretch.Ground.SOLID);
+
+        var followed = Stretch.follow(path, ground, false);
+
+        assertEquals(Stretch.Stop.SLOPE_TURNS, followed.stop());
+        assertEquals(new LineScan.Spot(2, 65, 0), followed.column());
+    }
+
+    @Test
+    void aCornerWhoseNextTileStepsIsRefused() {
+        var path = Stretch.path(ORIGIN, EAST, new LineScan.Spot(2, 64, 2)).orElseThrow();
+        var ground = new Ground(63, 63, 63).with(2, 64, 1, Stretch.Ground.SOLID).with(2, 64, 2, Stretch.Ground.SOLID);
+
+        var followed = Stretch.follow(path, ground, false);
+
+        assertEquals(Stretch.Stop.SLOPE_TURNS, followed.stop());
+        assertEquals(new LineScan.Spot(2, 64, 0), followed.column());
+    }
+
+    @Test
+    void aCornerOnLevelGroundIsLaid() {
+        var path = Stretch.path(ORIGIN, EAST, new LineScan.Spot(2, 64, 2)).orElseThrow();
+
+        assertNull(Stretch.follow(path, new Ground(63, 63, 63), false).stop());
+    }
+
+    @Test
+    void anEndToBeACornerOnAStepIsRefused() {
+        var followed = Stretch.follow(east(2), new Ground(63, 63, 64), true);
+
+        assertEquals(Stretch.Stop.SLOPE_TURNS, followed.stop());
+        assertEquals(new LineScan.Spot(2, 65, 0), followed.column());
+    }
+
+    @Test
+    void anEndToBeACornerOnLevelGroundIsKept() {
+        assertNull(Stretch.follow(east(2), new Ground(63, 63, 63), true).stop());
     }
 }

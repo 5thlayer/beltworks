@@ -20,6 +20,7 @@ import org.jetbrains.annotations.Nullable;
 import rearth.belts.BlockEntitiesContent;
 import rearth.belts.ComponentContent;
 import rearth.belts.blocks.BeltTileBlock;
+import rearth.belts.blocks.BeltWedgeBlock;
 import rearth.belts.model.LineScan;
 import rearth.belts.model.Stretch;
 
@@ -32,8 +33,8 @@ import java.util.Optional;
 /**
  * The tile item (PlanetaryFactory #393). A plain click places one tile facing the look; a
  * sneak-click stores a start and the look, and the next plain click lays a {@link Stretch} to the
- * aimed spot. A sneak-click with a start stored adds a corner there, and the stretch runs on from it;
- * a sneak-use in the air forgets the start and its corners.
+ * aimed spot's column over the ground (#421). A sneak-click with a start stored adds a corner there,
+ * and the stretch runs on from it; a sneak-use in the air forgets the start and its corners.
  */
 public class BeltTileItem extends TooltipBlockItem {
 
@@ -124,24 +125,31 @@ public class BeltTileItem extends TooltipBlockItem {
         if (behind) path = corners.isEmpty() ? Optional.of(List.of(new Stretch.Step(spot(start), BeltTileBlock.travel(look))))
                              : Stretch.path(spot(start), BeltTileBlock.travel(look), corners.subList(0, corners.size() - 1), corners.getLast());
 
+        var sneaking = player != null && player.isShiftKeyDown();
+        var followed = Stretch.follow(path.get(), terrain(level), sneaking && !behind);
         var travels = new HashMap<LineScan.Spot, LineScan.Travel>();
-        for (var step : path.get()) travels.put(step.spot(), step.travel());
+        for (var step : followed.steps()) travels.put(step.spot(), step.travel());
         var around = BeltTileBlock.around(level, travels);
 
         var tiles = new ArrayList<StretchPlan.Tile>();
         var returned = new ArrayList<ItemStack>();
         var cost = 0;
         StretchPlan.Refusal refusal = behind ? StretchPlan.Refusal.of(StretchPlan.Reason.BEHIND_LOOK) : null;
-        for (var step : path.get()) {
+        if (refusal == null && followed.stop() != null) refusal = switch (followed.stop()) {
+            case BLOCKED -> StretchPlan.Refusal.of(StretchPlan.Reason.BLOCKED);
+            case UNEVEN -> StretchPlan.Refusal.of(StretchPlan.Reason.UNEVEN, followed.column().x(), followed.column().z());
+            case SLOPE_TURNS -> StretchPlan.Refusal.of(StretchPlan.Reason.SLOPE_TURNS);
+        };
+        for (var step : followed.steps()) {
             var pos = pos(step.spot());
             var facing = Direction.getApproximateNearest(step.travel().x(), 0, step.travel().z());
             var state = BeltTileBlock.formed(getBlock().defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, facing),
               step.spot(), around);
 
             var there = level.getBlockState(pos);
+            if (refusal == null && !mayBuild(level, player, pos)) refusal = StretchPlan.Refusal.of(StretchPlan.Reason.BLOCKED);
             // Every tier is one Replace Group, as Factorio's belts are; the fork cannot read the pack's groups (ADR-0082).
             if (there.getBlock() instanceof BeltTileBlock) {
-                if (refusal == null && !mayBuild(level, player, pos)) refusal = StretchPlan.Refusal.of(StretchPlan.Reason.BLOCKED);
                 if (there.is(getBlock())) {
                     // Its shape follows its neighbours once they are down.
                     if (there.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing) continue;
@@ -155,10 +163,6 @@ public class BeltTileItem extends TooltipBlockItem {
             }
             tiles.add(new StretchPlan.Tile(pos, state, StretchPlan.Action.PLACE));
             cost++;
-            if (refusal == null && (!mayBuild(level, player, pos) || !there.canBeReplaced())) refusal = StretchPlan.Refusal.of(StretchPlan.Reason.BLOCKED);
-        }
-        if (refusal == null && tiles.stream().anyMatch(tile -> tile.action() == StretchPlan.Action.PLACE && !grounded(level, tile.pos()))) {
-            refusal = StretchPlan.Refusal.of(StretchPlan.Reason.NO_GROUND);
         }
         var reshape = BeltTileBlock.reshape(level, travels, getBlock());
         if (refusal == null && reshape.refused()) refusal = StretchPlan.Refusal.of(reshape.refusal());
@@ -220,11 +224,20 @@ public class BeltTileItem extends TooltipBlockItem {
         return level.isInWorldBounds(pos) && (player == null || level.mayInteract(player, pos));
     }
 
-    // A tile's top holds the level tile of a crossing over it (#420).
-    private static boolean grounded(Level level, BlockPos pos) {
-        var below = pos.below();
-        var state = level.getBlockState(below);
-        return state.isFaceSturdy(level, below, Direction.UP) || state.getBlock() instanceof BeltTileBlock;
+    // A tile's top holds the level tile of a crossing over it (#420). A wedge belongs to the slope
+    // above it, so a stretch neither replaces it nor stands on it (ADR-0085).
+    private static Stretch.Terrain terrain(Level level) {
+        return spot -> {
+            var pos = pos(spot);
+            var state = level.getBlockState(pos);
+            if (state.getBlock() instanceof BeltTileBlock) return Stretch.Ground.TILE;
+            if (state.getBlock() instanceof BeltWedgeBlock) return Stretch.Ground.OBSTACLE;
+            return switch (BeltTileBlock.occupant(level, pos)) {
+                case REPLACEABLE -> Stretch.Ground.FREE;
+                case SOLID -> Stretch.Ground.SOLID;
+                case OCCUPIED -> Stretch.Ground.OBSTACLE;
+            };
+        };
     }
 
     /** Whether the inventory holds what the stretch hands back once its charge is taken, as {@code Inventory#add} places it. */

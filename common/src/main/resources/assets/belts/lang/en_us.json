@@ -4,7 +4,7 @@
   "message.belts.stretch_cleared": "Stretch cleared.",
   "message.belts.stretch_behind": "A stretch runs ahead of the way you looked when you started it, never back.",
   "message.belts.stretch_blocked": "A block stands in the stretch's way.",
-  "message.belts.stretch_no_ground": "A tile of this stretch has no solid ground under it.",
+  "message.belts.stretch_uneven": "The ground steps more than a block at %s, %s, or a tile there would be a crest or a dip.",
   "message.belts.slope_turns": "A belt slope never turns, so this would not connect.",
   "message.belts.wedge_blocked": "A slope here needs a wedge under it, and only air, plants or snow can make way for one.",
   "block.belts.belt_wedge": "Belt wedge",

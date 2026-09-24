@@ -35,7 +35,7 @@ public record StretchPlan(List<Tile> tiles, int cost, List<ItemStack> returned, 
     public enum Reason {
         BEHIND_LOOK("message.belts.stretch_behind"),
         BLOCKED("message.belts.stretch_blocked"),
-        NO_GROUND("message.belts.stretch_no_ground"),
+        UNEVEN("message.belts.stretch_uneven"),
         SLOPE_TURNS("message.belts.slope_turns"),
         WEDGE_BLOCKED("message.belts.wedge_blocked"),
         NOT_ENOUGH_TILES("message.belts.stretch_not_enough"),
