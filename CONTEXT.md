@@ -7,7 +7,7 @@ A Minecraft belt system that blends Factorio and Satisfactory and is built to wo
 ### Projects
 
 **Upstream**:
-Rearth/SimpleBelts, the project the Mod was forked from. Its code and assets are licensed CC BY 4.0.
+Rearth/SimpleBelts, the project the Mod was forked from, published as "Simple Conveyor Belts" on CurseForge and Modrinth. Its code and assets are licensed CC BY 4.0.
 _Avoid_: SimpleBelts (when meaning the Mod), the original
 
 **Beltworks**:
