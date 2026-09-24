@@ -95,9 +95,9 @@ public final class TileLines {
         line.contents().reset(update.changes().added());
         var tiles = new ArrayList<BlockPos>(update.tiers().size());
         var next = update.head();
-        for (var travel : update.travels()) {
+        for (var tile = 0; tile < update.travels().size(); tile++) {
             tiles.add(next);
-            next = next.relative(travel);
+            next = next.relative(update.travels().get(tile)).above(update.rises().get(tile));
         }
         var copy = new Copy(line, List.copyOf(tiles));
         BY_HEAD.put(update.head(), copy);

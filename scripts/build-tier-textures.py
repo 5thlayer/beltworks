@@ -2,7 +2,8 @@
 # dependencies = ["pillow"]
 # ///
 """Recolour the belt textures to Factorio's yellow, red, blue and green tiers, from SimpleBelts'
-original art in `scripts/belt-art/`, and draw the loader's housing and its tier band. Run with
+original art in `scripts/belt-art/`, draw the loader's housing and its tier band, and write the belt
+tiles' corner and slope models and their blockstates. Run with
 `uv run scripts/build-tier-textures.py`; `--check` fails on drift."""
 import colorsys
 import io
@@ -198,6 +199,122 @@ def corner_model(prefix, from_left: bool) -> bytes:
     return (json.dumps(model, indent=2) + "\n").encode()
 
 
+# A slope's profile in its travel's 16 px, as runs (start, end, height at start, rise per px), level
+# at 6 px, one straight 45-degree line through foot, middles and top (PlanetaryFactory #417). Drawn
+# travelling north, the way the straight tile is, so its back edge is z = 16.
+PITCHES = {
+    "foot_up": [(0, 6, 6, 0), (6, 16, 6, 1)],
+    "middle_up": [(0, 16, 0, 1)],
+    "top_up": [(0, 6, 0, 1), (6, 16, 6, 0)],
+    "foot_down": [(0, 10, 16, -1), (10, 16, 6, 0)],
+    "middle_down": [(0, 16, 16, -1)],
+    "top_down": [(0, 10, 6, 0), (10, 16, 6, -1)],
+}
+# A slope's rim sits this far in from the block's side, behind the stepped wall, so the two never
+# z-fight where both are drawn (#417).
+RIM_INSET = 0.05
+
+
+def slope_model(prefix, pitch) -> bytes:
+    """A slope as a plane along its surface over 1px slices of body, each as tall as the surface at
+    its lower edge, with a thin rim along the plane's edge to close the steps' corners."""
+    runs = PITCHES[pitch]
+
+    def surface(d):
+        for start, end, height, rise in runs:
+            if start <= d <= end:
+                return height + rise * (d - start)
+        raise ValueError(d)
+
+    def wall(u0, u1, height):
+        # The side art is the level tile's 6 px; a taller wall stretches it (human check on delivery).
+        return {"uv": [u0, 4, u1, 4 + 2 * min(height, 6)], "texture": "#side"}
+
+    def culled(faces, box):
+        (x0, y0, z0), (x1, y1, z1) = box
+        bounds = {"down": y0 == 0, "north": z0 == 0, "south": z1 == 16, "west": x0 == 0, "east": x1 == 16}
+        for side, face in faces.items():
+            if bounds.get(side):
+                face["cullface"] = side
+        return faces
+
+    def belt(start, end):
+        # The straight tile's top face turned 180 degrees, cut to this run's share of the travel.
+        return {"uv": [0, start, 16, end], "texture": "#belt", "rotation": 180}
+
+    elements = []
+    for start, end, height, rise in runs:
+        z0, z1 = 16 - end, 16 - start
+        if rise == 0:
+            faces = {"up": belt(start, end), "down": {"uv": [0, z0, 16, z1], "texture": "#frame"},
+                     "east": wall(z0, z1, height), "west": wall(16 - z1, 16 - z0, height)}
+            if start == 0:
+                faces["south"] = wall(0, 16, height)
+            if end == 16:
+                faces["north"] = wall(0, 16, height)
+            box = ([0, 0, z0], [16, height, z1])
+            elements.append({"from": box[0], "to": box[1], "faces": culled(faces, box)})
+            continue
+        for d in range(start, end):
+            tall = math.floor(min(surface(d), surface(d + 1)))
+            if tall <= 0:
+                continue
+            faces = {"down": {"uv": [0, 15 - d, 16, 16 - d], "texture": "#frame"},
+                     "east": wall(15 - d, 16 - d, tall), "west": wall(d, d + 1, tall)}
+            if d == 0:
+                faces["south"] = wall(0, 16, tall)
+            if d == 15:
+                faces["north"] = wall(0, 16, tall)
+            box = ([0, 0, 15 - d], [16, tall, 16 - d])
+            elements.append({"from": box[0], "to": box[1], "faces": culled(faces, box)})
+        length = (end - start) * math.sqrt(2)
+        angle = 45 if rise > 0 else -45
+        origin = [8, height, z1]
+        elements.append({
+            "from": [0, height, round(z1 - length, 4)], "to": [16, height, z1],
+            "rotation": {"origin": origin, "axis": "x", "angle": angle},
+            "faces": {"up": belt(start, end)},
+        })
+        # A step along the plane at each end, so no corner of the rim leaves the block.
+        elements.append({
+            "from": [RIM_INSET, height - 1, round(z1 - length + 1, 4)], "to": [16 - RIM_INSET, height, z1 - 1],
+            "rotation": {"origin": origin, "axis": "x", "angle": angle},
+            "faces": {"east": {"uv": [0, 4, 16, 6], "texture": "#side"}, "west": {"uv": [0, 4, 16, 6], "texture": "#side"}},
+        })
+    model = {
+        "parent": "minecraft:block/block",
+        "textures": {
+            "belt": f"belts:block/{prefix}splitter_belt",
+            "frame": "belts:block/conveyor_support",
+            "particle": f"belts:block/{prefix}splitter_belt",
+            "side": "belts:block/belt_tile_side",
+        },
+        "elements": elements,
+    }
+    return (json.dumps(model, indent=2) + "\n").encode()
+
+
+BLOCKSTATES = TEXTURES.parent / "blockstates"
+FACINGS = {"north": 0, "east": 90, "south": 180, "west": 270}
+SHAPES = {"straight": "", "from_left": "_corner_left", "from_right": "_corner_right"}
+
+
+def tile_blockstate(prefix) -> bytes:
+    """Every facing, shape and pitch. A slope is always straight (#417), so a sloped corner state,
+    which the block never derives, draws as its corner."""
+    variants = {}
+    for facing, turn in FACINGS.items():
+        for shape, suffix in SHAPES.items():
+            for pitch in ["level", *PITCHES]:
+                model = f"belts:block/{prefix}belt_tile{suffix}" if shape != "straight" or pitch == "level" \
+                    else f"belts:block/{prefix}belt_tile_{pitch}"
+                variant = {"model": model}
+                if turn:
+                    variant["y"] = turn
+                variants[f"facing={facing},pitch={pitch},shape={shape}"] = variant
+    return (json.dumps({"variants": variants}, indent=2) + "\n").encode()
+
+
 def outputs():
     yield TEXTURES / "block/loader_slate.png", slate()
     yield TEXTURES / "block/loader_mouth.png", mouth()
@@ -211,6 +328,9 @@ def outputs():
         yield from corner_strips(prefix, [recolour(frame, hue) for frame in frames], step)
         for side in ("left", "right"):
             yield MODELS / f"{prefix}belt_tile_corner_{side}.json", corner_model(prefix, side == "left")
+        for pitch in PITCHES:
+            yield MODELS / f"{prefix}belt_tile_{pitch}.json", slope_model(prefix, pitch)
+        yield BLOCKSTATES / f"{prefix}belt_tile.json", tile_blockstate(prefix)
 
 
 def main():
@@ -224,7 +344,7 @@ def main():
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
     for path in stale:
-        print(f"stale: {path.relative_to(TEXTURES)}")
+        print(f"stale: {path.relative_to(TEXTURES.parent)}")
     return 1 if stale else 0
 
 

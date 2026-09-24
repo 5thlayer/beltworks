@@ -28,9 +28,7 @@ import java.util.List;
  */
 public class BeltTileRenderer implements BlockEntityRenderer<BeltTileBlockEntity, BeltTileRenderer.RenderState> {
 
-    // The tile's top face (BeltTileBlock's shape), and how far above it each kind of item's centre
-    // sits when it is laid flat.
-    private static final double SURFACE = 6 / 16d;
+    // How far above the tile's surface each kind of item's centre sits when it is laid flat.
     private static final double BLOCK_LIFT = 0.07;
     private static final double FLAT_LIFT = 0.02;
 
@@ -52,6 +50,7 @@ public class BeltTileRenderer implements BlockEntityRenderer<BeltTileBlockEntity
 
         var travel = BeltTileBlock.travel(entity.travel());
         var shape = entity.shape();
+        var pitch = entity.pitch();
         var resolver = Minecraft.getInstance().getItemModelResolver();
         for (var drawn : place.drawn(partialTicks)) {
             var stack = drawn.entry().payload();
@@ -62,11 +61,14 @@ public class BeltTileRenderer implements BlockEntityRenderer<BeltTileBlockEntity
             var point = shape.point(drawn.offset(), travel);
             var forward = new Vec3(point.headingX(), 0, point.headingZ());
             var yaw = (float) Math.toDegrees(Math.atan2(-forward.z, forward.x));
-            var at = new Vec3(0.5 + point.x(), SURFACE + (block ? BLOCK_LIFT : FLAT_LIFT), 0.5 + point.z())
+            var tilt = Math.atan(pitch.rise(drawn.offset()));
+            var normal = forward.scale(-Math.sin(tilt)).add(0, Math.cos(tilt), 0);
+            var at = new Vec3(0.5 + point.x(), pitch.surface(drawn.offset()), 0.5 + point.z())
+                       .add(normal.scale(block ? BLOCK_LIFT : FLAT_LIFT))
                        .add(forward.cross(new Vec3(0, 1, 0)).scale(lane));
             var itemState = new ItemStackRenderState();
             resolver.updateForTopItem(itemState, stack, ItemDisplayContext.FIXED, level, null, 0);
-            state.items.add(new Item(at, yaw, block ? 0.5f : 0.35f, itemState));
+            state.items.add(new Item(at, yaw, (float) Math.toDegrees(tilt), block ? 0.5f : 0.35f, itemState));
         }
     }
 
@@ -76,6 +78,7 @@ public class BeltTileRenderer implements BlockEntityRenderer<BeltTileBlockEntity
             poseStack.pushPose();
             poseStack.translate(item.at.x, item.at.y, item.at.z);
             poseStack.mulPose(Axis.YP.rotationDegrees(item.yaw));
+            poseStack.mulPose(Axis.ZP.rotationDegrees(item.tilt));
             poseStack.mulPose(Axis.XP.rotationDegrees(90));
             poseStack.scale(item.scale, item.scale, item.scale);
             item.itemState.submit(poseStack, collector, state.lightCoords, OverlayTexture.NO_OVERLAY, 0);
@@ -83,7 +86,7 @@ public class BeltTileRenderer implements BlockEntityRenderer<BeltTileBlockEntity
         }
     }
 
-    public record Item(Vec3 at, float yaw, float scale, ItemStackRenderState itemState) {
+    public record Item(Vec3 at, float yaw, float tilt, float scale, ItemStackRenderState itemState) {
     }
 
     public static class RenderState extends BlockEntityRenderState {

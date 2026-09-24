@@ -11,6 +11,7 @@ import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.ScheduledTickAccess;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -21,23 +22,36 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 import rearth.belts.items.SplitterItem;
 import rearth.belts.model.BeltTier;
 import rearth.belts.model.LineScan;
+import rearth.belts.model.Pitch;
 import rearth.belts.model.TileShape;
+
+import java.util.EnumMap;
+import java.util.Map;
 
 /**
  * One block of belt (PlanetaryFactory #398). Its facing is its direction of travel, and its shape,
- * straight or a corner, follows from what feeds it (#391).
+ * straight or a corner, follows from what feeds it (#391), as its pitch follows from the heights of
+ * what feeds it and what it feeds (#417).
  */
 public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityBlock {
 
     public static final EnumProperty<Shape> CORNER = EnumProperty.create("shape", Shape.class);
+    public static final EnumProperty<PitchState> PITCH = EnumProperty.create("pitch", PitchState.class);
 
     private static final VoxelShape SHAPE = Block.box(0, 0, 0, 16, 6, 16);
+    private static final Map<Direction, Map<PitchState, VoxelShape>> SLOPE_SHAPES = slopeShapes();
+
+    // A tile's pitch asks the tiles a block up or down ahead and behind it, and each of those asks
+    // its own (#417).
+    private static final int DERIVED_REACH = 2;
 
     private final BeltTier tier;
 
@@ -45,7 +59,7 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
         super(settings);
         this.tier = tier;
         registerDefaultState(defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH)
-                               .setValue(CORNER, Shape.STRAIGHT));
+                               .setValue(CORNER, Shape.STRAIGHT).setValue(PITCH, PitchState.LEVEL));
     }
 
     /** The tier whose speed this tile runs at; a line runs at its slowest tile (ADR-0076). */
@@ -55,7 +69,35 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
 
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
-        return SHAPE;
+        var pitch = state.getValue(PITCH);
+        return pitch == PitchState.LEVEL ? SHAPE : SLOPE_SHAPES.get(state.getValue(BlockStateProperties.HORIZONTAL_FACING)).get(pitch);
+    }
+
+    // No higher than the surface, so a rider meets the ride's slabs rather than the steps (#417).
+    private static Map<Direction, Map<PitchState, VoxelShape>> slopeShapes() {
+        var shapes = new EnumMap<Direction, Map<PitchState, VoxelShape>>(Direction.class);
+        for (var facing : Direction.Plane.HORIZONTAL) {
+            var byPitch = new EnumMap<PitchState, VoxelShape>(PitchState.class);
+            for (var pitch : PitchState.values()) {
+                var shape = Shapes.empty();
+                for (var slice = 0; slice < 16; slice++) {
+                    var height = Math.floor(16 * Math.min(pitch.model().surface(slice / 16d), pitch.model().surface((slice + 1) / 16d)));
+                    if (height <= 0) continue;
+                    double back = slice;
+                    double front = slice + 1;
+                    var box = switch (facing) {
+                        case NORTH -> Block.box(0, 0, 16 - front, 16, height, 16 - back);
+                        case SOUTH -> Block.box(0, 0, back, 16, height, front);
+                        case EAST -> Block.box(back, 0, 0, front, height, 16);
+                        default -> Block.box(16 - front, 0, 0, 16 - back, height, 16);
+                    };
+                    shape = Shapes.or(shape, box);
+                }
+                byPitch.put(pitch, shape.optimize());
+            }
+            shapes.put(facing, byPitch);
+        }
+        return shapes;
     }
 
     // A splitter placed across a straight line takes the tile's place (PlanetaryFactory #394).
@@ -67,7 +109,7 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(BlockStateProperties.HORIZONTAL_FACING, CORNER);
+        builder.add(BlockStateProperties.HORIZONTAL_FACING, CORNER, PITCH);
     }
 
     // The way the player looks, as a Factorio belt is laid; the pack's Rotate turns the look itself
@@ -84,11 +126,83 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
         return shaped(state, level, pos);
     }
 
+    // A slope's other end is a block up or down, which no neighbour update reaches, so a placed,
+    // turned or broken tile re-derives every tile it could change. Only a change of facing or of
+    // block starts one, so the tiles it re-derives start none (#417).
+    @Override
+    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
+        super.onPlace(state, level, pos, oldState, movedByPiston);
+        if (oldState.is(this) && oldState.getValue(BlockStateProperties.HORIZONTAL_FACING) == state.getValue(BlockStateProperties.HORIZONTAL_FACING)) return;
+        reshapeAround(level, pos);
+        // Placed in a state it did not derive; its block entity does not exist yet, so it is
+        // re-derived on the next tick rather than now.
+        if (!shaped(state, level, pos).equals(state)) level.scheduleTick(pos, this, 1);
+    }
+
+    @Override
+    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        var shaped = shaped(state, level, pos);
+        if (!shaped.equals(state)) level.setBlock(pos, shaped, Block.UPDATE_ALL);
+    }
+
+    @Override
+    protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel level, BlockPos pos, boolean movedByPiston) {
+        super.affectNeighborsAfterRemoval(state, level, pos, movedByPiston);
+        reshapeAround(level, pos);
+    }
+
+    private static void reshapeAround(Level level, BlockPos pos) {
+        for (var at : BlockPos.betweenClosed(pos.offset(-DERIVED_REACH, -DERIVED_REACH, -DERIVED_REACH), pos.offset(DERIVED_REACH, DERIVED_REACH, DERIVED_REACH))) {
+            if (at.equals(pos) || Math.abs(at.getX() - pos.getX()) + Math.abs(at.getZ() - pos.getZ()) > DERIVED_REACH || !level.isLoaded(at)) continue;
+            var there = level.getBlockState(at);
+            if (!(there.getBlock() instanceof BeltTileBlock)) continue;
+            var shaped = shaped(there, level, at);
+            if (!shaped.equals(there)) level.setBlock(at.immutable(), shaped, Block.UPDATE_ALL);
+        }
+    }
+
     private static BlockState shaped(BlockState state, BlockGetter level, BlockPos pos) {
-        var facing = state.getValue(BlockStateProperties.HORIZONTAL_FACING);
-        var shape = TileShape.at(new LineScan.Spot(pos.getX(), pos.getY(), pos.getZ()), travel(facing),
-          (from, travel) -> feeds(level.getBlockState(new BlockPos(from.x(), from.y(), from.z())), travel));
-        return state.setValue(CORNER, Shape.of(shape));
+        return formed(state, spot(pos), around(level, Map.of(spot(pos), travel(state.getValue(BlockStateProperties.HORIZONTAL_FACING)))));
+    }
+
+    /** A tile's state with the shape and pitch its neighbours give it. */
+    public static BlockState formed(BlockState state, LineScan.Spot spot, TileShape.Around around) {
+        var travel = travel(state.getValue(BlockStateProperties.HORIZONTAL_FACING));
+        return state.setValue(CORNER, Shape.of(TileShape.at(spot, travel, around)))
+                 .setValue(PITCH, PitchState.of(Pitch.at(spot, travel, around)));
+    }
+
+    /**
+     * The world as a tile's shape and pitch read it, with {@code planned} tiles standing where they
+     * are about to be placed. Only loaded blocks are read, since a derivation reaches two blocks off.
+     */
+    public static TileShape.Around around(BlockGetter level, Map<LineScan.Spot, LineScan.Travel> planned) {
+        return new TileShape.Around() {
+            @Override
+            public LineScan.@Nullable Travel tile(LineScan.Spot spot) {
+                var travel = planned.get(spot);
+                if (travel != null) return travel;
+                var state = stateAt(spot);
+                return state.getBlock() instanceof BeltTileBlock ? travel(state.getValue(HorizontalDirectionalBlock.FACING)) : null;
+            }
+
+            @Override
+            public boolean feeds(LineScan.Spot from, LineScan.Travel travel) {
+                var tile = tile(from);
+                if (tile != null) return tile.equals(travel);
+                return BeltTileBlock.feeds(stateAt(from), travel);
+            }
+
+            private BlockState stateAt(LineScan.Spot spot) {
+                var pos = new BlockPos(spot.x(), spot.y(), spot.z());
+                if (level instanceof LevelReader reader && !reader.hasChunkAt(pos)) return Blocks.AIR.defaultBlockState();
+                return level.getBlockState(pos);
+            }
+        };
+    }
+
+    public static LineScan.Spot spot(BlockPos pos) {
+        return new LineScan.Spot(pos.getX(), pos.getY(), pos.getZ());
     }
 
     // A tile, a loader or a splitter half outputs the way it faces.
@@ -99,6 +213,39 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
 
     public static LineScan.Travel travel(Direction facing) {
         return new LineScan.Travel(facing.getStepX(), facing.getStepZ());
+    }
+
+    /** {@link Pitch} as a block state property. */
+    public enum PitchState implements StringRepresentable {
+        LEVEL(Pitch.LEVEL, "level"),
+        FOOT_UP(Pitch.FOOT_UP, "foot_up"),
+        MIDDLE_UP(Pitch.MIDDLE_UP, "middle_up"),
+        TOP_UP(Pitch.TOP_UP, "top_up"),
+        FOOT_DOWN(Pitch.FOOT_DOWN, "foot_down"),
+        MIDDLE_DOWN(Pitch.MIDDLE_DOWN, "middle_down"),
+        TOP_DOWN(Pitch.TOP_DOWN, "top_down");
+
+        private final Pitch model;
+        private final String name;
+
+        PitchState(Pitch model, String name) {
+            this.model = model;
+            this.name = name;
+        }
+
+        public Pitch model() {
+            return model;
+        }
+
+        public static PitchState of(Pitch model) {
+            for (var pitch : values()) if (pitch.model == model) return pitch;
+            throw new IllegalArgumentException(model.name());
+        }
+
+        @Override
+        public String getSerializedName() {
+            return name;
+        }
     }
 
     /** {@link TileShape} as a block state property. */

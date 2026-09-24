@@ -1,47 +1,317 @@
 {
   "variants": {
-    "facing=north,shape=straight": {
+    "facing=north,pitch=level,shape=straight": {
       "model": "belts:block/improved_belt_tile"
     },
-    "facing=north,shape=from_left": {
+    "facing=north,pitch=foot_up,shape=straight": {
+      "model": "belts:block/improved_belt_tile_foot_up"
+    },
+    "facing=north,pitch=middle_up,shape=straight": {
+      "model": "belts:block/improved_belt_tile_middle_up"
+    },
+    "facing=north,pitch=top_up,shape=straight": {
+      "model": "belts:block/improved_belt_tile_top_up"
+    },
+    "facing=north,pitch=foot_down,shape=straight": {
+      "model": "belts:block/improved_belt_tile_foot_down"
+    },
+    "facing=north,pitch=middle_down,shape=straight": {
+      "model": "belts:block/improved_belt_tile_middle_down"
+    },
+    "facing=north,pitch=top_down,shape=straight": {
+      "model": "belts:block/improved_belt_tile_top_down"
+    },
+    "facing=north,pitch=level,shape=from_left": {
       "model": "belts:block/improved_belt_tile_corner_left"
     },
-    "facing=north,shape=from_right": {
+    "facing=north,pitch=foot_up,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left"
+    },
+    "facing=north,pitch=middle_up,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left"
+    },
+    "facing=north,pitch=top_up,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left"
+    },
+    "facing=north,pitch=foot_down,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left"
+    },
+    "facing=north,pitch=middle_down,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left"
+    },
+    "facing=north,pitch=top_down,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left"
+    },
+    "facing=north,pitch=level,shape=from_right": {
       "model": "belts:block/improved_belt_tile_corner_right"
     },
-    "facing=east,shape=straight": {
+    "facing=north,pitch=foot_up,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right"
+    },
+    "facing=north,pitch=middle_up,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right"
+    },
+    "facing=north,pitch=top_up,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right"
+    },
+    "facing=north,pitch=foot_down,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right"
+    },
+    "facing=north,pitch=middle_down,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right"
+    },
+    "facing=north,pitch=top_down,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right"
+    },
+    "facing=east,pitch=level,shape=straight": {
       "model": "belts:block/improved_belt_tile",
       "y": 90
     },
-    "facing=east,shape=from_left": {
+    "facing=east,pitch=foot_up,shape=straight": {
+      "model": "belts:block/improved_belt_tile_foot_up",
+      "y": 90
+    },
+    "facing=east,pitch=middle_up,shape=straight": {
+      "model": "belts:block/improved_belt_tile_middle_up",
+      "y": 90
+    },
+    "facing=east,pitch=top_up,shape=straight": {
+      "model": "belts:block/improved_belt_tile_top_up",
+      "y": 90
+    },
+    "facing=east,pitch=foot_down,shape=straight": {
+      "model": "belts:block/improved_belt_tile_foot_down",
+      "y": 90
+    },
+    "facing=east,pitch=middle_down,shape=straight": {
+      "model": "belts:block/improved_belt_tile_middle_down",
+      "y": 90
+    },
+    "facing=east,pitch=top_down,shape=straight": {
+      "model": "belts:block/improved_belt_tile_top_down",
+      "y": 90
+    },
+    "facing=east,pitch=level,shape=from_left": {
       "model": "belts:block/improved_belt_tile_corner_left",
       "y": 90
     },
-    "facing=east,shape=from_right": {
+    "facing=east,pitch=foot_up,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left",
+      "y": 90
+    },
+    "facing=east,pitch=middle_up,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left",
+      "y": 90
+    },
+    "facing=east,pitch=top_up,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left",
+      "y": 90
+    },
+    "facing=east,pitch=foot_down,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left",
+      "y": 90
+    },
+    "facing=east,pitch=middle_down,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left",
+      "y": 90
+    },
+    "facing=east,pitch=top_down,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left",
+      "y": 90
+    },
+    "facing=east,pitch=level,shape=from_right": {
       "model": "belts:block/improved_belt_tile_corner_right",
       "y": 90
     },
-    "facing=south,shape=straight": {
+    "facing=east,pitch=foot_up,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right",
+      "y": 90
+    },
+    "facing=east,pitch=middle_up,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right",
+      "y": 90
+    },
+    "facing=east,pitch=top_up,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right",
+      "y": 90
+    },
+    "facing=east,pitch=foot_down,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right",
+      "y": 90
+    },
+    "facing=east,pitch=middle_down,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right",
+      "y": 90
+    },
+    "facing=east,pitch=top_down,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right",
+      "y": 90
+    },
+    "facing=south,pitch=level,shape=straight": {
       "model": "belts:block/improved_belt_tile",
       "y": 180
     },
-    "facing=south,shape=from_left": {
+    "facing=south,pitch=foot_up,shape=straight": {
+      "model": "belts:block/improved_belt_tile_foot_up",
+      "y": 180
+    },
+    "facing=south,pitch=middle_up,shape=straight": {
+      "model": "belts:block/improved_belt_tile_middle_up",
+      "y": 180
+    },
+    "facing=south,pitch=top_up,shape=straight": {
+      "model": "belts:block/improved_belt_tile_top_up",
+      "y": 180
+    },
+    "facing=south,pitch=foot_down,shape=straight": {
+      "model": "belts:block/improved_belt_tile_foot_down",
+      "y": 180
+    },
+    "facing=south,pitch=middle_down,shape=straight": {
+      "model": "belts:block/improved_belt_tile_middle_down",
+      "y": 180
+    },
+    "facing=south,pitch=top_down,shape=straight": {
+      "model": "belts:block/improved_belt_tile_top_down",
+      "y": 180
+    },
+    "facing=south,pitch=level,shape=from_left": {
       "model": "belts:block/improved_belt_tile_corner_left",
       "y": 180
     },
-    "facing=south,shape=from_right": {
+    "facing=south,pitch=foot_up,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left",
+      "y": 180
+    },
+    "facing=south,pitch=middle_up,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left",
+      "y": 180
+    },
+    "facing=south,pitch=top_up,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left",
+      "y": 180
+    },
+    "facing=south,pitch=foot_down,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left",
+      "y": 180
+    },
+    "facing=south,pitch=middle_down,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left",
+      "y": 180
+    },
+    "facing=south,pitch=top_down,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left",
+      "y": 180
+    },
+    "facing=south,pitch=level,shape=from_right": {
       "model": "belts:block/improved_belt_tile_corner_right",
       "y": 180
     },
-    "facing=west,shape=straight": {
+    "facing=south,pitch=foot_up,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right",
+      "y": 180
+    },
+    "facing=south,pitch=middle_up,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right",
+      "y": 180
+    },
+    "facing=south,pitch=top_up,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right",
+      "y": 180
+    },
+    "facing=south,pitch=foot_down,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right",
+      "y": 180
+    },
+    "facing=south,pitch=middle_down,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right",
+      "y": 180
+    },
+    "facing=south,pitch=top_down,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right",
+      "y": 180
+    },
+    "facing=west,pitch=level,shape=straight": {
       "model": "belts:block/improved_belt_tile",
       "y": 270
     },
-    "facing=west,shape=from_left": {
+    "facing=west,pitch=foot_up,shape=straight": {
+      "model": "belts:block/improved_belt_tile_foot_up",
+      "y": 270
+    },
+    "facing=west,pitch=middle_up,shape=straight": {
+      "model": "belts:block/improved_belt_tile_middle_up",
+      "y": 270
+    },
+    "facing=west,pitch=top_up,shape=straight": {
+      "model": "belts:block/improved_belt_tile_top_up",
+      "y": 270
+    },
+    "facing=west,pitch=foot_down,shape=straight": {
+      "model": "belts:block/improved_belt_tile_foot_down",
+      "y": 270
+    },
+    "facing=west,pitch=middle_down,shape=straight": {
+      "model": "belts:block/improved_belt_tile_middle_down",
+      "y": 270
+    },
+    "facing=west,pitch=top_down,shape=straight": {
+      "model": "belts:block/improved_belt_tile_top_down",
+      "y": 270
+    },
+    "facing=west,pitch=level,shape=from_left": {
       "model": "belts:block/improved_belt_tile_corner_left",
       "y": 270
     },
-    "facing=west,shape=from_right": {
+    "facing=west,pitch=foot_up,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left",
+      "y": 270
+    },
+    "facing=west,pitch=middle_up,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left",
+      "y": 270
+    },
+    "facing=west,pitch=top_up,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left",
+      "y": 270
+    },
+    "facing=west,pitch=foot_down,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left",
+      "y": 270
+    },
+    "facing=west,pitch=middle_down,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left",
+      "y": 270
+    },
+    "facing=west,pitch=top_down,shape=from_left": {
+      "model": "belts:block/improved_belt_tile_corner_left",
+      "y": 270
+    },
+    "facing=west,pitch=level,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right",
+      "y": 270
+    },
+    "facing=west,pitch=foot_up,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right",
+      "y": 270
+    },
+    "facing=west,pitch=middle_up,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right",
+      "y": 270
+    },
+    "facing=west,pitch=top_up,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right",
+      "y": 270
+    },
+    "facing=west,pitch=foot_down,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right",
+      "y": 270
+    },
+    "facing=west,pitch=middle_down,shape=from_right": {
+      "model": "belts:block/improved_belt_tile_corner_right",
+      "y": 270
+    },
+    "facing=west,pitch=top_down,shape=from_right": {
       "model": "belts:block/improved_belt_tile_corner_right",
       "y": 270
     }

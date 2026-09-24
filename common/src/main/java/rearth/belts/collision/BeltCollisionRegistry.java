@@ -35,6 +35,8 @@ public final class BeltCollisionRegistry {
     private static final double CONTACT_HEIGHT_ABOVE = 0.12;
     private static final Vec3 UP = new Vec3(0, 1, 0);
     private static final double ITEM_HEIGHT = 0.25;
+    // A slab stands at most one sample's rise above the last on a 45-degree belt; the rest is margin.
+    private static final double SLAB_CLIMB = SAMPLE_LENGTH + 0.05;
 
     private static final Map<Level, LevelCollisionData> LEVEL_DATA = new WeakHashMap<>();
     
@@ -174,8 +176,18 @@ public final class BeltCollisionRegistry {
                 && entity.getPistonPushReaction() != PushReaction.IGNORE;
     }
 
+    // Each slab of a rising belt stands a little higher than the last, and an item cannot step
+    // up, so a rider stopped by one is lifted over it; one still stopped met a wall, and stays (#417).
     private static void moveEntity(Entity entity, BeltContact contact) {
-        entity.move(MoverType.SELF, contact.tangent.scale(contact.speed / 20d));
+        var step = contact.tangent.scale(contact.speed / 20d);
+        var start = entity.position();
+        entity.move(MoverType.SELF, step);
+        if (entity.horizontalCollision) {
+            var stopped = entity.position();
+            entity.move(MoverType.SELF, new Vec3(0, SLAB_CLIMB, 0));
+            entity.move(MoverType.SELF, new Vec3(start.x + step.x - stopped.x, 0, start.z + step.z - stopped.z));
+            if (entity.horizontalCollision) entity.setPos(stopped);
+        }
         entity.resetFallDistance();
     }
 

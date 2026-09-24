@@ -9,7 +9,7 @@ import java.util.List;
 
 /**
  * Which tiles are one transport line: the contiguous run of tiles each feeding the next, through a
- * tile, head first (PlanetaryFactory #398, #391).
+ * tile, head first (PlanetaryFactory #398, #391), up and down its slopes (#417).
  *
  * <p>A tile feeds the tile in front of it only when that tile enters from its side, so a side-load
  * is two lines meeting rather than one. A run whose last tile feeds its first is a ring.
@@ -25,14 +25,18 @@ public final class LineScan {
         public Spot step(Travel travel, int times) {
             return new Spot(x + travel.x() * times, y, z + travel.z() * times);
         }
+
+        public Spot up(int blocks) {
+            return new Spot(x, y + blocks, z);
+        }
     }
 
     /** A direction of travel, as unit steps on the x and z axes. */
     public record Travel(int x, int z) {
     }
 
-    /** A tile as the scan sees it: the way items leave it and the way they enter it. */
-    public record Piece(Travel travel, Travel entry) {
+    /** A tile as the scan sees it: the way items leave it, the way they enter it, and its pitch. */
+    public record Piece(Travel travel, Travel entry, Pitch pitch) {
     }
 
     /** The world the scan reads: the tile at a spot, or null where there is none. */
@@ -65,19 +69,20 @@ public final class LineScan {
         seen.add(spot);
         for (var at = spot; ; ) {
             var here = tiles.pieceAt(at);
-            var next = at.step(here.travel(), 1);
+            var next = at.step(here.travel(), 1).up(here.pitch().fed());
             var ahead = tiles.pieceAt(next);
-            if (ahead == null || !ahead.entry().equals(here.travel())) break;
+            if (ahead == null || !ahead.entry().equals(here.travel()) || ahead.pitch().feeder() != -here.pitch().fed()) break;
             if (next.equals(spot)) return ring(line);
             seen.add(next);
             line.add(next);
             at = next;
         }
         for (var at = spot; ; ) {
-            var entry = tiles.pieceAt(at).entry();
-            var back = at.step(entry, -1);
+            var here = tiles.pieceAt(at);
+            var entry = here.entry();
+            var back = at.step(entry, -1).up(here.pitch().feeder());
             var behind = tiles.pieceAt(back);
-            if (behind == null || !behind.travel().equals(entry) || !seen.add(back)) break;
+            if (behind == null || !behind.travel().equals(entry) || behind.pitch().fed() != -here.pitch().feeder() || !seen.add(back)) break;
             line.addFirst(back);
             at = back;
         }

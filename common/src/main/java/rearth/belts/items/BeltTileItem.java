@@ -22,7 +22,6 @@ import rearth.belts.ComponentContent;
 import rearth.belts.blocks.BeltTileBlock;
 import rearth.belts.model.LineScan;
 import rearth.belts.model.Stretch;
-import rearth.belts.model.TileShape;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -106,6 +105,7 @@ public class BeltTileItem extends TooltipBlockItem {
 
         var travels = new HashMap<LineScan.Spot, LineScan.Travel>();
         for (var step : path.get()) travels.put(step.spot(), step.travel());
+        var around = BeltTileBlock.around(level, travels);
 
         var tiles = new ArrayList<StretchPlan.Tile>();
         var returned = new ArrayList<ItemStack>();
@@ -114,11 +114,8 @@ public class BeltTileItem extends TooltipBlockItem {
         for (var step : path.get()) {
             var pos = pos(step.spot());
             var facing = Direction.getApproximateNearest(step.travel().x(), 0, step.travel().z());
-            var shape = TileShape.at(step.spot(), step.travel(), (from, travel) -> travels.containsKey(from)
-              ? travels.get(from).equals(travel)
-              : BeltTileBlock.feeds(level.getBlockState(pos(from)), travel));
-            var state = getBlock().defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, facing)
-                          .setValue(BeltTileBlock.CORNER, BeltTileBlock.Shape.of(shape));
+            var state = BeltTileBlock.formed(getBlock().defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, facing),
+              step.spot(), around);
 
             var there = level.getBlockState(pos);
             // Every tier is one Replace Group, as Factorio's belts are; the fork cannot read the pack's groups (ADR-0082).

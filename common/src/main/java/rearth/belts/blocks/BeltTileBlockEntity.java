@@ -21,6 +21,7 @@ import rearth.belts.collision.BeltCollisionRegistry;
 import rearth.belts.model.BeltContents;
 import rearth.belts.model.BeltTier;
 import rearth.belts.model.LineScan;
+import rearth.belts.model.Pitch;
 import rearth.belts.model.Splitter;
 import rearth.belts.model.TileShape;
 import rearth.belts.model.TransportLine;
@@ -80,6 +81,10 @@ public class BeltTileBlockEntity extends BlockEntity {
         return getBlockState().getValue(BeltTileBlock.CORNER).model();
     }
 
+    public Pitch pitch() {
+        return getBlockState().getValue(BeltTileBlock.PITCH).model();
+    }
+
     /** The way items on this tile travel. */
     public Direction travel() {
         return getBlockState().getValue(HorizontalDirectionalBlock.FACING);
@@ -93,7 +98,7 @@ public class BeltTileBlockEntity extends BlockEntity {
         if (line.tick(this::takeFromLoader, this::giveToLoader, hand())) lineChanged();
         movedAt = level.getGameTime();
         var changes = line.contents().drainChanges();
-        if (!changes.isEmpty()) send(new TileLineUpdate(worldPosition, List.of(), tiers(), line.ring(), false, changes));
+        if (!changes.isEmpty()) send(new TileLineUpdate(worldPosition, List.of(), List.of(), tiers(), line.ring(), false, changes));
     }
 
     // A tile's items are drawn from the line update, so on the client only the ride is kept.
@@ -103,15 +108,16 @@ public class BeltTileBlockEntity extends BlockEntity {
 
     private void registerRide() {
         var shape = shape();
+        var pitch = pitch();
         var travel = BeltTileBlock.travel(travel());
         var centre = worldPosition.getCenter();
-        BeltCollisionRegistry.registerTile(level, worldPosition, new Ride(shape, travel), progress -> {
+        BeltCollisionRegistry.registerTile(level, worldPosition, new Ride(shape, pitch, travel), progress -> {
             var point = shape.point(progress, travel);
-            return centre.add(point.x(), 0, point.z());
+            return centre.add(point.x(), pitch.surface(progress) - Pitch.SURFACE, point.z());
         }, tier.blocksPerTick() * 20);
     }
 
-    private record Ride(TileShape shape, LineScan.Travel travel) {
+    private record Ride(TileShape shape, Pitch pitch, LineScan.Travel travel) {
     }
 
     @Override
@@ -190,6 +196,16 @@ public class BeltTileBlockEntity extends BlockEntity {
         tileAt(pos).ifPresent(BeltTileBlockEntity::invalidate);
     }
 
+    // Beside it, and a block up or down beside it, where a slope's other end is (#417).
+    private void invalidateAround(BlockPos pos) {
+        for (var side : Direction.Plane.HORIZONTAL) {
+            var beside = pos.relative(side);
+            invalidate(beside);
+            invalidate(beside.above());
+            invalidate(beside.below());
+        }
+    }
+
     // Asked of loaded chunks only: a line stops at a chunk's edge rather than pulling the next
     // chunk in, and resumes when that chunk loads and its tiles scan.
     private Optional<BeltTileBlockEntity> tileAt(BlockPos pos) {
@@ -208,7 +224,7 @@ public class BeltTileBlockEntity extends BlockEntity {
         var scannedHead = run.getFirst();
         if (!scannedHead.equals(head)) invalidate(head);
         head = scannedHead;
-        if (first) for (var side : Direction.Plane.HORIZONTAL) invalidate(worldPosition.relative(side));
+        if (first) invalidateAround(worldPosition);
 
         if (!head.equals(worldPosition)) {
             var handedOver = line != null && !line.contents().isEmpty();
@@ -316,7 +332,8 @@ public class BeltTileBlockEntity extends BlockEntity {
     }
 
     private TileLineUpdate wholeLine() {
-        return new TileLineUpdate(worldPosition, members.stream().map(BeltTileBlockEntity::travel).toList(), tiers(), line.ring(), true,
+        return new TileLineUpdate(worldPosition, members.stream().map(BeltTileBlockEntity::travel).toList(),
+          members.stream().map(member -> member.pitch().fed()).toList(), tiers(), line.ring(), true,
           new BeltContents.Changes<>(List.of(), line.contents().snapshot()));
     }
 
@@ -349,7 +366,7 @@ public class BeltTileBlockEntity extends BlockEntity {
     private LineScan.@Nullable Piece pieceAt(LineScan.Spot spot) {
         return tileAt(pos(spot)).map(tile -> {
             var travel = BeltTileBlock.travel(tile.travel());
-            return new LineScan.Piece(travel, tile.shape().entry(travel));
+            return new LineScan.Piece(travel, tile.shape().entry(travel), tile.pitch());
         }).orElse(null);
     }
 
@@ -381,10 +398,11 @@ public class BeltTileBlockEntity extends BlockEntity {
         return sideLoad(last.relative(travel), travel, item);
     }
 
-    // Only into the side of a straight tile: a corner's side is its entry, and head-on is no feed (#409).
+    // Only into the side of a straight, level tile: a corner's side is its entry, head-on is no
+    // feed (#409), and a slope takes no side-load (#417).
     private boolean sideLoad(BlockPos pos, Direction travel, ItemStack item) {
         var fed = tileAt(pos).orElse(null);
-        if (fed == null || fed.shape() != TileShape.STRAIGHT || fed.travel().getAxis() == travel.getAxis()) return false;
+        if (fed == null || fed.shape() != TileShape.STRAIGHT || fed.pitch() != Pitch.LEVEL || fed.travel().getAxis() == travel.getAxis()) return false;
         var holding = fed.holder();
         if (holding == null || holding == this || holding.line == null || fed.index >= holding.line.tileCount()) return false;
         if (!holding.line.sideLoad(item, fed.index)) return false;
@@ -449,7 +467,7 @@ public class BeltTileBlockEntity extends BlockEntity {
         if (holding != null) holding.release();
         invalidate();
         invalidate(head);
-        for (var side : Direction.Plane.HORIZONTAL) invalidate(worldPosition.relative(side));
+        invalidateAround(worldPosition);
     }
 
     // Catches every removal, so a break, an explosion or a command leaves the run scanning again.
@@ -463,7 +481,7 @@ public class BeltTileBlockEntity extends BlockEntity {
         for (var share : carried) drop(share.payload());
         carried = new ArrayList<>();
         invalidate(head);
-        for (var side : Direction.Plane.HORIZONTAL) invalidate(pos.relative(side));
+        invalidateAround(pos);
     }
 
     @Override
