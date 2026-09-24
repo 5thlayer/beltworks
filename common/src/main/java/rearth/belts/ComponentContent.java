@@ -20,5 +20,9 @@ public class ComponentContent {
       () -> DataComponentType.<Direction>builder().persistent(Direction.CODEC).networkSynchronized(Direction.STREAM_CODEC).build());
     public static final RegistrySupplier<DataComponentType<List<BlockPos>>> STRETCH_CORNERS = COMPONENTS.register("stretch_corners",
       () -> DataComponentType.<List<BlockPos>>builder().persistent(BlockPos.CODEC.listOf()).networkSynchronized(BlockPos.STREAM_CODEC.apply(ByteBufCodecs.list())).build());
+    public static final RegistrySupplier<DataComponentType<BlockPos>> DISMANTLE_START = COMPONENTS.register("dismantle_start",
+      () -> DataComponentType.<BlockPos>builder().persistent(BlockPos.CODEC).networkSynchronized(BlockPos.STREAM_CODEC).build());
+    public static final RegistrySupplier<DataComponentType<Direction>> DISMANTLE_FACING = COMPONENTS.register("dismantle_start_facing",
+      () -> DataComponentType.<Direction>builder().persistent(Direction.CODEC).networkSynchronized(Direction.STREAM_CODEC).build());
     
 }
