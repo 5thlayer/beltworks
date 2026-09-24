@@ -44,7 +44,7 @@ public class ChuteBlock extends HorizontalDirectionalBlock implements EntityBloc
         registerDefaultState(defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH));
     }
     
-    /** The tier whose items a second this loader moves, whatever belt it is on (ADR-0076). */
+    /** The tier whose items a second this loader moves, whatever belt it is on (ADR 0007). */
     public BeltTier tier() {
         return tier;
     }
@@ -68,7 +68,7 @@ public class ChuteBlock extends HorizontalDirectionalBlock implements EntityBloc
     
     /**
      * Whether a click holding this stack sets the filter. A loader with no belt yet takes one too, so it
-     * is set before the line reaches it; placing against a loader takes a sneak (PlanetaryFactory ADR-0084).
+     * is set before the line reaches it; placing against a loader takes a sneak (ADR 0004).
      */
     public boolean setsFilter(ChuteBlockEntity entity, ItemStack stack) {
         return !stack.isEmpty();

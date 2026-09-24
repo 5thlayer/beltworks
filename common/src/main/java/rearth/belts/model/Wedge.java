@@ -2,7 +2,7 @@ package rearth.belts.model;
 
 /**
  * The part of a middle or top standing over air that holds it up, so a belt can climb through open
- * air (PlanetaryFactory #420, ADR-0085). It is the tile's, placed and broken with it.
+ * air (PlanetaryFactory #420, ADR 0005). It is the tile's, placed and broken with it.
  */
 public final class Wedge {
 

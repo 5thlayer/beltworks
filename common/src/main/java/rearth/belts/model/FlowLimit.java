@@ -1,7 +1,7 @@
 package rearth.belts.model;
 
 /**
- * A loader's own cap on the items it moves, so a line runs at its slowest piece (ADR-0076).
+ * A loader's own cap on the items it moves, so a line runs at its slowest piece (ADR 0007).
  * Refilled lazily from the game time, so a loader that is not ticking still unloads on time.
  */
 public final class FlowLimit {

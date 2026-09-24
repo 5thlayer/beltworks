@@ -14,7 +14,7 @@ import java.util.function.Supplier;
  *
  * <p>A tile is one block long and holds {@link BeltContents#SPACING}'s worth of items in it, so a
  * line of {@code n} tiles holds {@code 8n}. The line runs at its slowest tile, which is what makes
- * a line of mixed tiers run at its slowest piece (ADR-0076).
+ * a line of mixed tiers run at its slowest piece (ADR 0007).
  */
 public final class TransportLine<T> {
 

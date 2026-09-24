@@ -28,7 +28,7 @@ import java.util.Locale;
 
 /**
  * One half of a splitter, two blocks wide across its {@link #FACING}, which is the way items flow.
- * Each half ends one belt at its back and starts one at its front (ADR-0076), and is itself a block
+ * Each half ends one belt at its back and starts one at its front (ADR 0007), and is itself a block
  * of belt of the splitter's tier (PlanetaryFactory #373). The halves share the loader's block
  * entity, with no inventory and no filter.
  */

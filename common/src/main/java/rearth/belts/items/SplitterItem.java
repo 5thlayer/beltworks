@@ -22,7 +22,7 @@ import java.util.List;
 
 /**
  * Places both halves of a splitter, the clicked one on the left looking the way items flow, or
- * neither. The click executes the plan the preview draws (ADR-0069).
+ * neither. The click executes the plan the preview draws (ADR 0006).
  */
 public class SplitterItem extends BlockItem {
 

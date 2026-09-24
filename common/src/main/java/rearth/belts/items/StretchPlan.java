@@ -11,7 +11,7 @@ import java.util.List;
 /**
  * What a click with the tile item and a stored start would lay (PlanetaryFactory #393): each tile
  * of the stretch and what happens there, what it charges and hands back, or why it lays nothing.
- * The click executes it and the preview draws it (ADR-0069).
+ * The click executes it and the preview draws it (ADR 0006).
  *
  * @param cost     held-tier tiles taken from the player
  * @param returned the replaced tiles' items handed back
@@ -22,7 +22,7 @@ public record StretchPlan(List<Tile> tiles, int cost, List<ItemStack> returned, 
         PLACE,
         /** A tile of the held tier facing another way, turned to the stretch. */
         TURN,
-        /** A tile of another tier, Fast Replaced (ADR-0082). */
+        /** A tile of another tier, Fast Replaced (the Pack's ADR-0082). */
         REPLACE,
         /** A wedge under a middle or top over air, which costs nothing (#420). */
         WEDGE

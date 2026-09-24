@@ -5,7 +5,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/** A belt, the loader that loads it and the loader that unloads it each cap their own flow (ADR-0076). */
+/** A belt, the loader that loads it and the loader that unloads it each cap their own flow (ADR 0007). */
 class MixedTierTest {
 
     @ParameterizedTest

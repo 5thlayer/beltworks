@@ -149,7 +149,7 @@ public class BeltTileItem extends TooltipBlockItem {
 
             var there = level.getBlockState(pos);
             if (refusal == null && !mayBuild(level, player, pos)) refusal = StretchPlan.Refusal.of(StretchPlan.Reason.BLOCKED);
-            // Every tier is one Replace Group, as Factorio's belts are; the fork cannot read the pack's groups (ADR-0082).
+            // Every tier is one Replace Group, as Factorio's belts are; the fork cannot read the pack's groups (the Pack's ADR-0082).
             if (there.getBlock() instanceof BeltTileBlock) {
                 if (there.is(getBlock())) {
                     // Its shape follows its neighbours once they are down.
@@ -226,7 +226,7 @@ public class BeltTileItem extends TooltipBlockItem {
     }
 
     // A tile's top holds the level tile of a crossing over it (#420). A wedge belongs to the slope
-    // above it, so a stretch neither replaces it nor stands on it (ADR-0085).
+    // above it, so a stretch neither replaces it nor stands on it (ADR 0005).
     private static Stretch.Terrain terrain(Level level) {
         return new Stretch.Terrain() {
             @Override

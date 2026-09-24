@@ -72,7 +72,7 @@ public class ChuteBlockEntity extends BlockEntity implements BlockEntityTicker<C
         var tier = ((ChuteBlock) state.getBlock()).tier();
         splitter = state.getBlock() instanceof SplitterBlock;
         flow = new FlowLimit(tier.itemsPerTick());
-        // Splitters draw no power (ADR-0076).
+        // Splitters draw no power (ADR 0007).
         energy = new LoaderEnergy(splitter ? BeltTier.BELT : tier);
         splitterModel = splitter ? new Splitter<>(tier) : null;
         half = splitter ? new Splitter.Half<>() : null;

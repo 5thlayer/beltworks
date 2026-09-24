@@ -112,7 +112,7 @@ public final class Stretch {
      * The {@code path}'s tiles over the ground, as low as they can go (#421). Each column's floor is
      * the height a tile would stand on its ground; the tiles take the lowest heights at or above every
      * floor that change by at most a block a column, so a stretch climbs early through the air to
-     * clear a wall and comes down through the air off a drop, on wedges (ADR-0085). A top never
+     * clear a wall and comes down through the air off a drop, on wedges (ADR 0005). A top never
      * crests: a one-column peak is widened to a two-tile top. A line running across the path is
      * climbed over, the tile over it level and the tile each side of it level with that one (#422);
      * the start is taken as it stands, and an end on such a line is left for the stretch to feed its

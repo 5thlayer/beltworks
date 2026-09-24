@@ -5,7 +5,7 @@ package rearth.belts.model;
  * tick, so a belt moves {@code speed × 60} blocks a second and carries {@code speed × 480} items a
  * second at {@link BeltContents#SPACING}. A tier's loader moves the same items a second as its belt,
  * and so does each side of its splitter.
- * A loader pays per item and drains what the inserter its recipe is built from does (ADR-0076).
+ * A loader pays per item and drains what the inserter its recipe is built from does (ADR 0007).
  */
 public enum BeltTier {
     // Tier 1's burner inserter burns fuel the loader has no slot for, so it runs unpowered.

@@ -66,7 +66,7 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
                                .setValue(CORNER, Shape.STRAIGHT).setValue(PITCH, PitchState.LEVEL));
     }
 
-    /** The tier whose speed this tile runs at; a line runs at its slowest tile (ADR-0076). */
+    /** The tier whose speed this tile runs at; a line runs at its slowest tile (ADR 0007). */
     public BeltTier tier() {
         return tier;
     }
@@ -117,7 +117,7 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
     }
 
     // The way the player looks, as a Factorio belt is laid; the pack's Rotate turns the look itself
-    // (PlanetaryFactory ADR-0083).
+    // (the Pack's ADR-0083).
     @Override
     public @Nullable BlockState getStateForPlacement(BlockPlaceContext ctx) {
         var state = defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, ctx.getHorizontalDirection());
