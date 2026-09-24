@@ -14,7 +14,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import rearth.belts.model.Wedge;
 
@@ -23,12 +22,12 @@ import java.util.Map;
 
 /**
  * A {@link Wedge}: part of the middle or top standing on it, which places and removes it, and has no
- * item. Its facing is the way it rises. Breaking it breaks the tile, which pays the one drop
+ * item. It fills what its block's floor cuts off the slope's band, at the top of the block below on
+ * its downhill edge. Its facing is the way the slope rises. Breaking it breaks the tile, which pays the one drop
  * (PlanetaryFactory #420).
  */
 public class BeltWedgeBlock extends HorizontalDirectionalBlock {
 
-    private static final int STEPS = 4;
     private static final Map<Direction, VoxelShape> SHAPES = shapes();
 
     public BeltWedgeBlock(BlockBehaviour.Properties settings) {
@@ -46,25 +45,13 @@ public class BeltWedgeBlock extends HorizontalDirectionalBlock {
         return SHAPES.get(state.getValue(BlockStateProperties.HORIZONTAL_FACING));
     }
 
+    // The corner of its block under the slope's downhill end, square rather than triangular.
     private static Map<Direction, VoxelShape> shapes() {
         var shapes = new EnumMap<Direction, VoxelShape>(Direction.class);
-        var size = 16 / STEPS;
-        for (var facing : Direction.Plane.HORIZONTAL) {
-            var shape = Shapes.empty();
-            for (var step = 0; step < STEPS; step++) {
-                double back = step * size;
-                double front = back + size;
-                double height = front;
-                var box = switch (facing) {
-                    case NORTH -> Block.box(0, 0, 16 - front, 16, height, 16 - back);
-                    case SOUTH -> Block.box(0, 0, back, 16, height, front);
-                    case EAST -> Block.box(back, 0, 0, front, height, 16);
-                    default -> Block.box(16 - front, 0, 0, 16 - back, height, 16);
-                };
-                shape = Shapes.or(shape, box);
-            }
-            shapes.put(facing, shape.optimize());
-        }
+        shapes.put(Direction.NORTH, Block.box(0, 10, 10, 16, 16, 16));
+        shapes.put(Direction.SOUTH, Block.box(0, 10, 0, 16, 16, 6));
+        shapes.put(Direction.EAST, Block.box(0, 10, 0, 6, 16, 16));
+        shapes.put(Direction.WEST, Block.box(10, 10, 0, 16, 16, 16));
         return shapes;
     }
 

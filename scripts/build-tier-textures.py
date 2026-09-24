@@ -309,7 +309,7 @@ def slope_model(prefix, pitch) -> bytes:
             "belt": f"belts:block/{prefix}splitter_belt",
             "frame": "belts:block/conveyor_support",
             "particle": f"belts:block/{prefix}splitter_belt",
-            "side": "belts:block/belt_tile_side",
+            "side": "belts:block/belt_slope_side",
         },
         "elements": elements,
     }
@@ -317,32 +317,36 @@ def slope_model(prefix, pitch) -> bytes:
 
 
 def wedge_model() -> bytes:
-    """The wedge under a middle or top over air (PlanetaryFactory #420): 1px slices stepping up at 45
-    degrees under a plane along the slope, drawn rising north as the slopes are."""
+    """The wedge under a middle or top over air (PlanetaryFactory #420): the part of the slope's band
+    its own block's floor cuts off, a 6 px triangle at the top of the block below, on its downhill
+    edge, its underside continuing the band's. Drawn rising north as the slopes are, so the downhill
+    edge is z = 16."""
+    depth = 6
     elements = []
-    for d in range(1, 16):
-        z0, z1 = 15 - d, 16 - d
-        faces = {"down": {"uv": [0, z0, 16, z1], "texture": "#frame", "cullface": "down"},
-                 "east": {"uv": [z0, 16 - d, z1, 16], "texture": "#frame"},
-                 "west": {"uv": [16 - z1, 16 - d, 16 - z0, 16], "texture": "#frame"}}
-        if d == 15:
-            faces["north"] = {"uv": [0, 1, 16, 16], "texture": "#frame", "cullface": "north"}
+    for k in range(depth):
+        z0, z1 = 16 - depth + k, 17 - depth + k
+        floor = 16 - k
+        if floor >= 16:
+            continue
+        # Sampled as a slope's slices under its band are, so the wedge's wall continues the slope's.
+        faces = {"east": {"uv": [16 - z1, 4, 16 - z0, 4 + 2 * (16 - floor)], "texture": "#side"},
+                 "west": {"uv": [z0, 4, z1, 4 + 2 * (16 - floor)], "texture": "#side"},
+                 "down": {"uv": [0, z0, 16, z1], "texture": "#frame"}}
+        if z1 == 16:
+            faces["south"] = {"uv": [0, 0, 16, 16 - floor], "texture": "#frame"}
         for side in ("east", "west"):
             faces[side]["cullface"] = side
-        elements.append({"from": [0, 0, z0], "to": [16, d, z1], "faces": faces})
-    elements.append({"from": [0, 15, 0], "to": [16, 16, 1],
-                     "faces": {"north": {"uv": [0, 0, 16, 1], "texture": "#frame", "cullface": "north"},
-                               "east": {"uv": [0, 0, 1, 1], "texture": "#frame", "cullface": "east"},
-                               "west": {"uv": [15, 0, 16, 1], "texture": "#frame", "cullface": "west"}}})
-    length = round(16 * math.sqrt(2), 4)
+        elements.append({"from": [SLICE_INSET, floor, z0], "to": [16 - SLICE_INSET, 16, z1], "faces": faces})
+    length = round(depth * math.sqrt(2), 4)
     elements.append({
-        "from": [0, 0, round(16 - length, 4)], "to": [16, 0, 16],
-        "rotation": {"origin": [8, 0, 16], "axis": "x", "angle": 45},
-        "faces": {"up": {"uv": [0, 0, 16, 16], "texture": "#frame"}},
+        "from": [0, 16 - depth, round(16 - length, 4)], "to": [16, 16 - depth, 16],
+        "rotation": {"origin": [8, 16 - depth, 16], "axis": "x", "angle": 45},
+        "faces": {"down": {"uv": [0, 0, 16, depth], "texture": "#frame"}},
     })
     model = {
         "parent": "minecraft:block/block",
-        "textures": {"frame": "belts:block/conveyor_support", "particle": "belts:block/conveyor_support"},
+        "textures": {"side": "belts:block/belt_slope_side", "frame": "belts:block/conveyor_support",
+                     "particle": "belts:block/conveyor_support"},
         "elements": elements,
     }
     return (json.dumps(model, indent=2) + "\n").encode()

@@ -4,7 +4,7 @@
     "belt": "belts:block/improved_splitter_belt",
     "frame": "belts:block/conveyor_support",
     "particle": "belts:block/improved_splitter_belt",
-    "side": "belts:block/belt_tile_side"
+    "side": "belts:block/belt_slope_side"
   },
   "elements": [
     {
