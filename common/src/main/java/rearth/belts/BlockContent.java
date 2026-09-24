@@ -33,8 +33,6 @@ public class BlockContent {
     public static final RegistrySupplier<Block> IMPROVED_SPLITTER_BLOCK = splitter(BeltTier.IMPROVED);
     public static final RegistrySupplier<Block> EXPRESS_SPLITTER_BLOCK = splitter(BeltTier.EXPRESS);
     public static final RegistrySupplier<Block> TURBO_SPLITTER_BLOCK = splitter(BeltTier.TURBO);
-    public static final RegistrySupplier<Block> CONVEYOR_MODEL = BLOCKS.register("conveyor_model", () -> new Block(
-      BlockBehaviour.Properties.ofLegacyCopy(Blocks.GLASS).noOcclusion().setId(ResourceKey.create(Registries.BLOCK, Belts.id("conveyor_model")))));
 
     public static Block loaderFor(BeltTier tier) {
         return switch (tier) {
