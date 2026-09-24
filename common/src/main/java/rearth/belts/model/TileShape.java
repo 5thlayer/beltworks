@@ -20,10 +20,6 @@ public enum TileShape {
 
         /** Whether the belt piece at {@code from}, a tile, loader or splitter half, outputs {@code travel}. */
         boolean feeds(LineScan.Spot from, LineScan.Travel travel);
-
-        /** The way the loader or splitter half at {@code spot} faces, or null where there is none. */
-        @Nullable
-        LineScan.Travel mouth(LineScan.Spot spot);
     }
 
     public static TileShape of(boolean behind, boolean left, boolean right) {

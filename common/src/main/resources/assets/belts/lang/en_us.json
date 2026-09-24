@@ -6,7 +6,6 @@
   "message.belts.stretch_blocked": "A block stands in the stretch's way.",
   "message.belts.stretch_no_ground": "A tile of this stretch has no solid ground under it.",
   "message.belts.slope_turns": "A belt slope never turns, so this would not connect.",
-  "message.belts.slope_meets_loader": "A loader or splitter meets only a level belt, never a slope.",
   "message.belts.wedge_blocked": "A slope here needs a wedge under it, and only air, plants or snow can make way for one.",
   "block.belts.belt_wedge": "Belt wedge",
   "message.belts.stretch_not_enough": "This stretch needs %s tiles, and you have %s.",

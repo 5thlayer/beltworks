@@ -181,7 +181,7 @@ public class BeltTileBlockEntity extends BlockEntity {
      * tile is not a line's head entered from {@code travel} (#394).
      */
     public Splitter.@Nullable Lane<ItemStack> entryLane(Direction travel) {
-        if (line == null || line.ring() || pitch() != Pitch.LEVEL || !shape().entry(BeltTileBlock.travel(travel())).equals(BeltTileBlock.travel(travel))) return null;
+        if (line == null || line.ring() || !shape().entry(BeltTileBlock.travel(travel())).equals(BeltTileBlock.travel(travel))) return null;
         var pending = movedAt == level.getGameTime() ? 0 : line.speed();
         return new Splitter.Lane<>(line.contents(), line.length(), line.speed(), null, pending);
     }
@@ -378,26 +378,23 @@ public class BeltTileBlockEntity extends BlockEntity {
         return new BlockPos(spot.x(), spot.y(), spot.z());
     }
 
-    /** The loader feeding the head of the line, facing the way items enter it; it meets only a level tile (#419). */
+    /** The loader feeding the head of the line, facing the way items enter it. */
     private @Nullable ItemStack takeFromLoader() {
-        if (pitch() != Pitch.LEVEL) return null;
         var entry = shape().entry(BeltTileBlock.travel(travel()));
         var travel = Direction.getApproximateNearest(entry.x(), 0, entry.z());
         var loader = loaderAt(worldPosition.relative(travel.getOpposite()), travel);
         return loader == null ? null : loader.extractOne();
     }
 
-    /** The loader past the last tile, which faces back along the line, or the side of a line there; a slope meets no loader (#419). */
+    /** The loader past the last tile, which faces back along the line, or the side of a line there. */
     private boolean giveToLoader(ItemStack item) {
         if (members.isEmpty()) return false;
         var last = tiles.getLast();
         var travel = members.getLast().travel();
-        if (members.getLast().pitch() == Pitch.LEVEL) {
-            var loader = loaderAt(last.relative(travel), travel.getOpposite());
-            if (loader != null) return loader.acceptFromLine(item);
-            var half = splitterAt(last.relative(travel), travel);
-            if (half != null) return half.offerFromLine(item, line.contents().overshoot(line.length(), line.speed()));
-        }
+        var loader = loaderAt(last.relative(travel), travel.getOpposite());
+        if (loader != null) return loader.acceptFromLine(item);
+        var half = splitterAt(last.relative(travel), travel);
+        if (half != null) return half.offerFromLine(item, line.contents().overshoot(line.length(), line.speed()));
         return sideLoad(last.relative(travel), travel, item);
     }
 

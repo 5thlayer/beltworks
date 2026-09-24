@@ -38,11 +38,6 @@ class LineScanTest {
         public boolean feeds(LineScan.Spot from, LineScan.Travel travel) {
             return travel.equals(world.get(from));
         }
-
-        @Override
-        public LineScan.Travel mouth(LineScan.Spot spot) {
-            return null;
-        }
     };
 
     // Each tile's shape and pitch are derived from the tiles around it, as the world derives them.
