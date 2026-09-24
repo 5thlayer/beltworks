@@ -88,8 +88,8 @@ public final class Stretch {
 
     /**
      * A stretch laid over the ground: its tiles at their heights, and where and why it stops, if it
-     * does. A stopped stretch holds the tiles before the column it stops at, or every tile when it
-     * stops at a corner.
+     * does. A stretch stopped by the ground ends on the tile at the column it names, so the preview
+     * shows the tile that cannot be laid; one stopped at a corner holds every tile.
      */
     public record Followed(List<Step> steps, @Nullable Stop stop, LineScan.@Nullable Spot column) {
 
@@ -115,11 +115,14 @@ public final class Stretch {
             if (at == Ground.TILE || (at == Ground.FREE && holds(terrain.at(here.up(-1))))) rise = 0;
             else if (at == Ground.SOLID && clear(terrain.at(here.up(1)))) rise = 1;
             else if (at == Ground.FREE && terrain.at(here.up(-1)) == Ground.FREE && holds(terrain.at(here.up(-2)))) rise = -1;
-            else return new Followed(laid, at == Ground.OBSTACLE ? Stop.BLOCKED : Stop.UNEVEN, here);
+            else {
+                laid.add(new Step(here, step.travel()));
+                return new Followed(laid, at == Ground.OBSTACLE ? Stop.BLOCKED : Stop.UNEVEN, here);
+            }
 
             var placed = new Step(here.up(rise), step.travel());
             if (laid.size() >= 2 && rise != 0 && rise == -riseInto(laid, laid.size() - 1)) {
-                return new Followed(laid.subList(0, laid.size() - 1), Stop.UNEVEN, laid.getLast().spot());
+                return new Followed(laid, Stop.UNEVEN, laid.getLast().spot());
             }
             laid.add(placed);
             height = placed.spot().y();

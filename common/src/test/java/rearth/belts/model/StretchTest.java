@@ -168,7 +168,18 @@ class StretchTest {
 
         assertEquals(Stretch.Stop.UNEVEN, followed.stop());
         assertEquals(new LineScan.Spot(2, 64, 0), followed.column());
-        assertEquals(List.of(64, 64), heights(followed));
+        assertEquals(List.of(64, 64, 64), heights(followed));
+    }
+
+    @Test
+    void aStretchStoppedByTheGroundEndsOnTheTileItCannotLay() {
+        var drop = Stretch.follow(east(4), new Ground(63, 63, 61, 61, 61), false);
+        var bump = Stretch.follow(east(4), new Ground(63, 63, 64, 63, 63), false);
+        var blocked = Stretch.follow(east(3), new Ground(63, 63, 63, 63).with(2, 64, 0, Stretch.Ground.OBSTACLE), false);
+
+        assertEquals(drop.column(), drop.steps().getLast().spot());
+        assertEquals(bump.column(), bump.steps().getLast().spot());
+        assertEquals(blocked.column(), blocked.steps().getLast().spot());
     }
 
     @Test
