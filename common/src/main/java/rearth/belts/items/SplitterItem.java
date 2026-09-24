@@ -64,6 +64,7 @@ public class SplitterItem extends BlockItem {
     public static boolean replacesTile(BlockState present, Direction facing) {
         return present.getBlock() instanceof BeltTileBlock
                  && present.getValue(BeltTileBlock.CORNER) == BeltTileBlock.Shape.STRAIGHT
+                 && present.getValue(BeltTileBlock.PITCH) == BeltTileBlock.PitchState.LEVEL
                  && present.getValue(BeltTileBlock.FACING) == facing;
     }
 

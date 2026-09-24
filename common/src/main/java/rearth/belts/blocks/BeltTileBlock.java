@@ -29,6 +29,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 import rearth.belts.BlockContent;
 import rearth.belts.items.SplitterItem;
+import rearth.belts.items.StretchPlan;
 import rearth.belts.model.BeltTier;
 import rearth.belts.model.LineScan;
 import rearth.belts.model.Pitch;
@@ -188,12 +189,14 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
     }
 
     /**
-     * The wedges placing {@code planned} tiles would add, the tiles' own and those of the tiles
-     * around them it reshapes, or refused where one would land on anything but air, a plant or snow.
-     * A wedge a reshape removes is not named: its tile's upkeep removes it (#420).
+     * The wedges placing {@code planned} tiles adds, the tiles' own and those of the tiles it
+     * reshapes, or why it is refused (#420, #419). Only what the placement newly causes refuses it,
+     * so a belt already standing never blocks building beside it. A wedge a reshape removes is not
+     * named: its tile's upkeep removes it.
      */
-    public static Wedges wedges(Level level, Map<LineScan.Spot, LineScan.Travel> planned, Block tile) {
+    public static Reshape reshape(Level level, Map<LineScan.Spot, LineScan.Travel> planned, Block tile) {
         var around = around(level, planned);
+        var before = around(level, Map.of());
         var candidates = new LinkedHashMap<BlockPos, BlockState>();
         for (var entry : planned.entrySet()) {
             var pos = pos(entry.getKey());
@@ -205,15 +208,24 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
         var placed = new LinkedHashMap<BlockPos, BlockState>();
         for (var candidate : candidates.entrySet()) {
             var pos = candidate.getKey();
+            var spot = spot(pos);
             var current = candidate.getValue();
-            var formed = formed(current, spot(pos), around);
-            var existing = !planned.containsKey(spot(pos));
+            var travel = travel(current.getValue(BlockStateProperties.HORIZONTAL_FACING));
+            var formed = formed(current, spot, around);
+            var existing = !planned.containsKey(spot);
+            var turned = existing && current.getValue(CORNER) != Shape.STRAIGHT && formed.getValue(PITCH) != PitchState.LEVEL;
+            if (turned || Pitch.climbsIntoSide(spot, travel, around) && !(existing && Pitch.climbsIntoSide(spot, travel, before))) {
+                return new Reshape(Map.of(), StretchPlan.Reason.SLOPE_TURNS);
+            }
+            if (Pitch.meetsMouth(spot, travel, around) && !(existing && Pitch.meetsMouth(spot, travel, before))) {
+                return new Reshape(Map.of(), StretchPlan.Reason.SLOPE_MEETS_LOADER);
+            }
             if (existing && formed.getValue(PITCH) == current.getValue(PITCH)) continue;
             var under = pos.below();
             var below = planned.containsKey(spot(under)) ? Wedge.Below.OCCUPIED : occupant(level, under);
             switch (Wedge.under(formed.getValue(PITCH).model(), below)) {
                 case REFUSED -> {
-                    return new Wedges(Map.of(), under);
+                    return new Reshape(Map.of(), StretchPlan.Reason.WEDGE_BLOCKED);
                 }
                 case PLACE -> {
                     var wedge = wedgeFor(formed);
@@ -223,14 +235,14 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
                 }
             }
         }
-        return new Wedges(placed, null);
+        return new Reshape(placed, null);
     }
 
-    /** The wedges a placement adds, by position, or where one was refused. */
-    public record Wedges(Map<BlockPos, BlockState> placed, @Nullable BlockPos refusedAt) {
+    /** The wedges a placement adds, by position, or why it is refused. */
+    public record Reshape(Map<BlockPos, BlockState> wedges, StretchPlan.@Nullable Reason refusal) {
 
         public boolean refused() {
-            return refusedAt != null;
+            return refusal != null;
         }
     }
 
@@ -286,6 +298,12 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
                 var tile = tile(from);
                 if (tile != null) return tile.equals(travel);
                 return BeltTileBlock.feeds(stateAt(from), travel);
+            }
+
+            @Override
+            public LineScan.@Nullable Travel mouth(LineScan.Spot spot) {
+                var state = stateAt(spot);
+                return state.getBlock() instanceof ChuteBlock ? travel(state.getValue(HorizontalDirectionalBlock.FACING)) : null;
             }
 
             private BlockState stateAt(LineScan.Spot spot) {

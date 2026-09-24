@@ -20,6 +20,10 @@ public enum TileShape {
 
         /** Whether the belt piece at {@code from}, a tile, loader or splitter half, outputs {@code travel}. */
         boolean feeds(LineScan.Spot from, LineScan.Travel travel);
+
+        /** The way the loader or splitter half at {@code spot} faces, or null where there is none. */
+        @Nullable
+        LineScan.Travel mouth(LineScan.Spot spot);
     }
 
     public static TileShape of(boolean behind, boolean left, boolean right) {
@@ -30,16 +34,17 @@ public enum TileShape {
     /**
      * The shape of a tile at {@code spot} travelling {@code travel}, asked of its three neighbours.
      * A tile a block up or down behind it counts as behind it, and a tile beside it that climbs
-     * over it does not feed it (#417).
+     * over it does not feed it (#417). A slope takes no side-load, so it is never a corner (#419).
      */
     public static TileShape at(LineScan.Spot spot, LineScan.Travel travel, Around around) {
         var left = left(travel);
         var right = right(travel);
         var back = spot.step(travel, -1);
-        return of(
+        var shape = of(
           around.feeds(back, travel) || feedsFrom(back, 1, spot, travel, around) || feedsFrom(back, -1, spot, travel, around),
           sideFeeds(spot.step(left, 1), right, around),
           sideFeeds(spot.step(right, 1), left, around));
+        return shape == STRAIGHT || Pitch.at(spot, travel, around) == Pitch.LEVEL ? shape : STRAIGHT;
     }
 
     // A tile a block up or down behind feeds this one only if it has no level tile ahead of its own.

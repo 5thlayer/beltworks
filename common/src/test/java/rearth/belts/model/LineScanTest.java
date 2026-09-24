@@ -38,6 +38,11 @@ class LineScanTest {
         public boolean feeds(LineScan.Spot from, LineScan.Travel travel) {
             return travel.equals(world.get(from));
         }
+
+        @Override
+        public LineScan.Travel mouth(LineScan.Spot spot) {
+            return null;
+        }
     };
 
     // Each tile's shape and pitch are derived from the tiles around it, as the world derives them.
@@ -276,5 +281,16 @@ class LineScanTest {
 
         assertEquals(List.of(at(0, 0, -1), at(0, 0, 0), at(0, 0, 1)), through(0, 0, -1));
         assertEquals(List.of(at(-2, 0, 0), at(-1, 1, 0), at(0, 1, 0), at(1, 1, 0), at(2, 0, 0)), through(-2, 0, 0));
+    }
+
+    // A slope takes no side-load: a foot with a tile facing its side stays one line with its top (#419).
+    @Test
+    void aTileFacingAFootsSideIsALineOfItsOwn() {
+        tile(0, 0, 0, EAST);
+        tile(1, 1, 0, EAST);
+        tile(0, 0, -1, SOUTH);
+
+        assertEquals(List.of(at(0, 0, 0), at(1, 1, 0)), through(0, 0, 0));
+        assertEquals(List.of(at(0, 0, -1)), through(0, 0, -1));
     }
 }

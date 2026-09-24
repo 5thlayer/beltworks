@@ -78,7 +78,7 @@ public class BeltTileItem extends TooltipBlockItem {
         if (plan == null) {
             var single = single(context);
             if (single != null && single.refused()) {
-                if (!level.isClientSide() && player != null) tell(player, StretchPlan.Refusal.of(StretchPlan.Reason.WEDGE_BLOCKED).message());
+                if (!level.isClientSide() && player != null) tell(player, StretchPlan.Refusal.of(single.refusal()).message());
                 return InteractionResult.FAIL;
             }
             return super.place(context);
@@ -93,16 +93,16 @@ public class BeltTileItem extends TooltipBlockItem {
     }
 
     /**
-     * The wedges a plain click adds, the placed tile's and those of the tiles it reshapes, or null
-     * where vanilla would place nothing (#420).
+     * What a plain click does to the belt around it, or null where vanilla would place nothing
+     * (#420, #419).
      */
-    public BeltTileBlock.@Nullable Wedges single(BlockPlaceContext context) {
+    public BeltTileBlock.@Nullable Reshape single(BlockPlaceContext context) {
         var updated = updatePlacementContext(context);
         if (updated == null || !updated.canPlace()) return null;
         var state = getBlock().getStateForPlacement(updated);
         if (state == null) return null;
         var travel = BeltTileBlock.travel(state.getValue(BlockStateProperties.HORIZONTAL_FACING));
-        return BeltTileBlock.wedges(context.getLevel(), Map.of(spot(updated.getClickedPos()), travel), getBlock());
+        return BeltTileBlock.reshape(context.getLevel(), Map.of(spot(updated.getClickedPos()), travel), getBlock());
     }
 
     /**
@@ -160,9 +160,9 @@ public class BeltTileItem extends TooltipBlockItem {
         if (refusal == null && tiles.stream().anyMatch(tile -> tile.action() == StretchPlan.Action.PLACE && !grounded(level, tile.pos()))) {
             refusal = StretchPlan.Refusal.of(StretchPlan.Reason.NO_GROUND);
         }
-        var wedges = BeltTileBlock.wedges(level, travels, getBlock());
-        if (refusal == null && wedges.refused()) refusal = StretchPlan.Refusal.of(StretchPlan.Reason.WEDGE_BLOCKED);
-        wedges.placed().forEach((pos, state) -> tiles.add(new StretchPlan.Tile(pos, state, StretchPlan.Action.WEDGE)));
+        var reshape = BeltTileBlock.reshape(level, travels, getBlock());
+        if (refusal == null && reshape.refused()) refusal = StretchPlan.Refusal.of(reshape.refusal());
+        reshape.wedges().forEach((pos, state) -> tiles.add(new StretchPlan.Tile(pos, state, StretchPlan.Action.WEDGE)));
 
         var creative = player != null && player.hasInfiniteMaterials();
         if (creative) {

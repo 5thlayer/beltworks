@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -18,6 +19,7 @@ class TileShapeTest {
     private static final LineScan.Travel EAST = new LineScan.Travel(1, 0);
     private static final LineScan.Travel NORTH = new LineScan.Travel(0, -1);
     private static final LineScan.Travel SOUTH = new LineScan.Travel(0, 1);
+    private static final LineScan.Travel WEST = new LineScan.Travel(-1, 0);
 
     @Test
     void aTileFedByNothingIsStraight() {
@@ -94,9 +96,15 @@ class TileShapeTest {
     }
 
     private final Map<LineScan.Spot, LineScan.Travel> tiles = new HashMap<>();
+    private final Map<LineScan.Spot, LineScan.Travel> mouths = new HashMap<>();
 
     private void tile(int x, int y, int z, LineScan.Travel travel) {
         tiles.put(spot(x, y, z), travel);
+    }
+
+    /** A loader or splitter half facing {@code facing}. */
+    private void mouth(int x, int y, int z, LineScan.Travel facing) {
+        mouths.put(spot(x, y, z), facing);
     }
 
     private static LineScan.Spot spot(int x, int y, int z) {
@@ -112,7 +120,12 @@ class TileShapeTest {
 
             @Override
             public boolean feeds(LineScan.Spot from, LineScan.Travel travel) {
-                return travel.equals(tiles.get(from));
+                return travel.equals(tiles.get(from)) || travel.equals(mouths.get(from));
+            }
+
+            @Override
+            public LineScan.Travel mouth(LineScan.Spot spot) {
+                return mouths.get(spot);
             }
         };
     }
@@ -240,14 +253,131 @@ class TileShapeTest {
         assertEquals(Pitch.LEVEL, pitch(0, 0, 0));
     }
 
+    // A slope takes no side-load, so a tile that would be both a corner and a slope is a slope, and
+    // a placement that turns a corner into one is refused instead (#419).
     @Test
-    void aCornerIsLevel() {
+    void aSlopeIsNeverACorner() {
         tile(0, 0, 0, EAST);
         tile(0, 0, -1, SOUTH);
         tile(1, 1, 0, EAST);
 
+        assertEquals(Pitch.FOOT_UP, pitch(0, 0, 0));
+        assertEquals(TileShape.STRAIGHT, TileShape.at(spot(0, 0, 0), EAST, around()));
+        assertEquals(Pitch.TOP_UP, pitch(1, 1, 0));
+    }
+
+    @Test
+    void aTileFacingTheSideOfATopDoesNotTurnIt() {
+        tile(0, 0, 0, EAST);
+        tile(1, -1, 0, EAST);
+        tile(0, 0, -1, SOUTH);
+
+        assertEquals(Pitch.TOP_DOWN, pitch(0, 0, 0));
+        assertEquals(TileShape.STRAIGHT, TileShape.at(spot(0, 0, 0), EAST, around()));
+    }
+
+    @Test
+    void aLoaderBesideAFootDoesNotTurnIt() {
+        tile(0, 0, 0, EAST);
+        tile(1, 1, 0, EAST);
+        mouth(0, 0, -1, SOUTH);
+
+        assertEquals(TileShape.STRAIGHT, TileShape.at(spot(0, 0, 0), EAST, around()));
+    }
+
+    @Test
+    void aTileFacingItsSideFromABlockLowerWouldTurnASlope() {
+        tile(0, 0, 0, EAST);
+        tile(0, -1, -1, SOUTH);
+
+        assertTrue(Pitch.climbsIntoSide(spot(0, 0, 0), EAST, around()));
         assertEquals(Pitch.LEVEL, pitch(0, 0, 0));
-        assertEquals(Pitch.LEVEL, pitch(1, 1, 0));
+        assertEquals(Pitch.LEVEL, pitch(0, -1, -1));
+    }
+
+    // Over a crossed line the lower tile feeds the tile under this one, which it faces level.
+    @Test
+    void aTileWithALevelTileAheadClimbsIntoNoSide() {
+        tile(0, 0, 0, EAST);
+        tile(0, -1, -1, SOUTH);
+        tile(0, -1, 0, SOUTH);
+
+        assertFalse(Pitch.climbsIntoSide(spot(0, 0, 0), EAST, around()));
+    }
+
+    // A crossing's first top faces the crossed tile's column a block up before its level tile is placed.
+    @Test
+    void aTileFacingItsSideFromABlockHigherIsACrossingsApproach() {
+        tile(0, 0, 0, SOUTH);
+        tile(-1, 1, 0, EAST);
+
+        assertFalse(Pitch.climbsIntoSide(spot(0, 0, 0), SOUTH, around()));
+    }
+
+    @Test
+    void aTileFacingAwayFromASideClimbsIntoNone() {
+        tile(0, 0, 0, EAST);
+        tile(0, -1, -1, NORTH);
+
+        assertFalse(Pitch.climbsIntoSide(spot(0, 0, 0), EAST, around()));
+    }
+
+    @Test
+    void aFootFedByALoaderMeetsIt() {
+        mouth(-1, 0, 0, EAST);
+        tile(0, 0, 0, EAST);
+        tile(1, 1, 0, EAST);
+
+        assertEquals(Pitch.FOOT_UP, pitch(0, 0, 0));
+        assertTrue(Pitch.meetsMouth(spot(0, 0, 0), EAST, around()));
+    }
+
+    @Test
+    void aTopFeedingASplitterHalfMeetsIt() {
+        tile(0, 0, 0, EAST);
+        tile(1, 1, 0, EAST);
+        mouth(2, 1, 0, EAST);
+
+        assertTrue(Pitch.meetsMouth(spot(1, 1, 0), EAST, around()));
+    }
+
+    @Test
+    void aTopFeedingAnUnloaderMeetsIt() {
+        tile(0, 0, 0, EAST);
+        tile(1, 1, 0, EAST);
+        mouth(2, 1, 0, WEST);
+
+        assertTrue(Pitch.meetsMouth(spot(1, 1, 0), EAST, around()));
+    }
+
+    @Test
+    void aLevelTileMeetsALoaderAndAMiddleHasNoLevelEnd() {
+        mouth(-1, 0, 0, EAST);
+        tile(0, 0, 0, EAST);
+        assertFalse(Pitch.meetsMouth(spot(0, 0, 0), EAST, around()));
+
+        tile(1, 1, 0, EAST);
+        tile(2, 2, 0, EAST);
+        mouth(1, 1, -1, SOUTH);
+        assertFalse(Pitch.meetsMouth(spot(1, 1, 0), EAST, around()));
+    }
+
+    @Test
+    void aLoaderBehindAFootFacingAwayIsNotMet() {
+        mouth(-1, 0, 0, WEST);
+        tile(0, 0, 0, EAST);
+        tile(1, 1, 0, EAST);
+
+        assertFalse(Pitch.meetsMouth(spot(0, 0, 0), EAST, around()));
+    }
+
+    @Test
+    void aLoaderBesideAFootsLevelEndIsNotMet() {
+        tile(0, 0, 0, EAST);
+        tile(1, 1, 0, EAST);
+        mouth(-1, 0, 0, NORTH);
+
+        assertFalse(Pitch.meetsMouth(spot(0, 0, 0), EAST, around()));
     }
 
     // In pixels from each tile's own floor, over its 16 of travel (#412).

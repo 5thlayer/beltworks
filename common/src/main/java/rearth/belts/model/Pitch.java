@@ -2,6 +2,8 @@ package rearth.belts.model;
 
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
+
 /**
  * Whether a tile rises, is level or descends along its travel, derived from the heights of the
  * tile feeding it and the tile it feeds and never chosen, as its corner is (PlanetaryFactory #417).
@@ -83,11 +85,38 @@ public enum Pitch {
         return of(feeder, fed);
     }
 
-    // A slope never turns, and a crest or a valley connects to neither end.
     private static Pitch unpaired(LineScan.Spot spot, LineScan.Travel travel, TileShape.Around around) {
-        if (TileShape.at(spot, travel, around) != TileShape.STRAIGHT) return LEVEL;
         var pitch = of(height(spot.step(travel, -1), travel, around), height(spot.step(travel, 1), travel, around));
         return pitch == null ? LEVEL : pitch;
+    }
+
+    /**
+     * Whether a tile a block lower beside this one faces into its side with nothing level ahead of
+     * its own, so it could reach this one only as a sloped corner, which never connects (#419). A
+     * tile a block higher is left out: that is how a crossing's first top faces the crossed line
+     * before the level tile over it is placed (#420).
+     */
+    public static boolean climbsIntoSide(LineScan.Spot spot, LineScan.Travel travel, TileShape.Around around) {
+        var under = spot.up(-1);
+        if (around.tile(under) != null || around.mouth(under) != null) return false;
+        for (var side : List.of(TileShape.left(travel), TileShape.right(travel))) {
+            var into = new LineScan.Travel(-side.x(), -side.z());
+            if (into.equals(around.tile(spot.step(side, 1).up(-1))) && height(under, into, around) == 0) return true;
+        }
+        return false;
+    }
+
+    /** Whether this tile is a slope with a loader or splitter half at its level end, which meets only level tiles (#419). */
+    public static boolean meetsMouth(LineScan.Spot spot, LineScan.Travel travel, TileShape.Around around) {
+        var pitch = at(spot, travel, around);
+        if (pitch == LEVEL) return false;
+        return pitch.feeder == 0 && travel.equals(around.mouth(spot.step(travel, -1)))
+                 || pitch.fed == 0 && onAxis(around.mouth(spot.step(travel, 1)), travel);
+    }
+
+    // Ahead, a loader faces back to take from the line and a splitter half faces on to pass it.
+    private static boolean onAxis(@Nullable LineScan.Travel facing, LineScan.Travel travel) {
+        return facing != null && facing.x() * travel.z() == facing.z() * travel.x();
     }
 
     /**
