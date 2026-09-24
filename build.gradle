@@ -1,73 +1,95 @@
 plugins {
-    id 'dev.architectury.loom-no-remap' version '1.17-SNAPSHOT' apply false
-    id 'architectury-plugin' version '3.5-SNAPSHOT'
-    id 'com.gradleup.shadow' version '9.4.2' apply false
+    id 'java-library'
+    id 'maven-publish'
+    id 'net.neoforged.moddev' version '2.0.147'
 }
 
-architectury {
-    minecraft = project.minecraft_version
+group = maven_group
+version = mod_version
+// Still the jar name the Pack's globs look for; the rename gives it the Mod's own.
+base.archivesName = "$archives_name-neoforge"
+
+java {
+    withSourcesJar()
+    toolchain.languageVersion = JavaLanguageVersion.of(25)
 }
 
-allprojects {
-    group = rootProject.maven_group
-    version = rootProject.mod_version
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
 }
 
-subprojects {
-    apply plugin: 'dev.architectury.loom-no-remap'
-    apply plugin: 'architectury-plugin'
-    apply plugin: 'maven-publish'
-
-    base {
-        // Set up a suffixed format for the mod jar names, e.g. `example-fabric`.
-        archivesName = "$rootProject.archives_name-$project.name"
+repositories {
+    maven { url = 'https://cursemaven.com' }
+    maven { // EMI
+        name = 'TerraformersMC'
+        url = 'https://maven.terraformersmc.com/'
     }
+}
 
-    repositories {
-        repositories {
-            maven {
-                url "https://cursemaven.com"
-            }
+def gameTestReport = layout.buildDirectory.file('reports/gametest.xml').get().asFile
+
+neoForge {
+    version = neoforge_version
+
+    runs {
+        client {
+            client()
         }
-
-        maven { // EMI
-            name = 'TerraformersMC'
-            url 'https://maven.terraformersmc.com/'
+        server {
+            server()
+            programArgument '--nogui'
+        }
+        // Runs the Mod's game tests headless and exits, non-zero if any fails. 26.1 has no
+        // namespace property, so the selector is what keeps vanilla's tests out.
+        gameTestServer {
+            type = 'gameTestServer'
+            programArguments.addAll '--tests', "${mod_id}:*", '--report', gameTestReport.absolutePath
         }
     }
 
-    dependencies {
-        minecraft "com.mojang:minecraft:$rootProject.minecraft_version"
-    }
-
-    java {
-        // Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
-        // if it is present.
-        // If you remove this line, sources will not be generated.
-        withSourcesJar()
-
-        toolchain.languageVersion = JavaLanguageVersion.of(25)
-    }
-
-    tasks.withType(JavaCompile).configureEach {
-        it.options.release = 25
-    }
-
-    // Configure Maven publishing.
-    publishing {
-        publications {
-            mavenJava(MavenPublication) {
-                artifactId = base.archivesName.get()
-                from components.java
-            }
+    mods {
+        "$mod_id" {
+            sourceSet sourceSets.main
         }
+    }
+}
 
-        // See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
-        repositories {
-            // Add repositories to publish to here.
-            // Notice: This block does NOT have the same function as the block in the top level.
-            // The repositories here will be used for publishing your artifact, not for
-            // retrieving dependencies.
+// The server says only how many tests passed, so the report is read back to name them: a green
+// run that didn't run a test is no evidence for it.
+tasks.named('runGameTestServer') {
+    doFirst { gameTestReport.delete() }
+    doLast {
+        if (!gameTestReport.exists()) throw new GradleException("The game test server wrote no report at $gameTestReport")
+        def cases = new groovy.xml.XmlSlurper().parse(gameTestReport).'**'.findAll { it.name() == 'testcase' }
+        if (cases.isEmpty()) throw new GradleException('The game test server ran no tests')
+        cases.each { logger.lifecycle("${it.failure.size() ? 'FAILED' : 'passed'}  ${it.@name}") }
+    }
+}
+
+dependencies {
+    compileOnly 'curse.maven:ftb-filter-system-943925:8300190'
+
+    testImplementation platform('org.junit:junit-bom:5.10.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+processResources {
+    inputs.property 'version', version
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand version: version
+    }
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = base.archivesName.get()
+            from components.java
         }
     }
 }

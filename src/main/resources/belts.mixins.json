@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "package": "rearth.belts.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "minVersion": "0.8",
+  "client": [
+    "ClientLevelTickMixin"
+  ],
+  "mixins": [
+    "EntityCollisionMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

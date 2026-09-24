@@ -25,12 +25,11 @@ SPDX-License-Identifier = "MIT"
 [[annotations]]
 path = [
     "build.gradle",
-    "common/build.gradle",
-    "neoforge/build.gradle",
     "settings.gradle",
     "gradle.properties",
     ".gitignore",
-    "neoforge/src/main/resources/META-INF/neoforge.mods.toml",
+    "src/main/resources/META-INF/neoforge.mods.toml",
+    "src/main/resources/belts.mixins.json",
     "readme.md",
 ]
 SPDX-FileCopyrightText = ["Rearth", "2026 5thlayer"]
@@ -40,9 +39,6 @@ SPDX-License-Identifier = "CC-BY-4.0 AND MIT"
 [[annotations]]
 path = [
     "CHANGELOG.md",
-    "neoforge/gradle.properties",
-    "common/src/main/resources/architectury.common.json",
-    "common/src/main/resources/belts.mixins.json",
 ]
 SPDX-FileCopyrightText = "Rearth"
 SPDX-License-Identifier = "CC-BY-4.0"
@@ -52,8 +48,8 @@ SPDX-License-Identifier = "CC-BY-4.0"
 # loader_mouth, belt_tile_side and belt_slope_side.
 [[annotations]]
 path = [
-    "common/src/main/resources/assets/**",
-    "common/src/main/resources/data/**",
+    "src/main/resources/assets/**",
+    "src/main/resources/data/**",
 ]
 SPDX-FileCopyrightText = "2026 5thlayer"
 SPDX-License-Identifier = "CC-BY-4.0"
@@ -61,9 +57,9 @@ SPDX-License-Identifier = "CC-BY-4.0"
 # Assets that still carry Upstream's lines.
 [[annotations]]
 path = [
-    "common/src/main/resources/assets/belts/blockstates/chute.json",
-    "common/src/main/resources/assets/belts/models/block/chute.json",
-    "common/src/main/resources/assets/belts/lang/en_us.json",
+    "src/main/resources/assets/belts/blockstates/chute.json",
+    "src/main/resources/assets/belts/models/block/chute.json",
+    "src/main/resources/assets/belts/lang/en_us.json",
 ]
 SPDX-FileCopyrightText = ["Rearth", "2026 5thlayer"]
 SPDX-License-Identifier = "CC-BY-4.0"
@@ -71,13 +67,13 @@ SPDX-License-Identifier = "CC-BY-4.0"
 # Upstream's assets, unchanged since the fork point.
 [[annotations]]
 path = [
-    "common/src/main/resources/assets/belts/items/chute.json",
-    "common/src/main/resources/assets/belts/models/item/chute.json",
-    "common/src/main/resources/data/belts/loot_table/blocks/chute.json",
-    "common/src/main/resources/data/belts/recipe/belt_item.json",
-    "common/src/main/resources/data/belts/recipe/belt_item_alt.json",
-    "common/src/main/resources/data/belts/recipe/chute_item.json",
-    "common/src/main/resources/data/belts/recipe/improved_belt.json",
+    "src/main/resources/assets/belts/items/chute.json",
+    "src/main/resources/assets/belts/models/item/chute.json",
+    "src/main/resources/data/belts/loot_table/blocks/chute.json",
+    "src/main/resources/data/belts/recipe/belt_item.json",
+    "src/main/resources/data/belts/recipe/belt_item_alt.json",
+    "src/main/resources/data/belts/recipe/chute_item.json",
+    "src/main/resources/data/belts/recipe/improved_belt.json",
 ]
 SPDX-FileCopyrightText = "Rearth"
 SPDX-License-Identifier = "CC-BY-4.0"
@@ -87,9 +83,9 @@ SPDX-License-Identifier = "CC-BY-4.0"
 # malcolmriley's unused-textures.
 [[annotations]]
 path = [
-    "common/src/main/resources/assets/belts/textures/block/*conveyorbelt/**",
-    "common/src/main/resources/assets/belts/textures/block/*belt_corner_*",
-    "common/src/main/resources/assets/belts/textures/block/*splitter_belt.png*",
+    "src/main/resources/assets/belts/textures/block/*conveyorbelt/**",
+    "src/main/resources/assets/belts/textures/block/*belt_corner_*",
+    "src/main/resources/assets/belts/textures/block/*splitter_belt.png*",
     "scripts/belt-art/**",
 ]
 SPDX-FileCopyrightText = ["Rearth", "malcolmriley", "2026 5thlayer"]
@@ -97,7 +93,7 @@ SPDX-License-Identifier = "CC-BY-4.0"
 
 # Upstream's texture, byte-identical since the fork point.
 [[annotations]]
-path = "common/src/main/resources/assets/belts/textures/block/conveyor_support.png"
+path = "src/main/resources/assets/belts/textures/block/conveyor_support.png"
 SPDX-FileCopyrightText = ["Rearth", "malcolmriley"]
 SPDX-License-Identifier = "CC-BY-4.0"
 
