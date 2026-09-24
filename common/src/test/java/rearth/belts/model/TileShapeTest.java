@@ -167,6 +167,38 @@ class TileShapeTest {
         assertEquals(Pitch.TOP_UP, pitch(2, 2, 0));
     }
 
+    @Test
+    void aClimbOfThreeBlocksHasTwoMiddles() {
+        for (int x = 0; x < 6; x++) tile(x, Math.clamp(x - 1, 0, 3), 0, EAST);
+
+        assertEquals(Pitch.LEVEL, pitch(0, 0, 0));
+        assertEquals(Pitch.FOOT_UP, pitch(1, 0, 0));
+        assertEquals(Pitch.MIDDLE_UP, pitch(2, 1, 0));
+        assertEquals(Pitch.MIDDLE_UP, pitch(3, 2, 0));
+        assertEquals(Pitch.TOP_UP, pitch(4, 3, 0));
+        assertEquals(Pitch.LEVEL, pitch(5, 3, 0));
+    }
+
+    @Test
+    void aDescentOfThreeBlocksHasTwoMiddles() {
+        for (int x = 0; x < 6; x++) tile(x, 3 - Math.clamp(x - 1, 0, 3), 0, EAST);
+
+        assertEquals(Pitch.TOP_DOWN, pitch(1, 3, 0));
+        assertEquals(Pitch.MIDDLE_DOWN, pitch(2, 2, 0));
+        assertEquals(Pitch.MIDDLE_DOWN, pitch(3, 1, 0));
+        assertEquals(Pitch.FOOT_DOWN, pitch(4, 0, 0));
+    }
+
+    // Two blocks apart is no step: the tiles either side of a broken middle each level out.
+    @Test
+    void aClimbWithAMiddleGoneConnectsNothingAcrossTheGap() {
+        for (int x = 0; x < 6; x++) if (x != 2) tile(x, Math.clamp(x - 1, 0, 3), 0, EAST);
+
+        assertEquals(Pitch.LEVEL, pitch(1, 0, 0));
+        assertEquals(Pitch.FOOT_UP, pitch(3, 2, 0));
+        assertEquals(Pitch.TOP_UP, pitch(4, 3, 0));
+    }
+
     // A crest's neighbours do not climb to it either: a connection is both tiles' or neither's.
     @Test
     void aCrestConnectsToNeither() {

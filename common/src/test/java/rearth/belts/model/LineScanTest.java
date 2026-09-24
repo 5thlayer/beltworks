@@ -224,6 +224,22 @@ class LineScanTest {
     }
 
     @Test
+    void aClimbOfThreeBlocksIsOneLine() {
+        for (int x = 0; x < 6; x++) tile(x, Math.clamp(x - 1, 0, 3), 0, EAST);
+
+        assertEquals(6, through(0, 0, 0).size());
+        assertEquals(6, through(5, 3, 0).size());
+    }
+
+    @Test
+    void aClimbWithAMiddleGoneIsTwoLines() {
+        for (int x = 0; x < 6; x++) if (x != 2) tile(x, Math.clamp(x - 1, 0, 3), 0, EAST);
+
+        assertEquals(List.of(at(0, 0, 0), at(1, 0, 0)), through(0, 0, 0));
+        assertEquals(List.of(at(3, 2, 0), at(4, 3, 0), at(5, 3, 0)), through(5, 3, 0));
+    }
+
+    @Test
     void aCrestIsThreeLines() {
         tile(0, 0, 0, EAST);
         tile(1, 1, 0, EAST);
