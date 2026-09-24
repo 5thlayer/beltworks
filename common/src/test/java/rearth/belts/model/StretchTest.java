@@ -162,49 +162,74 @@ class StretchTest {
         assertEquals(List.of(64, 64, 64, 64), heights(followed));
     }
 
+    // A middle over the air a column early, on a wedge.
     @Test
-    void aTwoBlockStepUpStopsTheStretchAtItsColumn() {
+    void aTwoBlockStepIsClimbedThroughTheAir() {
         var followed = Stretch.follow(east(4), new Ground(63, 63, 65, 65, 65), false);
 
-        assertEquals(Stretch.Stop.UNEVEN, followed.stop());
-        assertEquals(new LineScan.Spot(2, 64, 0), followed.column());
-        assertEquals(List.of(64, 64, 64), heights(followed));
+        assertNull(followed.stop());
+        assertEquals(List.of(64, 65, 66, 66, 66), heights(followed));
     }
 
     @Test
     void aStretchStoppedByTheGroundEndsOnTheTileItCannotLay() {
-        var drop = Stretch.follow(east(4), new Ground(63, 63, 61, 61, 61), false);
-        var bump = Stretch.follow(east(4), new Ground(63, 63, 64, 63, 63), false);
+        var wall = Stretch.follow(east(3), new Ground(63, 65, 65, 65), false);
+        var drop = Stretch.follow(east(2), new Ground(63, 63, 61), false);
+        var dip = Stretch.follow(east(4), new Ground(63, 63, 62, 63, 63), false);
         var blocked = Stretch.follow(east(3), new Ground(63, 63, 63, 63).with(2, 64, 0, Stretch.Ground.OBSTACLE), false);
 
-        assertEquals(drop.column(), drop.steps().getLast().spot());
-        assertEquals(bump.column(), bump.steps().getLast().spot());
-        assertEquals(blocked.column(), blocked.steps().getLast().spot());
+        for (var followed : List.of(wall, drop, dip, blocked)) assertEquals(followed.column(), followed.steps().getLast().spot());
+    }
+
+    // A block two high and two wide: up a middle over the air, across its top, down a middle.
+    @Test
+    void aBlockTwoHighIsCrossedLikeATileByTile() {
+        var followed = Stretch.follow(east(7), new Ground(63, 63, 63, 65, 65, 63, 63, 63), false);
+
+        assertNull(followed.stop());
+        assertEquals(List.of(64, 64, 65, 66, 66, 65, 64, 64), heights(followed));
     }
 
     @Test
-    void aTwoBlockDropStopsTheStretchAtItsColumn() {
+    void aTwoBlockDropIsDescendedThroughTheAir() {
         var followed = Stretch.follow(east(4), new Ground(63, 63, 61, 61, 61), false);
 
-        assertEquals(Stretch.Stop.UNEVEN, followed.stop());
-        assertEquals(new LineScan.Spot(2, 64, 0), followed.column());
+        assertNull(followed.stop());
+        assertEquals(List.of(64, 64, 63, 62, 62), heights(followed));
     }
 
-    // A tile a block higher than both its neighbours is a crest, which does not connect.
     @Test
-    void aOneBlockBumpStopsTheStretchAtTheBump() {
+    void aWallTallerThanTheRunUpToItStopsTheStretch() {
+        var followed = Stretch.follow(east(3), new Ground(63, 65, 65, 65), false);
+
+        assertEquals(Stretch.Stop.UNEVEN, followed.stop());
+        assertEquals(new LineScan.Spot(1, 66, 0), followed.column());
+    }
+
+    @Test
+    void aStretchEndingPartWayDownADropIsStopped() {
+        var followed = Stretch.follow(east(2), new Ground(63, 63, 61), false);
+
+        assertEquals(Stretch.Stop.UNEVEN, followed.stop());
+        assertEquals(new LineScan.Spot(2, 63, 0), followed.column());
+    }
+
+    // A crest does not connect, so the top is two tiles wide, the first over the air.
+    @Test
+    void aOneBlockBumpIsCrossedByATwoTileTop() {
         var followed = Stretch.follow(east(4), new Ground(63, 63, 64, 63, 63), false);
 
-        assertEquals(Stretch.Stop.UNEVEN, followed.stop());
-        assertEquals(new LineScan.Spot(2, 65, 0), followed.column());
+        assertNull(followed.stop());
+        assertEquals(List.of(64, 65, 65, 64, 64), heights(followed));
     }
 
+    // A valley does not connect, and a level tile over the dip would stand on nothing.
     @Test
     void aOneBlockDipStopsTheStretchAtTheDip() {
         var followed = Stretch.follow(east(4), new Ground(63, 63, 62, 63, 63), false);
 
         assertEquals(Stretch.Stop.UNEVEN, followed.stop());
-        assertEquals(new LineScan.Spot(2, 63, 0), followed.column());
+        assertEquals(new LineScan.Spot(2, 64, 0), followed.column());
     }
 
     @Test

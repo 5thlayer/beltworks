@@ -98,50 +98,123 @@ public final class Stretch {
         }
     }
 
+    /** How far up or down a column is searched for its ground. */
+    static final int REACH = 32;
+
     /**
-     * The {@code path}'s tiles over the ground, each at the height the one before it leaves it: level
-     * where there is ground, else a block up onto a step, else a block down off one (#421). Only a
-     * path's columns count; the first tile starts from the start's own height. With
-     * {@code cornerAtEnd} the last tile is a corner still to be turned, so it must be level with the
-     * one before it.
+     * The {@code path}'s tiles over the ground, as low as they can go (#421). Each column's floor is
+     * the height a tile would stand on its ground; the tiles take the lowest heights at or above every
+     * floor that change by at most a block a column, so a stretch climbs early through the air to
+     * clear a wall and comes down through the air off a drop, on wedges (ADR-0085). A top never
+     * crests: a one-column peak is widened to a two-tile top. The start keeps its height, and with
+     * {@code cornerAtEnd} the last tile is a corner still to be turned.
      */
     public static Followed follow(List<Step> path, Terrain terrain, boolean cornerAtEnd) {
-        var laid = new ArrayList<Step>();
-        var height = path.isEmpty() ? 0 : path.getFirst().spot().y();
-        for (var step : path) {
-            var here = new LineScan.Spot(step.spot().x(), height, step.spot().z());
-            var at = terrain.at(here);
-            int rise;
-            if (at == Ground.TILE || (at == Ground.FREE && holds(terrain.at(here.up(-1))))) rise = 0;
-            else if (at == Ground.SOLID && clear(terrain.at(here.up(1)))) rise = 1;
-            else if (at == Ground.FREE && terrain.at(here.up(-1)) == Ground.FREE && holds(terrain.at(here.up(-2)))) rise = -1;
-            else {
-                laid.add(new Step(here, step.travel()));
-                return new Followed(laid, at == Ground.OBSTACLE ? Stop.BLOCKED : Stop.UNEVEN, here);
+        if (path.isEmpty()) return new Followed(List.of(), null, null);
+        var n = path.size();
+        var floors = new int[n];
+        var reference = path.getFirst().spot().y();
+        for (var i = 0; i < n; i++) {
+            var column = path.get(i).spot();
+            var scan = floor(new LineScan.Spot(column.x(), reference, column.z()), terrain);
+            if (scan.stop() != null) {
+                var laid = new ArrayList<Step>();
+                for (var j = 0; j < i; j++) laid.add(at(path.get(j), floors[j]));
+                laid.add(at(path.get(i), scan.height()));
+                return new Followed(laid, scan.stop(), laid.getLast().spot());
             }
-
-            var placed = new Step(here.up(rise), step.travel());
-            if (laid.size() >= 2 && rise != 0 && rise == -riseInto(laid, laid.size() - 1)) {
-                return new Followed(laid, Stop.UNEVEN, laid.getLast().spot());
-            }
-            laid.add(placed);
-            height = placed.spot().y();
+            floors[i] = scan.height();
+            reference = floors[i];
+        }
+        if (floors[0] != path.getFirst().spot().y()) {
+            return new Followed(List.of(at(path.getFirst(), floors[0])), Stop.UNEVEN, at(path.getFirst(), floors[0]).spot());
         }
 
-        for (var i = 1; i < laid.size(); i++) {
+        var heights = envelope(floors);
+        for (var fixes = 0; ; fixes++) {
+            var turn = firstTurn(heights);
+            if (turn < 0 || fixes > n * REACH) break;
+            if (heights[turn] < heights[turn - 1]) floors[turn] = heights[turn] + 1;
+            else floors[turn - 1 > 0 ? turn - 1 : turn + 1] = heights[turn];
+            heights = envelope(floors);
+        }
+        var laid = new ArrayList<Step>();
+        for (var i = 0; i < n; i++) laid.add(at(path.get(i), heights[i]));
+
+        if (heights[0] != path.getFirst().spot().y()) {
+            var forcing = 1;
+            for (var j = 1; j < n; j++) if (floors[j] - j > floors[forcing] - forcing) forcing = j;
+            return stopped(laid, forcing, Stop.UNEVEN);
+        }
+        if (firstTurn(heights) >= 0) return stopped(laid, firstTurn(heights), Stop.UNEVEN);
+        for (var i = 0; i < n; i++) {
+            var spot = laid.get(i).spot();
+            var here = terrain.at(spot);
+            if (here == Ground.TILE) continue;
+            if (here != Ground.FREE) return stopped(laid, i, Stop.BLOCKED);
+            var wedged = i > 0 && riseInto(laid, i) > 0 || i + 1 < n && riseInto(laid, i + 1) < 0;
+            if (!wedged && !holds(terrain.at(spot.up(-1)))) return stopped(laid, i, Stop.UNEVEN);
+        }
+
+        for (var i = 1; i < n; i++) {
             if (laid.get(i).travel().equals(laid.get(i - 1).travel())) continue;
-            if (riseInto(laid, i) != 0 || i + 1 < laid.size() && riseInto(laid, i + 1) != 0) {
+            if (riseInto(laid, i) != 0 || i + 1 < n && riseInto(laid, i + 1) != 0) {
                 return new Followed(laid, Stop.SLOPE_TURNS, laid.get(i).spot());
             }
         }
-        if (cornerAtEnd && laid.size() >= 2 && riseInto(laid, laid.size() - 1) != 0) {
+        if (cornerAtEnd && n >= 2 && riseInto(laid, n - 1) != 0) {
             return new Followed(laid, Stop.SLOPE_TURNS, laid.getLast().spot());
         }
         return new Followed(laid, null, null);
     }
 
-    private static boolean clear(Ground above) {
-        return above == Ground.FREE || above == Ground.TILE;
+    private record Scan(int height, @Nullable Stop stop) {
+    }
+
+    // The height a tile stands at on this column's ground, searched from the column before's.
+    private static Scan floor(LineScan.Spot from, Terrain terrain) {
+        var at = terrain.at(from);
+        if (at == Ground.TILE) return new Scan(from.y(), null);
+        if (at == Ground.OBSTACLE) return new Scan(from.y(), Stop.BLOCKED);
+        var spot = from;
+        if (at == Ground.SOLID) {
+            for (var i = 0; terrain.at(spot) == Ground.SOLID; i++) {
+                if (i == REACH) return new Scan(from.y(), Stop.UNEVEN);
+                spot = spot.up(1);
+            }
+            return terrain.at(spot) == Ground.OBSTACLE ? new Scan(spot.y(), Stop.BLOCKED) : new Scan(spot.y(), null);
+        }
+        for (var i = 0; terrain.at(spot.up(-1)) == Ground.FREE; i++) {
+            if (i == REACH) return new Scan(from.y(), Stop.UNEVEN);
+            spot = spot.up(-1);
+        }
+        return holds(terrain.at(spot.up(-1))) ? new Scan(spot.y(), null) : new Scan(spot.y(), Stop.UNEVEN);
+    }
+
+    // The lowest heights at or above every floor that change by at most a block a column.
+    private static int[] envelope(int[] floors) {
+        var heights = floors.clone();
+        for (var i = 1; i < heights.length; i++) heights[i] = Math.max(heights[i], heights[i - 1] - 1);
+        for (var i = heights.length - 2; i >= 0; i--) heights[i] = Math.max(heights[i], heights[i + 1] - 1);
+        return heights;
+    }
+
+    // The first tile that is a crest or a valley, which does not connect, or -1.
+    private static int firstTurn(int[] heights) {
+        for (var i = 1; i + 1 < heights.length; i++) {
+            var in = heights[i] - heights[i - 1];
+            var out = heights[i + 1] - heights[i];
+            if (in != 0 && in == -out) return i;
+        }
+        return -1;
+    }
+
+    private static Followed stopped(List<Step> laid, int column, Stop stop) {
+        return new Followed(laid.subList(0, column + 1), stop, laid.get(column).spot());
+    }
+
+    private static Step at(Step step, int height) {
+        return new Step(new LineScan.Spot(step.spot().x(), height, step.spot().z()), step.travel());
     }
 
     private static boolean holds(Ground below) {
