@@ -11,7 +11,7 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **Apply / remove labels**: `gh issue edit -R adamico/SimpleBelts <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close -R adamico/SimpleBelts <number> --comment "..."`
 
-Always pass `-R adamico/SimpleBelts`: this clone has two remotes, and `origin` is upstream `Rearth/SimpleBelts`, where issues are never filed. `gh` could otherwise pick the wrong one.
+Always pass `-R adamico/SimpleBelts`. `origin` is this repo and is `gh`'s default, but `upstream` is `Rearth/SimpleBelts`, where issues are never filed. The flag keeps every command pinned whatever the default.
 
 ## Pull requests as a triage surface
 
