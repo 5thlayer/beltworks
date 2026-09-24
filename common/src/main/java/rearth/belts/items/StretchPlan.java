@@ -37,6 +37,7 @@ public record StretchPlan(List<Tile> tiles, int cost, List<ItemStack> returned, 
         BLOCKED("message.belts.stretch_blocked"),
         UNEVEN("message.belts.stretch_uneven"),
         SLOPE_TURNS("message.belts.slope_turns"),
+        NO_ROOM_TO_CROSS("message.belts.stretch_no_room_to_cross"),
         WEDGE_BLOCKED("message.belts.wedge_blocked"),
         NOT_ENOUGH_TILES("message.belts.stretch_not_enough"),
         NO_ROOM_TO_RETURN("message.belts.stretch_no_room");

@@ -74,6 +74,11 @@ public final class Stretch {
     public interface Terrain {
 
         Ground at(LineScan.Spot spot);
+
+        /** Whether the tile at this spot belongs to a line running across this travel. */
+        default boolean across(LineScan.Spot spot, LineScan.Travel travel) {
+            return false;
+        }
     }
 
     /** Why a stretch cannot follow the ground. */
@@ -83,7 +88,9 @@ public final class Stretch {
         /** The ground steps more than a block, or a tile would be a crest or a valley, which does not connect. */
         UNEVEN,
         /** A corner would be a slope, which never turns (#419). */
-        SLOPE_TURNS
+        SLOPE_TURNS,
+        /** A line across the path has no room beside it for a crossing's top and foot (#422). */
+        NO_ROOM_TO_CROSS
     }
 
     /**
@@ -106,28 +113,55 @@ public final class Stretch {
      * the height a tile would stand on its ground; the tiles take the lowest heights at or above every
      * floor that change by at most a block a column, so a stretch climbs early through the air to
      * clear a wall and comes down through the air off a drop, on wedges (ADR-0085). A top never
-     * crests: a one-column peak is widened to a two-tile top. The start keeps its height, and with
-     * {@code cornerAtEnd} the last tile is a corner still to be turned.
+     * crests: a one-column peak is widened to a two-tile top. A line running across the path is
+     * climbed over, the tile over it level and the tile each side of it level with that one (#422);
+     * the start is taken as it stands, and an end on such a line is left for the stretch to feed its
+     * side. The start keeps its height, and with {@code cornerAtEnd} the last tile is a corner still
+     * to be turned.
      */
     public static Followed follow(List<Step> path, Terrain terrain, boolean cornerAtEnd) {
+        return follow(path, terrain, cornerAtEnd, true);
+    }
+
+    private static Followed follow(List<Step> path, Terrain terrain, boolean cornerAtEnd, boolean endMayJoin) {
         if (path.isEmpty()) return new Followed(List.of(), null, null);
         var n = path.size();
         var floors = new int[n];
+        var crossed = new boolean[n];
         var reference = path.getFirst().spot().y();
         for (var i = 0; i < n; i++) {
             var column = path.get(i).spot();
+            var travel = path.get(i).travel();
             var scan = floor(new LineScan.Spot(column.x(), reference, column.z()), terrain);
             if (scan.stop() != null) {
-                var laid = new ArrayList<Step>();
-                for (var j = 0; j < i; j++) laid.add(at(path.get(j), floors[j]));
+                var laid = laidTo(path, floors, i);
                 laid.add(at(path.get(i), scan.height()));
-                return new Followed(laid, scan.stop(), laid.getLast().spot());
+                return stopped(laid, i, scan.stop(), crossed);
             }
-            floors[i] = scan.height();
+            var height = scan.height();
+            var stand = new LineScan.Spot(column.x(), height, column.z());
+            var onLine = i > 0 && lineAt(terrain, stand, travel);
+            if (i > 0 && i == n - 1 && (onLine || lineAt(terrain, stand.up(-1), travel))) {
+                if (endMayJoin) return follow(path.subList(0, i), terrain, cornerAtEnd, false);
+                // A line behind the one aimed at leaves the crossing no room (#422).
+                var laid = laidTo(path, floors, i);
+                laid.add(at(path.get(i), onLine ? height + 1 : height));
+                return new Followed(laid, Stop.NO_ROOM_TO_CROSS, laid.getLast().spot());
+            }
+            if (onLine) height++;
+            floors[i] = height;
+            crossed[i] = i > 0 && i < n - 1 && lineAt(terrain, new LineScan.Spot(column.x(), height - 1, column.z()), travel);
             reference = floors[i];
         }
         if (floors[0] != path.getFirst().spot().y()) {
             return new Followed(List.of(at(path.getFirst(), floors[0])), Stop.UNEVEN, at(path.getFirst(), floors[0]).spot());
+        }
+        // A crossing's tops stand beside the crossed line, never over another (ADR-0085).
+        for (var i = 1; i + 1 < n; i++) {
+            if (!crossed[i]) continue;
+            if (crossed[i + 1]) return stopped(laidTo(path, floors, i + 1), i, Stop.NO_ROOM_TO_CROSS, crossed);
+            floors[i - 1] = Math.max(floors[i - 1], floors[i]);
+            floors[i + 1] = Math.max(floors[i + 1], floors[i]);
         }
 
         var heights = envelope(floors);
@@ -144,16 +178,16 @@ public final class Stretch {
         if (heights[0] != path.getFirst().spot().y()) {
             var forcing = 1;
             for (var j = 1; j < n; j++) if (floors[j] - j > floors[forcing] - forcing) forcing = j;
-            return stopped(laid, forcing, Stop.UNEVEN);
+            return stopped(laid, forcing, Stop.UNEVEN, crossed);
         }
-        if (firstTurn(heights) >= 0) return stopped(laid, firstTurn(heights), Stop.UNEVEN);
+        if (firstTurn(heights) >= 0) return stopped(laid, firstTurn(heights), Stop.UNEVEN, crossed);
         for (var i = 0; i < n; i++) {
             var spot = laid.get(i).spot();
             var here = terrain.at(spot);
             if (here == Ground.TILE) continue;
-            if (here != Ground.FREE) return stopped(laid, i, Stop.BLOCKED);
+            if (here != Ground.FREE) return stopped(laid, i, Stop.BLOCKED, crossed);
             var wedged = i > 0 && riseInto(laid, i) > 0 || i + 1 < n && riseInto(laid, i + 1) < 0;
-            if (!wedged && !holds(terrain.at(spot.up(-1)))) return stopped(laid, i, Stop.UNEVEN);
+            if (!wedged && !holds(terrain.at(spot.up(-1)))) return stopped(laid, i, Stop.UNEVEN, crossed);
         }
 
         for (var i = 1; i < n; i++) {
@@ -209,8 +243,26 @@ public final class Stretch {
         return -1;
     }
 
-    private static Followed stopped(List<Step> laid, int column, Stop stop) {
+    // A stop where a crossing's top or foot must stand is the nearest crossing's (#422).
+    private static Followed stopped(List<Step> laid, int column, Stop stop, boolean[] crossed) {
+        for (var distance = 0; distance <= 2; distance++) {
+            for (var c : new int[]{column - distance, column + distance}) {
+                if (c >= 0 && c < laid.size() && crossed[c]) {
+                    return new Followed(laid.subList(0, c + 1), Stop.NO_ROOM_TO_CROSS, laid.get(c).spot());
+                }
+            }
+        }
         return new Followed(laid.subList(0, column + 1), stop, laid.get(column).spot());
+    }
+
+    private static boolean lineAt(Terrain terrain, LineScan.Spot spot, LineScan.Travel travel) {
+        return terrain.at(spot) == Ground.TILE && terrain.across(spot, travel);
+    }
+
+    private static List<Step> laidTo(List<Step> path, int[] floors, int end) {
+        var laid = new ArrayList<Step>();
+        for (var j = 0; j < end; j++) laid.add(at(path.get(j), floors[j]));
+        return laid;
     }
 
     private static Step at(Step step, int height) {

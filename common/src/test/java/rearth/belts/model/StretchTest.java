@@ -3,8 +3,10 @@ package rearth.belts.model;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -104,6 +106,7 @@ class StretchTest {
 
         private final Map<Integer, Integer> heights = new HashMap<>();
         private final Map<LineScan.Spot, Stretch.Ground> overrides = new HashMap<>();
+        private final Set<LineScan.Spot> lines = new HashSet<>();
 
         Ground(int... heights) {
             for (var x = 0; x < heights.length; x++) this.heights.put(x, heights[x]);
@@ -112,6 +115,17 @@ class StretchTest {
         Ground with(int x, int y, int z, Stretch.Ground ground) {
             overrides.put(new LineScan.Spot(x, y, z), ground);
             return this;
+        }
+
+        /** A tile at x, y running south, across a stretch running east. */
+        Ground line(int x, int y) {
+            lines.add(new LineScan.Spot(x, y, 0));
+            return with(x, y, 0, Stretch.Ground.TILE);
+        }
+
+        @Override
+        public boolean across(LineScan.Spot spot, LineScan.Travel travel) {
+            return lines.contains(spot) && travel.z() == 0;
         }
 
         @Override
@@ -304,5 +318,96 @@ class StretchTest {
     @Test
     void anEndToBeACornerOnLevelGroundIsKept() {
         assertNull(Stretch.follow(east(2), new Ground(63, 63, 63), true).stop());
+    }
+
+    @Test
+    void aLineAcrossThePathIsClimbedOverInFiveTiles() {
+        var followed = Stretch.follow(east(6), new Ground(63, 63, 63, 63, 63, 63, 63).line(3, 64), false);
+
+        assertNull(followed.stop());
+        assertEquals(List.of(64, 64, 65, 65, 65, 64, 64), heights(followed));
+    }
+
+    @Test
+    void aLineBetweenTwoPitsIsClimbedOverThroughTheAir() {
+        var followed = Stretch.follow(east(6), new Ground(63, 63, 60, 63, 60, 63, 63).line(3, 64), false);
+
+        assertNull(followed.stop());
+        assertEquals(List.of(64, 64, 65, 65, 65, 64, 64), heights(followed));
+    }
+
+    @Test
+    void aLineOneColumnFromTheStartLeavesNoRoomToCross() {
+        var followed = Stretch.follow(east(4), new Ground(63, 63, 63, 63, 63).line(1, 64), false);
+
+        assertEquals(Stretch.Stop.NO_ROOM_TO_CROSS, followed.stop());
+        assertEquals(new LineScan.Spot(1, 65, 0), followed.column());
+        assertEquals(followed.column(), followed.steps().getLast().spot());
+    }
+
+    @Test
+    void aLineOneColumnFromTheEndLeavesNoRoomToCross() {
+        var followed = Stretch.follow(east(4), new Ground(63, 63, 63, 63, 63).line(3, 64), false);
+
+        assertEquals(Stretch.Stop.NO_ROOM_TO_CROSS, followed.stop());
+        assertEquals(new LineScan.Spot(3, 65, 0), followed.column());
+    }
+
+    @Test
+    void twoAdjacentLinesLeaveNoRoomToCross() {
+        var followed = Stretch.follow(east(7), new Ground(63, 63, 63, 63, 63, 63, 63, 63).line(3, 64).line(4, 64), false);
+
+        assertEquals(Stretch.Stop.NO_ROOM_TO_CROSS, followed.stop());
+        assertEquals(new LineScan.Spot(3, 65, 0), followed.column());
+    }
+
+    @Test
+    void aBlockWhereTheCrossingsTopStandsLeavesNoRoomToCross() {
+        var ground = new Ground(63, 63, 63, 63, 63, 63, 63).line(3, 64).with(2, 65, 0, Stretch.Ground.OBSTACLE);
+
+        var followed = Stretch.follow(east(6), ground, false);
+
+        assertEquals(Stretch.Stop.NO_ROOM_TO_CROSS, followed.stop());
+        assertEquals(new LineScan.Spot(3, 65, 0), followed.column());
+    }
+
+    @Test
+    void aLineUnderALevelStretchNeedsNoClimb() {
+        var followed = Stretch.follow(east(4), new Ground(63, 63, 62, 63, 63).line(2, 63), false);
+
+        assertNull(followed.stop());
+        assertEquals(List.of(64, 64, 64, 64, 64), heights(followed));
+    }
+
+    @Test
+    void aTileAlongTheStretchIsTakenLevelNotCrossed() {
+        var followed = Stretch.follow(east(6), new Ground(63, 63, 63, 63, 63, 63, 63).with(3, 64, 0, Stretch.Ground.TILE), false);
+
+        assertNull(followed.stop());
+        assertEquals(List.of(64, 64, 64, 64, 64, 64, 64), heights(followed));
+    }
+
+    @Test
+    void aStartOnALineIsTakenLevelNotCrossed() {
+        var followed = Stretch.follow(east(3), new Ground(63, 63, 63, 63).line(0, 64), false);
+
+        assertNull(followed.stop());
+        assertEquals(List.of(64, 64, 64, 64), heights(followed));
+    }
+
+    @Test
+    void anEndOnALineStopsBesideIt() {
+        var followed = Stretch.follow(east(3), new Ground(63, 63, 63, 63).line(3, 64), false);
+
+        assertNull(followed.stop());
+        assertEquals(List.of(64, 64, 64), heights(followed));
+    }
+
+    @Test
+    void anEndOnALineWithAnotherBehindItLeavesNoRoomToCross() {
+        var followed = Stretch.follow(east(4), new Ground(63, 63, 63, 63, 63).line(3, 64).line(4, 64), false);
+
+        assertEquals(Stretch.Stop.NO_ROOM_TO_CROSS, followed.stop());
+        assertEquals(new LineScan.Spot(3, 65, 0), followed.column());
     }
 }

@@ -33,7 +33,7 @@ import java.util.Optional;
 /**
  * The tile item (PlanetaryFactory #393). A plain click places one tile facing the look; a
  * sneak-click stores a start and the look, and the next plain click lays a {@link Stretch} to the
- * aimed spot's column over the ground (#421). A sneak-click with a start stored adds a corner there,
+ * aimed spot's column over the ground (#421), climbing over any line across its path (#422). A sneak-click with a start stored adds a corner there,
  * and the stretch runs on from it; a sneak-use in the air forgets the start and its corners.
  */
 public class BeltTileItem extends TooltipBlockItem {
@@ -139,6 +139,7 @@ public class BeltTileItem extends TooltipBlockItem {
             case BLOCKED -> StretchPlan.Refusal.of(StretchPlan.Reason.BLOCKED);
             case UNEVEN -> StretchPlan.Refusal.of(StretchPlan.Reason.UNEVEN, followed.column().x(), followed.column().z());
             case SLOPE_TURNS -> StretchPlan.Refusal.of(StretchPlan.Reason.SLOPE_TURNS);
+            case NO_ROOM_TO_CROSS -> StretchPlan.Refusal.of(StretchPlan.Reason.NO_ROOM_TO_CROSS, followed.column().x(), followed.column().z());
         };
         for (var step : followed.steps()) {
             var pos = pos(step.spot());
@@ -227,16 +228,27 @@ public class BeltTileItem extends TooltipBlockItem {
     // A tile's top holds the level tile of a crossing over it (#420). A wedge belongs to the slope
     // above it, so a stretch neither replaces it nor stands on it (ADR-0085).
     private static Stretch.Terrain terrain(Level level) {
-        return spot -> {
-            var pos = pos(spot);
-            var state = level.getBlockState(pos);
-            if (state.getBlock() instanceof BeltTileBlock) return Stretch.Ground.TILE;
-            if (state.getBlock() instanceof BeltWedgeBlock) return Stretch.Ground.OBSTACLE;
-            return switch (BeltTileBlock.occupant(level, pos)) {
-                case REPLACEABLE -> Stretch.Ground.FREE;
-                case SOLID -> Stretch.Ground.SOLID;
-                case OCCUPIED -> Stretch.Ground.OBSTACLE;
-            };
+        return new Stretch.Terrain() {
+            @Override
+            public Stretch.Ground at(LineScan.Spot spot) {
+                var pos = pos(spot);
+                var state = level.getBlockState(pos);
+                if (state.getBlock() instanceof BeltTileBlock) return Stretch.Ground.TILE;
+                if (state.getBlock() instanceof BeltWedgeBlock) return Stretch.Ground.OBSTACLE;
+                return switch (BeltTileBlock.occupant(level, pos)) {
+                    case REPLACEABLE -> Stretch.Ground.FREE;
+                    case SOLID -> Stretch.Ground.SOLID;
+                    case OCCUPIED -> Stretch.Ground.OBSTACLE;
+                };
+            }
+
+            @Override
+            public boolean across(LineScan.Spot spot, LineScan.Travel travel) {
+                var state = level.getBlockState(pos(spot));
+                if (!(state.getBlock() instanceof BeltTileBlock)) return false;
+                var its = BeltTileBlock.travel(state.getValue(BlockStateProperties.HORIZONTAL_FACING));
+                return its.x() * travel.x() + its.z() * travel.z() == 0;
+            }
         };
     }
 

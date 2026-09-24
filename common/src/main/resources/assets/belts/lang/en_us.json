@@ -12,6 +12,7 @@
   "message.belts.dismantle_started": "Dismantle started. Sneak-click another tile of this line to take up every tile between.",
   "message.belts.dismantle_cleared": "Dismantle cleared.",
   "message.belts.dismantle_off_line": "That is not a tile of the line the dismantle started on.",
+  "message.belts.stretch_no_room_to_cross": "No room at %s, %s to climb over the belt there: a crossing needs a free column each side of it.",
   "message.belts.stretch_no_room": "No room in your inventory for the tiles this stretch replaces.",
   "message.belts.filter_set": "Item Filter Set",
   "message.belts.filter_reset": "Item Filter Reset",
