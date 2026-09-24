@@ -354,11 +354,32 @@ class StretchTest {
     }
 
     @Test
-    void twoAdjacentLinesLeaveNoRoomToCross() {
+    void twoLinesSideBySideAreCrossedAsOne() {
         var followed = Stretch.follow(east(7), new Ground(63, 63, 63, 63, 63, 63, 63, 63).line(3, 64).line(4, 64), false);
 
-        assertEquals(Stretch.Stop.NO_ROOM_TO_CROSS, followed.stop());
-        assertEquals(new LineScan.Spot(3, 65, 0), followed.column());
+        assertNull(followed.stop());
+        assertEquals(List.of(64, 64, 65, 65, 65, 65, 64, 64), heights(followed));
+    }
+
+    @Test
+    void threeLinesSideBySideAreCrossedAsOne() {
+        var ground = new Ground(63, 63, 63, 63, 63, 63, 63, 63, 63).line(3, 64).line(4, 64).line(5, 64);
+
+        var followed = Stretch.follow(east(8), ground, false);
+
+        assertNull(followed.stop());
+        assertEquals(List.of(64, 64, 65, 65, 65, 65, 65, 64, 64), heights(followed));
+    }
+
+    // A stretch from a block's top stays up over the lines rather than stepping down between.
+    @Test
+    void aRaisedStretchStaysLevelOverTheLinesBeforeItDescends() {
+        var path = Stretch.path(new LineScan.Spot(0, 65, 0), EAST, new LineScan.Spot(4, 65, 0)).orElseThrow();
+
+        var followed = Stretch.follow(path, new Ground(64, 63, 63, 63, 63).line(1, 64).line(2, 64), false);
+
+        assertNull(followed.stop());
+        assertEquals(List.of(65, 65, 65, 65, 64), heights(followed));
     }
 
     @Test

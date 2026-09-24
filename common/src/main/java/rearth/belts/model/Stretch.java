@@ -89,7 +89,7 @@ public final class Stretch {
         UNEVEN,
         /** A corner would be a slope, which never turns (#419). */
         SLOPE_TURNS,
-        /** A line across the path has no room beside it for a crossing's top and foot (#422). */
+        /** A run of lines across the path has no room beside it for a crossing's top and foot (#422). */
         NO_ROOM_TO_CROSS
     }
 
@@ -156,10 +156,9 @@ public final class Stretch {
         if (floors[0] != path.getFirst().spot().y()) {
             return new Followed(List.of(at(path.getFirst(), floors[0])), Stop.UNEVEN, at(path.getFirst(), floors[0]).spot());
         }
-        // A crossing's tops stand beside the crossed line, never over another (ADR-0085).
+        // Lines side by side are crossed as one, level over each, a top either side of the run.
         for (var i = 1; i + 1 < n; i++) {
             if (!crossed[i]) continue;
-            if (crossed[i + 1]) return stopped(laidTo(path, floors, i + 1), i, Stop.NO_ROOM_TO_CROSS, crossed);
             floors[i - 1] = Math.max(floors[i - 1], floors[i]);
             floors[i + 1] = Math.max(floors[i + 1], floors[i]);
         }
