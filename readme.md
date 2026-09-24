@@ -4,18 +4,18 @@ This mod adds clean, flexible conveyor belts for Minecraft 26.1.2, on **NeoForge
 
 ### 🚚 Features:
 
-*   Adds a new **Conveyor Belt** item, plus optional **Support** and **Chute** blocks.
+*   Adds a new **Conveyor Belt** item, plus optional **Support** and **Loader** blocks.
 *   **Fully dynamic spline-based belts**: Only the start and end need to be placed on blocks. Everything in-between can curve, bend, and twist freely.
 *   **Item transfer speed**: ~1 stack per second.
 *   **Smart overflow handling**: If the destination is full, items visibly pile up on the belt.
 *   **Shader-compatible**: Works with iris and oculus shaders.
-*   **Easy filtering**: Click a conveyor chute with an item to set it as filter. Also works with the Smart Filters from the FTB Filters mod.
+*   **Easy filtering**: Click a loader with an item to set it as filter. Also works with the Smart Filters from the FTB Filters mod.
 
 ***
 
 ## 🛠️ How to Use
 
-1.  _(Optional)_ Place **Chute blocks** where the belt will start and end. These can also be auto-placed when using the belt item.
+1.  _(Optional)_ Place **Loaders** where the belt will start and end. These can also be auto-placed when using the belt item.
 2.  _(Optional)_ Add **Support blocks** anywhere along the path to shape the belt's curve.
 3.  Right-click the **belt item** on a starting inventory (e.g., a chest).
 4.  Walk to the destination inventory and right-click it to finish the belt.

@@ -1,0 +1,8 @@
+{
+  "parent": "beltworks:block/splitter_half",
+  "textures": {
+    "belt": "beltworks:block/improved_splitter_belt",
+    "particle": "beltworks:block/improved_splitter_belt",
+    "divider": "beltworks:block/improved_loader_band"
+  }
+}

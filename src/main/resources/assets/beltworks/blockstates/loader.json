@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "beltworks:block/loader"
+    },
+    "facing=east": {
+      "model": "beltworks:block/loader",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "beltworks:block/loader",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "beltworks:block/loader",
+      "y": 270
+    }
+  }
+}

@@ -13,7 +13,7 @@ import os
 import struct
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-PATH = os.path.join(ROOT, "src", "main", "resources", "data", "belts", "structure", "gametest", "platform.nbt")
+PATH = os.path.join(ROOT, "src", "main", "resources", "data", "beltworks", "structure", "gametest", "platform.nbt")
 
 DATA_VERSION = 4790  # 26.1.2
 # Chest, loader, three tiles, loader, chest, with a block of margin at each end and side.

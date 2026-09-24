@@ -1,6 +1,0 @@
-{
-  "parent": "belts:block/loader_housing",
-  "textures": {
-    "band": "belts:block/chute"
-  }
-}

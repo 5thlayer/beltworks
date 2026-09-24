@@ -1,8 +1,0 @@
-{
-  "parent": "belts:block/splitter_half",
-  "textures": {
-    "belt": "belts:block/turbo_splitter_belt",
-    "particle": "belts:block/turbo_splitter_belt",
-    "divider": "belts:block/turbo_chute"
-  }
-}

@@ -1,7 +1,7 @@
 # /// script
 # dependencies = ["pillow"]
 # ///
-"""Recolour the belt textures to Factorio's yellow, red, blue and green tiers, from SimpleBelts'
+"""Recolour the belt textures to Factorio's yellow, red, blue and green tiers, from Upstream's
 original art in `scripts/belt-art/`, draw the loader's housing and its tier band, and write the belt
 tiles' corner and slope models and their blockstates. Run with
 `uv run scripts/build-tier-textures.py`; `--check` fails on drift."""
@@ -14,7 +14,7 @@ from pathlib import Path
 
 from PIL import Image
 
-TEXTURES = Path(__file__).resolve().parent.parent / "common/src/main/resources/assets/belts/textures"
+TEXTURES = Path(__file__).resolve().parent.parent / "src/main/resources/assets/beltworks/textures"
 ART = Path(__file__).resolve().parent / "belt-art"
 # Tier -> (texture prefix, hue). Every tier's belt frames are the tier-1 frames, so the
 # tiers differ only in colour. The written textures are not read back: recolouring a recoloured
@@ -189,10 +189,10 @@ def corner_model(prefix, from_left: bool) -> bytes:
     model = {
         "parent": "minecraft:block/block",
         "textures": {
-            "belt": f"belts:block/{prefix}belt_corner_{'left' if from_left else 'right'}",
-            "frame": "belts:block/conveyor_support",
-            "particle": f"belts:block/{prefix}splitter_belt",
-            "side": "belts:block/belt_tile_side",
+            "belt": f"beltworks:block/{prefix}belt_corner_{'left' if from_left else 'right'}",
+            "frame": "beltworks:block/conveyor_support",
+            "particle": f"beltworks:block/{prefix}splitter_belt",
+            "side": "beltworks:block/belt_tile_side",
         },
         "elements": elements,
     }
@@ -306,10 +306,10 @@ def slope_model(prefix, pitch) -> bytes:
     model = {
         "parent": "minecraft:block/block",
         "textures": {
-            "belt": f"belts:block/{prefix}splitter_belt",
-            "frame": "belts:block/conveyor_support",
-            "particle": f"belts:block/{prefix}splitter_belt",
-            "side": "belts:block/belt_slope_side",
+            "belt": f"beltworks:block/{prefix}splitter_belt",
+            "frame": "beltworks:block/conveyor_support",
+            "particle": f"beltworks:block/{prefix}splitter_belt",
+            "side": "beltworks:block/belt_slope_side",
         },
         "elements": elements,
     }
@@ -345,8 +345,8 @@ def wedge_model() -> bytes:
     })
     model = {
         "parent": "minecraft:block/block",
-        "textures": {"side": "belts:block/belt_slope_side", "frame": "belts:block/conveyor_support",
-                     "particle": "belts:block/conveyor_support"},
+        "textures": {"side": "beltworks:block/belt_slope_side", "frame": "beltworks:block/conveyor_support",
+                     "particle": "beltworks:block/conveyor_support"},
         "elements": elements,
     }
     return (json.dumps(model, indent=2) + "\n").encode()
@@ -364,8 +364,8 @@ def tile_blockstate(prefix) -> bytes:
     for facing, turn in FACINGS.items():
         for shape, suffix in SHAPES.items():
             for pitch in ["level", *PITCHES]:
-                model = f"belts:block/{prefix}belt_tile{suffix}" if shape != "straight" or pitch == "level" \
-                    else f"belts:block/{prefix}belt_tile_{pitch}"
+                model = f"beltworks:block/{prefix}belt_tile{suffix}" if shape != "straight" or pitch == "level" \
+                    else f"beltworks:block/{prefix}belt_tile_{pitch}"
                 variant = {"model": model}
                 if turn:
                     variant["y"] = turn
@@ -376,7 +376,7 @@ def tile_blockstate(prefix) -> bytes:
 def wedge_blockstate() -> bytes:
     variants = {}
     for facing, turn in FACINGS.items():
-        variant = {"model": "belts:block/belt_wedge"}
+        variant = {"model": "beltworks:block/belt_wedge"}
         if turn:
             variant["y"] = turn
         variants[f"facing={facing}"] = variant
@@ -391,7 +391,7 @@ def outputs():
     for step, (prefix, hue) in enumerate(TIERS.values(), start=1):
         frames = sorted(FRAMES.glob("frame_*.png"))
         colour = tier_colour(recolour(frames[0], hue))
-        yield TEXTURES / f"block/{prefix}chute.png", band(colour)
+        yield TEXTURES / f"block/{prefix}loader_band.png", band(colour)
         for frame in frames:
             yield TEXTURES / f"block/{prefix}conveyorbelt/{frame.name}", recolour(frame, hue)
         yield from splitter_belt(prefix, [recolour(frame, hue) for frame in frames], step)

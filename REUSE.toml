@@ -29,7 +29,7 @@ path = [
     "gradle.properties",
     ".gitignore",
     "src/main/resources/META-INF/neoforge.mods.toml",
-    "src/main/resources/belts.mixins.json",
+    "src/main/resources/beltworks.mixins.json",
     "readme.md",
 ]
 SPDX-FileCopyrightText = ["Rearth", "2026 5thlayer"]
@@ -57,25 +57,18 @@ SPDX-License-Identifier = "CC-BY-4.0"
 # Assets that still carry Upstream's lines.
 [[annotations]]
 path = [
-    "src/main/resources/assets/belts/blockstates/chute.json",
-    "src/main/resources/assets/belts/models/block/chute.json",
-    "src/main/resources/assets/belts/lang/en_us.json",
+    "src/main/resources/assets/beltworks/blockstates/loader.json",
+    "src/main/resources/assets/beltworks/models/block/loader.json",
+    "src/main/resources/assets/beltworks/lang/en_us.json",
+    "src/main/resources/assets/beltworks/items/loader.json",
+    "src/main/resources/assets/beltworks/models/item/loader.json",
+    "src/main/resources/data/beltworks/loot_table/blocks/loader.json",
+    "src/main/resources/data/beltworks/recipe/belt_item.json",
+    "src/main/resources/data/beltworks/recipe/belt_item_alt.json",
+    "src/main/resources/data/beltworks/recipe/loader_item.json",
+    "src/main/resources/data/beltworks/recipe/improved_belt.json",
 ]
 SPDX-FileCopyrightText = ["Rearth", "2026 5thlayer"]
-SPDX-License-Identifier = "CC-BY-4.0"
-
-# Upstream's assets, unchanged since the fork point.
-[[annotations]]
-path = [
-    "src/main/resources/assets/belts/items/chute.json",
-    "src/main/resources/assets/belts/models/item/chute.json",
-    "src/main/resources/data/belts/loot_table/blocks/chute.json",
-    "src/main/resources/data/belts/recipe/belt_item.json",
-    "src/main/resources/data/belts/recipe/belt_item_alt.json",
-    "src/main/resources/data/belts/recipe/chute_item.json",
-    "src/main/resources/data/belts/recipe/improved_belt.json",
-]
-SPDX-FileCopyrightText = "Rearth"
 SPDX-License-Identifier = "CC-BY-4.0"
 
 # The belt surface: every tier's frames, corners and splitter strips, and
@@ -83,9 +76,9 @@ SPDX-License-Identifier = "CC-BY-4.0"
 # malcolmriley's unused-textures.
 [[annotations]]
 path = [
-    "src/main/resources/assets/belts/textures/block/*conveyorbelt/**",
-    "src/main/resources/assets/belts/textures/block/*belt_corner_*",
-    "src/main/resources/assets/belts/textures/block/*splitter_belt.png*",
+    "src/main/resources/assets/beltworks/textures/block/*conveyorbelt/**",
+    "src/main/resources/assets/beltworks/textures/block/*belt_corner_*",
+    "src/main/resources/assets/beltworks/textures/block/*splitter_belt.png*",
     "scripts/belt-art/**",
 ]
 SPDX-FileCopyrightText = ["Rearth", "malcolmriley", "2026 5thlayer"]
@@ -93,7 +86,7 @@ SPDX-License-Identifier = "CC-BY-4.0"
 
 # Upstream's texture, byte-identical since the fork point.
 [[annotations]]
-path = "src/main/resources/assets/belts/textures/block/conveyor_support.png"
+path = "src/main/resources/assets/beltworks/textures/block/conveyor_support.png"
 SPDX-FileCopyrightText = ["Rearth", "malcolmriley"]
 SPDX-License-Identifier = "CC-BY-4.0"
 

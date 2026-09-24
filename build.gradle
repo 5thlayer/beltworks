@@ -6,8 +6,7 @@ plugins {
 
 group = maven_group
 version = mod_version
-// Still the jar name the Pack's globs look for; the rename gives it the Mod's own.
-base.archivesName = "$archives_name-neoforge"
+base.archivesName = archives_name
 
 java {
     withSourcesJar()
@@ -16,6 +15,11 @@ java {
 
 tasks.withType(JavaCompile).configureEach {
     options.release = 25
+}
+
+// The Minecraft version goes in the jar's name and not in the Mod's version: beltworks-26.1.2-0.1.0.jar.
+tasks.withType(Jar).configureEach {
+    archiveVersion = "$minecraft_version-$mod_version"
 }
 
 repositories {

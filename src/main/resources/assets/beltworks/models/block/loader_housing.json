@@ -1,0 +1,291 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "slate": "beltworks:block/loader_slate",
+    "mouth": "beltworks:block/loader_mouth",
+    "band": "beltworks:block/loader_band",
+    "particle": "beltworks:block/loader_slate"
+  },
+  "elements": [
+    {
+      "name": "body",
+      "from": [
+        0,
+        0,
+        3
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#mouth"
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#slate",
+          "cullface": "south"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            13,
+            16
+          ],
+          "texture": "#slate",
+          "cullface": "east"
+        },
+        "west": {
+          "uv": [
+            3,
+            0,
+            16,
+            16
+          ],
+          "texture": "#slate",
+          "cullface": "west"
+        },
+        "up": {
+          "uv": [
+            0,
+            3,
+            16,
+            16
+          ],
+          "texture": "#slate",
+          "cullface": "up"
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            13
+          ],
+          "texture": "#slate",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "name": "front",
+      "from": [
+        0,
+        12,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        3
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            4
+          ],
+          "texture": "#slate",
+          "cullface": "north"
+        },
+        "east": {
+          "uv": [
+            13,
+            0,
+            16,
+            4
+          ],
+          "texture": "#slate",
+          "cullface": "east"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            3,
+            4
+          ],
+          "texture": "#slate",
+          "cullface": "west"
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            3
+          ],
+          "texture": "#slate",
+          "cullface": "up"
+        },
+        "down": {
+          "uv": [
+            0,
+            13,
+            16,
+            16
+          ],
+          "texture": "#slate"
+        }
+      }
+    },
+    {
+      "name": "cheek_left",
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        3,
+        12,
+        3
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            13,
+            4,
+            16,
+            16
+          ],
+          "texture": "#band",
+          "cullface": "north"
+        },
+        "west": {
+          "uv": [
+            0,
+            4,
+            3,
+            16
+          ],
+          "texture": "#band",
+          "cullface": "west"
+        },
+        "east": {
+          "uv": [
+            13,
+            4,
+            16,
+            16
+          ],
+          "texture": "#mouth"
+        },
+        "down": {
+          "uv": [
+            0,
+            13,
+            3,
+            16
+          ],
+          "texture": "#slate",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "name": "cheek_right",
+      "from": [
+        13,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        12,
+        3
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            4,
+            3,
+            16
+          ],
+          "texture": "#band",
+          "cullface": "north"
+        },
+        "east": {
+          "uv": [
+            13,
+            4,
+            16,
+            16
+          ],
+          "texture": "#band",
+          "cullface": "east"
+        },
+        "west": {
+          "uv": [
+            0,
+            4,
+            3,
+            16
+          ],
+          "texture": "#mouth"
+        },
+        "down": {
+          "uv": [
+            13,
+            13,
+            16,
+            16
+          ],
+          "texture": "#slate",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "name": "lintel",
+      "from": [
+        3,
+        10,
+        0
+      ],
+      "to": [
+        13,
+        12,
+        3
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            3,
+            4,
+            13,
+            6
+          ],
+          "texture": "#band",
+          "cullface": "north"
+        },
+        "down": {
+          "uv": [
+            3,
+            13,
+            13,
+            16
+          ],
+          "texture": "#mouth"
+        }
+      }
+    }
+  ]
+}

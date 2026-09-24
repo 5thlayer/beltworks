@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "package": "io.github._5thlayer.beltworks.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "minVersion": "0.8",
+  "client": [
+    "ClientLevelTickMixin"
+  ],
+  "mixins": [
+    "EntityCollisionMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
