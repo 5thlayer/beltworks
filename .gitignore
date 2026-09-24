@@ -13,3 +13,4 @@
 /neoforge/run/
 /neoforge/build/classes/java/main/
 /.idea/
+.DS_Store
