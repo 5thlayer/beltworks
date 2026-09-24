@@ -210,14 +210,18 @@ PITCHES = {
     "middle_down": [(0, 16, 16, -1)],
     "top_down": [(0, 10, 6, 0), (10, 16, 6, -1)],
 }
-# A slope's rim sits this far in from the block's side, behind the stepped wall, so the two never
-# z-fight where both are drawn (#417).
-RIM_INSET = 0.05
+# The band is drawn on the block's side and whatever lies behind it sits a little further in, so
+# no two walls z-fight where both are drawn (#417).
+RIM_INSET = 0.01
+SLICE_INSET = 0.02
+# A level tile's depth, which a slope keeps measured upright; half of it measured square to a 45-degree slope.
+BAND_DEPTH = 3
 
 
 def slope_model(prefix, pitch) -> bytes:
-    """A slope as a plane along its surface over 1px slices of body, each as tall as the surface at
-    its lower edge, with a thin rim along the plane's edge to close the steps' corners."""
+    """A slope as a plane along its surface over a band as deep as a level tile, its underside
+    pitched with it and never below the block's floor, filled out by 1px slices where the band's
+    square ends stop short, with a thin rim along the plane's edge to close the slices' corners."""
     runs = PITCHES[pitch]
 
     def surface(d):
@@ -225,6 +229,9 @@ def slope_model(prefix, pitch) -> bytes:
             if start <= d <= end:
                 return height + rise * (d - start)
         raise ValueError(d)
+
+    def underside(d):
+        return max(0, surface(d) - 6)
 
     def wall(u0, u1, height):
         # The side art is the level tile's 6 px; a taller wall stretches it (human check on delivery).
@@ -255,17 +262,32 @@ def slope_model(prefix, pitch) -> bytes:
             box = ([0, 0, z0], [16, height, z1])
             elements.append({"from": box[0], "to": box[1], "faces": culled(faces, box)})
             continue
+        # The band: the level tile's 6 px of depth turned to the slope, its underside pitched too.
+        # Its ends are square to the slope, so it stops where a corner would leave the block, and
+        # the slices below fill what is left.
+        if rise > 0:
+            d0, d1 = max(start, start + BAND_DEPTH - height), end - BAND_DEPTH
+        else:
+            d0, d1 = start + BAND_DEPTH, min(end, start + height - BAND_DEPTH)
+        if d1 > d0:
+            top, z = surface(d0), 16 - d0
+            length = round((d1 - d0) * math.sqrt(2), 4)
+            elements.append({
+                "from": [0, round(top - BAND_DEPTH * math.sqrt(2), 4), round(z - length, 4)], "to": [16, top, z],
+                "rotation": {"origin": [8, top, z], "axis": "x", "angle": 45 * rise},
+                "faces": {"east": {"uv": [0, 4, 16, 16], "texture": "#side"},
+                          "west": {"uv": [0, 4, 16, 16], "texture": "#side"},
+                          "down": {"uv": [0, 0, 16, 16], "texture": "#frame"}},
+            })
         for d in range(start, end):
+            floor = math.ceil(max(underside(d), underside(d + 1)))
             tall = math.floor(min(surface(d), surface(d + 1)))
-            if tall <= 0:
+            if tall <= floor:
                 continue
             faces = {"down": {"uv": [0, 15 - d, 16, 16 - d], "texture": "#frame"},
-                     "east": wall(15 - d, 16 - d, tall), "west": wall(d, d + 1, tall)}
-            if d == 0:
-                faces["south"] = wall(0, 16, tall)
-            if d == 15:
-                faces["north"] = wall(0, 16, tall)
-            box = ([0, 0, 15 - d], [16, tall, 16 - d])
+                     "east": wall(15 - d, 16 - d, tall - floor), "west": wall(d, d + 1, tall - floor),
+                     "north": wall(0, 16, tall - floor), "south": wall(0, 16, tall - floor)}
+            box = ([SLICE_INSET, floor, 15 - d], [16 - SLICE_INSET, tall, 16 - d])
             elements.append({"from": box[0], "to": box[1], "faces": culled(faces, box)})
         length = (end - start) * math.sqrt(2)
         angle = 45 if rise > 0 else -45
