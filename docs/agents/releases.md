@@ -28,8 +28,6 @@ A Beltworks tag is `beltworks-v<version>`. This repo still carries upstream Simp
 
 To release a commit behind main, check it out in a worktree, publish it with `-Pmod_version=<version>` instead of committing the bump, and tag that commit. The tag's message records the command and the jar's sha256. `beltworks-v0.1.1` is one: the #49 commit, the last to nest Groundworks 0.1.
 
-## Versions so far
+## The stray 0.1.0
 
-- `0.1.0` in `~/.m2` predates this rule and nests Groundworks 0.3. It has no tag, and the Pack does not pin it.
-- `0.1.1`: the #49 commit, nesting Groundworks 0.1.0 (`[0.1,0.2)`).
-- Main's next release is `0.2.0`.
+The `0.1.0` in `~/.m2` predates these rules and nests Groundworks 0.3. It has no tag, is not a release, and is never pinned.
