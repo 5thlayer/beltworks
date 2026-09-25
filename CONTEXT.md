@@ -14,6 +14,10 @@ _Avoid_: SimpleBelts (when meaning the Mod), the original
 This project, the Mod. "The Mod" is an accepted alias.
 _Avoid_: the fork, SimpleBelts, Belt Works, belts (that was Upstream's mod id, not a name)
 
+**placementpreview**:
+The library mod that draws **Placement Plans**, for the Mod and the Pack alike. The Mod bundles it in its own jar (ADR 0010).
+_Avoid_: preview lib, the renderer
+
 **the Pack**:
 PlanetaryFactory, the modpack that is the Mod's first consumer.
 _Avoid_: the modpack, PF
