@@ -4,9 +4,9 @@
 
 package io.github._5thlayer.beltworks.items;
 
-import io.github._5thlayer.placementpreview.PlacementPlan;
-import io.github._5thlayer.placementpreview.Placements;
-import io.github._5thlayer.placementpreview.PlansPlacement;
+import io.github._5thlayer.groundworks.PlacementPlan;
+import io.github._5thlayer.groundworks.Placements;
+import io.github._5thlayer.groundworks.PlansPlacement;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -102,7 +102,7 @@ public class BeltTileItem extends TooltipBlockItem implements PlansPlacement {
     }
 
     /**
-     * What the placementpreview library draws for a click here (ADR 0010). With a stored start, a
+     * What the Groundworks library draws for a click here (ADR 0010). With a stored start, a
      * click lays the stretch and a sneak-click adds a corner where it would end, so both are that
      * stretch. Without one, a sneak-click stores a start, drawn as the tile there facing the look,
      * and a click places a tile as vanilla would, with the wedges its reshape puts down.

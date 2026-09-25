@@ -3,8 +3,8 @@
 
 package io.github._5thlayer.beltworks.gametest;
 
-import io.github._5thlayer.placementpreview.PlacementPlan;
-import io.github._5thlayer.placementpreview.Placements;
+import io.github._5thlayer.groundworks.PlacementPlan;
+import io.github._5thlayer.groundworks.Placements;
 
 import java.util.HashMap;
 import java.util.List;
@@ -44,7 +44,7 @@ import io.github._5thlayer.beltworks.model.TransportLine;
 
 /**
  * A stretch of belt tiles over the ground and over the lines across it (PlanetaryFactory #393, #421, #422, ADR 0006): each test sneak-clicks a start, perhaps corners, asks
- * the placementpreview library for the plan of the next click, clicks, then holds the world, the inventory and
+ * the Groundworks library for the plan of the next click, clicks, then holds the world, the inventory and
  * the stored start to the plan. An accepted plan puts every tile it names down in the state it names
  * and charges one held-tier tile for each one placed or replaced; a refused plan changes no block, no
  * slot and no stored start, and names its reason on the action bar.

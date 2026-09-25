@@ -7,9 +7,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import io.github._5thlayer.placementpreview.PlacementPlan;
-import io.github._5thlayer.placementpreview.Placements;
-import io.github._5thlayer.placementpreview.Refusal;
+import io.github._5thlayer.groundworks.PlacementPlan;
+import io.github._5thlayer.groundworks.Placements;
+import io.github._5thlayer.groundworks.Refusal;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -33,7 +33,7 @@ import io.github._5thlayer.beltworks.items.StretchPlan;
 import io.github._5thlayer.beltworks.model.BeltTier;
 
 /**
- * The plan the placementpreview library draws for a belt piece is the Mod's own plan, translated
+ * The plan the Groundworks library draws for a belt piece is the Mod's own plan, translated
  * (ADR 0010): the same blocks, the same replaces and the same refusal. The other plan tests read the
  * library's plan and hold the click to it; these hold the library's plan to the Mod's.
  */

@@ -4,8 +4,8 @@
 
 package io.github._5thlayer.beltworks.items;
 
-import io.github._5thlayer.placementpreview.PlacementPlan;
-import io.github._5thlayer.placementpreview.PlansPlacement;
+import io.github._5thlayer.groundworks.PlacementPlan;
+import io.github._5thlayer.groundworks.PlansPlacement;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -82,7 +82,7 @@ public class SplitterItem extends BlockItem implements PlansPlacement {
         return new Plan(halves, !fits(context, halves));
     }
 
-    /** What the placementpreview library draws for a click here: {@link #splitterPlan}'s halves, refused whole (ADR 0010). */
+    /** What the Groundworks library draws for a click here: {@link #splitterPlan}'s halves, refused whole (ADR 0010). */
     @Override
     public @Nullable PlacementPlan plan(BlockPlaceContext context) {
         var plan = splitterPlan(context);

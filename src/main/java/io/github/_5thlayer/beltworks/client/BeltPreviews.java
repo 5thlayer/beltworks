@@ -3,9 +3,9 @@
 
 package io.github._5thlayer.beltworks.client;
 
-import io.github._5thlayer.placementpreview.PlacementPlan;
-import io.github._5thlayer.placementpreview.client.Outline;
-import io.github._5thlayer.placementpreview.client.PlacementPreviewEvent;
+import io.github._5thlayer.groundworks.PlacementPlan;
+import io.github._5thlayer.groundworks.client.Outline;
+import io.github._5thlayer.groundworks.client.PlacementPreviewEvent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,7 +31,7 @@ import io.github._5thlayer.beltworks.items.BeltTileItem;
 import io.github._5thlayer.beltworks.items.Dismantling;
 
 /**
- * The Mod's own drawing in the placementpreview library's Placement Preview (ADR 0010): a held tile
+ * The Mod's own drawing in the Groundworks library's Placement Preview (ADR 0010): a held tile
  * stack's stored start, a Dismantle Plan's span, and a planned splitter's belt surface.
  */
 final class BeltPreviews {

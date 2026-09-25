@@ -23,7 +23,7 @@ tasks.withType(Jar).configureEach {
 }
 
 repositories {
-    // placementpreview, until it is released (5thlayer/placementpreview#2).
+    // Groundworks, until it is released (5thlayer/groundworks#2).
     mavenLocal()
     maven { url = 'https://cursemaven.com' }
     maven { // EMI
@@ -92,7 +92,7 @@ tasks.named('runClient') { dependsOn syncClientMods }
 dependencies {
     // Bundled, so the Mod runs with nothing else installed (ADR 0010). The range lets the Pack's own
     // copy and this one resolve to one loaded version.
-    jarJar(implementation('io.github.5thlayer:placementpreview')) {
+    jarJar(implementation('io.github.5thlayer:groundworks')) {
         version {
             strictly '[0.1,0.2)'
             prefer '0.1.0'
