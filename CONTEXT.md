@@ -123,5 +123,5 @@ What a **Dismantle** would take up at an aimed tile: the tiles of the span from 
 _Avoid_: removal plan, placement plan (for a dismantle)
 
 **Placement Preview**:
-What a player sees while holding a belt piece and aiming at a spot: what placement would put there, drawn translucent, red where it would be refused. With a dismantling tool and a dismantle's start stored, it draws the tiles the **Dismantle Plan** would take up, in red, and nothing when it would be refused. It changes nothing in the world.
+What a player sees while holding a belt piece and aiming at a spot: what placement would put there, drawn translucent, red where it would be refused. With a dismantling tool and a dismantle's start stored, it draws the tiles the **Dismantle Plan** would take up, in red, and only the stored start when it would be refused. It changes nothing in the world.
 _Avoid_: ghost (Factorio's ghost is an entity left for robots to build), hologram, blueprint preview

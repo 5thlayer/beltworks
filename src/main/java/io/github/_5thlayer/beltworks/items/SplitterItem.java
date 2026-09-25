@@ -4,6 +4,9 @@
 
 package io.github._5thlayer.beltworks.items;
 
+import io.github._5thlayer.placementpreview.PlacementPlan;
+import io.github._5thlayer.placementpreview.PlansPlacement;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.sounds.SoundSource;
@@ -28,7 +31,7 @@ import java.util.List;
  * Places both halves of a splitter, the clicked one on the left looking the way items flow, or
  * neither. The click executes the plan the preview draws (ADR 0006).
  */
-public class SplitterItem extends BlockItem {
+public class SplitterItem extends BlockItem implements PlansPlacement {
 
     public SplitterItem(Block block, Properties settings) {
         super(block, settings);
@@ -73,15 +76,24 @@ public class SplitterItem extends BlockItem {
     }
 
     /** What a click in this context would do, or null where it would do nothing. */
-    public @Nullable Plan plan(BlockPlaceContext context) {
+    public @Nullable Plan splitterPlan(BlockPlaceContext context) {
         if (!context.canPlace()) return null;
         var halves = halves(context);
         return new Plan(halves, !fits(context, halves));
     }
 
+    /** What the placementpreview library draws for a click here: {@link #splitterPlan}'s halves, refused whole (ADR 0010). */
+    @Override
+    public @Nullable PlacementPlan plan(BlockPlaceContext context) {
+        var plan = splitterPlan(context);
+        if (plan == null) return null;
+        var blocks = plan.halves().stream().map(half -> new PlacementPlan.Placed(half.pos(), half.state())).toList();
+        return plan.blocked() ? PlacementPlan.refused(blocks, StretchPlan.Reason.BLOCKED) : PlacementPlan.accepted(blocks);
+    }
+
     @Override
     public InteractionResult place(BlockPlaceContext context) {
-        var plan = plan(context);
+        var plan = splitterPlan(context);
         if (plan == null) return InteractionResult.FAIL;
         var level = context.getLevel();
         var player = context.getPlayer();

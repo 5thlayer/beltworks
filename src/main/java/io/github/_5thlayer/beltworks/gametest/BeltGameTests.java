@@ -72,6 +72,7 @@ public final class BeltGameTests {
         LoaderMouthTests.register(tests);
         SplitterTileTests.register(tests);
         SplitterPlanTests.register(tests);
+        PlanTranslationTests.register(tests);
         StretchTests.register(tests);
         DismantleTests.register(tests);
     }

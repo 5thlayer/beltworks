@@ -4,6 +4,10 @@
 
 package io.github._5thlayer.beltworks.items;
 
+import io.github._5thlayer.placementpreview.PlacementPlan;
+import io.github._5thlayer.placementpreview.Placements;
+import io.github._5thlayer.placementpreview.PlansPlacement;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -40,7 +44,7 @@ import java.util.Optional;
  * aimed spot's column over the ground (#421), climbing over any line across its path (#422). A sneak-click with a start stored adds a corner there,
  * and the stretch runs on from it; a sneak-use in the air forgets the start and its corners.
  */
-public class BeltTileItem extends TooltipBlockItem {
+public class BeltTileItem extends TooltipBlockItem implements PlansPlacement {
 
     public BeltTileItem(Block block, Properties settings) {
         super(block, settings);
@@ -95,6 +99,36 @@ public class BeltTileItem extends TooltipBlockItem {
         }
         execute(plan, level, stack, player);
         return InteractionResult.SUCCESS;
+    }
+
+    /**
+     * What the placementpreview library draws for a click here (ADR 0010). With a stored start, a
+     * click lays the stretch and a sneak-click adds a corner where it would end, so both are that
+     * stretch. Without one, a sneak-click stores a start, drawn as the tile there facing the look,
+     * and a click places a tile as vanilla would, with the wedges its reshape puts down.
+     */
+    @Override
+    public @Nullable PlacementPlan plan(BlockPlaceContext context) {
+        var stretch = stretch(context);
+        if (stretch != null) {
+            if (stretch.tiles().isEmpty()) return null;
+            var blocks = stretch.tiles().stream().map(tile -> new PlacementPlan.Placed(tile.pos(), tile.state())).toList();
+            var replaces = stretch.tiles().stream()
+                             .filter(tile -> tile.action() == StretchPlan.Action.TURN || tile.action() == StretchPlan.Action.REPLACE)
+                             .map(StretchPlan.Tile::pos).toList();
+            return new PlacementPlan(blocks, replaces, stretch.refused() ? stretch.refusal().reason() : null);
+        }
+        var player = context.getPlayer();
+        if (player != null && player.isShiftKeyDown()) {
+            var start = getBlock().defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, context.getHorizontalDirection());
+            return PlacementPlan.accepted(aimedTile(context), start);
+        }
+        var vanilla = Placements.vanillaPlan(this, context);
+        var reshape = single(context);
+        if (vanilla == null || vanilla.isRefused() || reshape == null) return vanilla;
+        var blocks = new ArrayList<>(vanilla.blocks());
+        reshape.wedges().forEach((pos, state) -> blocks.add(new PlacementPlan.Placed(pos, state)));
+        return reshape.refused() ? PlacementPlan.refused(blocks, reshape.refusal()) : PlacementPlan.accepted(blocks);
     }
 
     /**

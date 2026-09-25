@@ -3,6 +3,8 @@
 
 package io.github._5thlayer.beltworks.gametest;
 
+import io.github._5thlayer.placementpreview.PlacementPlan;
+
 import java.util.Map;
 
 
@@ -67,7 +69,7 @@ final class BeltSlopeEdgeTests {
         player.setYRot(facing.toYRot());
         Map<BlockPos, BlockState> before = BeltWedgeTests.around(helper, at);
         ItemStack stack = new ItemStack(ItemContent.tileFor(BeltTier.BELT));
-        PlannedClick plan = BeltWedgeTests.planOf(helper, player, stack, at);
+        PlacementPlan plan = BeltWedgeTests.planOf(helper, player, stack, at);
         if (plan == null || plan.refusal() != expected) {
             helper.fail("a tile facing " + facing + " is planned " + (plan == null ? "as nothing" : "with " + plan.refusal())
                     + ", expected refused for " + expected, at);

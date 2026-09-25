@@ -23,6 +23,8 @@ tasks.withType(Jar).configureEach {
 }
 
 repositories {
+    // placementpreview, until it is released (5thlayer/placementpreview#2).
+    mavenLocal()
     maven { url = 'https://cursemaven.com' }
     maven { // EMI
         name = 'TerraformersMC'
@@ -88,6 +90,15 @@ def syncClientMods = tasks.register('syncClientMods', Sync) {
 tasks.named('runClient') { dependsOn syncClientMods }
 
 dependencies {
+    // Bundled, so the Mod runs with nothing else installed (ADR 0010). The range lets the Pack's own
+    // copy and this one resolve to one loaded version.
+    jarJar(implementation('io.github.5thlayer:placementpreview')) {
+        version {
+            strictly '[0.1,0.2)'
+            prefer '0.1.0'
+        }
+    }
+
     clientMods 'curse.maven:jade-324717:8651070'
 
     compileOnly 'curse.maven:ftb-filter-system-943925:8300190'

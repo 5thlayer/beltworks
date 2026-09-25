@@ -28,5 +28,12 @@ versionRange = "[26.1.2]"
 ordering = "NONE"
 side = "BOTH"
 
+[[dependencies.beltworks]]
+modId = "placementpreview"
+type = "required"
+versionRange = "[0.1,0.2)"
+ordering = "NONE"
+side = "BOTH"
+
 [[mixins]]
 config = "beltworks.mixins.json"

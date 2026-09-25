@@ -202,7 +202,7 @@ final class SplitterTileTests {
         BlockPos tile = helper.absolutePos(LEFT);
         BlockHitResult hit = new BlockHitResult(Vec3.atBottomCenterOf(tile).add(0, 6 / 16d, 0), Direction.UP, tile, false);
         var plan = ((SplitterItem) player.getMainHandItem().getItem())
-                .plan(new BlockPlaceContext(player, InteractionHand.MAIN_HAND, player.getMainHandItem(), hit));
+                .splitterPlan(new BlockPlaceContext(player, InteractionHand.MAIN_HAND, player.getMainHandItem(), hit));
         if (plan == null || !plan.blocked() || !plan.halves().getFirst().pos().equals(tile)) {
             helper.fail("a splitter facing " + facing + " is not planned refused on the tile it was aimed at", LEFT);
         }

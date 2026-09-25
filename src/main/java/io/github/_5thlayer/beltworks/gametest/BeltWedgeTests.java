@@ -3,6 +3,9 @@
 
 package io.github._5thlayer.beltworks.gametest;
 
+import io.github._5thlayer.placementpreview.PlacementPlan;
+import io.github._5thlayer.placementpreview.Placements;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -150,7 +153,7 @@ final class BeltWedgeTests {
         Map<BlockPos, BlockState> before = around(helper, TOP);
 
         ItemStack stack = new ItemStack(ItemContent.tileFor(BeltTier.BELT));
-        PlannedClick plan = planOf(helper, player, stack, TOP);
+        PlacementPlan plan = planOf(helper, player, stack, TOP);
         if (plan == null || plan.refusal() != StretchPlan.Reason.WEDGE_BLOCKED) {
             helper.fail("a top over " + occupant + " is planned " + (plan == null ? "as nothing" : "with " + plan.refusal())
                     + ", expected refused for its wedge", TOP);
@@ -244,12 +247,12 @@ final class BeltWedgeTests {
         for (int tile = 0; tile < heights.length; tile++) {
             BlockPos at = first.relative(facing, tile).above(heights[tile]);
             ItemStack stack = new ItemStack(ItemContent.tileFor(BeltTier.BELT));
-            PlannedClick plan = planOf(helper, player, stack, at);
-            if (plan == null || plan.refused()) {
+            PlacementPlan plan = planOf(helper, player, stack, at);
+            if (plan == null || plan.isRefused()) {
                 helper.fail("tile " + tile + " is planned " + (plan == null ? "as nothing" : "refused, " + plan.refusal()), at);
             }
             use(helper, player, stack, at);
-            for (PlannedClick.Placed placed : plan.blocks()) {
+            for (PlacementPlan.Placed placed : plan.blocks()) {
                 BlockState there = helper.getLevel().getBlockState(placed.pos());
                 if (!there.equals(placed.state())) {
                     helper.fail("tile " + tile + "'s plan named " + placed.state() + ", and " + there + " stands there",
@@ -274,9 +277,9 @@ final class BeltWedgeTests {
         return new BlockHitResult(Vec3.atCenterOf(absolute), Direction.UP, absolute, false);
     }
 
-    static PlannedClick planOf(GameTestHelper helper, ServerPlayer player, ItemStack stack, BlockPos at) {
+    static PlacementPlan planOf(GameTestHelper helper, ServerPlayer player, ItemStack stack, BlockPos at) {
         player.setItemInHand(InteractionHand.MAIN_HAND, stack);
-        return PlannedClick.of(helper.getLevel(), player, stack, hit(helper, at));
+        return Placements.planFor(helper.getLevel(), player, InteractionHand.MAIN_HAND, stack, hit(helper, at));
     }
 
     static void use(GameTestHelper helper, ServerPlayer player, ItemStack stack, BlockPos at) {

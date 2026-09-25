@@ -3,6 +3,9 @@
 
 package io.github._5thlayer.beltworks.gametest;
 
+import io.github._5thlayer.placementpreview.PlacementPlan;
+import io.github._5thlayer.placementpreview.Placements;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -49,7 +52,7 @@ final class SplitterPlanTests {
     }
 
     /** Asks for the plan of a south-facing click on the floor, clicks, and holds the world to the plan. */
-    private static PlannedClick check(GameTestHelper helper, boolean expectRefused) {
+    private static PlacementPlan check(GameTestHelper helper, boolean expectRefused) {
         Player player = helper.makeMockPlayer(GameType.SURVIVAL);
         player.setYRot(Direction.SOUTH.toYRot());
         var stack = new ItemStack(ItemContent.SPLITTER.get());
@@ -57,10 +60,10 @@ final class SplitterPlanTests {
         var absolute = helper.absolutePos(FLOOR);
         var hit = new BlockHitResult(Vec3.atCenterOf(absolute).relative(Direction.UP, 0.5), Direction.UP, absolute, false);
 
-        var plan = PlannedClick.of(helper.getLevel(), player, stack, hit);
+        var plan = Placements.planFor(helper.getLevel(), player, InteractionHand.MAIN_HAND, stack, hit);
         if (plan == null) throw helper.assertionException(FLOOR, "no plan at all where one was expected");
-        if (plan.refused() != expectRefused) {
-            helper.fail("the plan " + (plan.refused() ? "refused" : "accepted") + " where the opposite was expected", FLOOR);
+        if (plan.isRefused() != expectRefused) {
+            helper.fail("the plan " + (plan.isRefused() ? "refused" : "accepted") + " where the opposite was expected", FLOOR);
         }
         // Read before as well as after: a refused plan changing nothing is not its positions being empty.
         var before = new ArrayList<BlockState>();
@@ -72,8 +75,8 @@ final class SplitterPlanTests {
             var placed = plan.blocks().get(at);
             var now = helper.getLevel().getBlockState(placed.pos());
             var relative = helper.relativePos(placed.pos());
-            if (plan.refused() && !now.equals(before.get(at))) helper.fail("a refused plan changed the world at one of its positions", relative);
-            if (!plan.refused() && !now.equals(placed.state())) helper.fail("the plan promised " + placed.state() + " but placing left " + now, relative);
+            if (plan.isRefused() && !now.equals(before.get(at))) helper.fail("a refused plan changed the world at one of its positions", relative);
+            if (!plan.isRefused() && !now.equals(placed.state())) helper.fail("the plan promised " + placed.state() + " but placing left " + now, relative);
         }
         return plan;
     }

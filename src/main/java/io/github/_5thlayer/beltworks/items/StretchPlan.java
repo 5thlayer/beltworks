@@ -35,8 +35,11 @@ public record StretchPlan(List<Tile> tiles, int cost, List<ItemStack> returned, 
     public record Tile(BlockPos pos, BlockState state, Action action) {
     }
 
-    /** Listed in the order the plan asks them; the first met is the one the player reads. */
-    public enum Reason {
+    /**
+     * Listed in the order the plan asks them; the first met is the one the player reads. The Mod's
+     * refusals in the placementpreview library's plans too, a splitter's included (ADR 0010).
+     */
+    public enum Reason implements io.github._5thlayer.placementpreview.Refusal {
         BEHIND_LOOK("message.beltworks.stretch_behind"),
         BLOCKED("message.beltworks.stretch_blocked"),
         UNEVEN("message.beltworks.stretch_uneven"),

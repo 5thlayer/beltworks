@@ -3,6 +3,9 @@
 
 package io.github._5thlayer.beltworks.gametest;
 
+import io.github._5thlayer.placementpreview.PlacementPlan;
+import io.github._5thlayer.placementpreview.Placements;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +44,7 @@ import io.github._5thlayer.beltworks.model.TransportLine;
 
 /**
  * A stretch of belt tiles over the ground and over the lines across it (PlanetaryFactory #393, #421, #422, ADR 0006): each test sneak-clicks a start, perhaps corners, asks
- * {@link PlannedClick} for the plan of the next click, clicks, then holds the world, the inventory and
+ * the placementpreview library for the plan of the next click, clicks, then holds the world, the inventory and
  * the stored start to the plan. An accepted plan puts every tile it names down in the state it names
  * and charges one held-tier tile for each one placed or replaced; a refused plan changes no block, no
  * slot and no stored start, and names its reason on the action bar.
@@ -443,7 +446,7 @@ final class StretchTests {
         var corner = START.east(3);
         player.setShiftKeyDown(true);
         var plan = planOf(helper, player, corner);
-        if (plan == null || plan.refused() || plan.blocks().size() != 4) {
+        if (plan == null || plan.isRefused() || plan.blocks().size() != 4) {
             helper.fail("a sneak-click's stretch to a corner was planned as " + (plan == null ? "nothing" : plan.refusal()), corner);
             return;
         }
@@ -512,7 +515,7 @@ final class StretchTests {
         player.setYRot(Direction.SOUTH.toYRot());
         player.setShiftKeyDown(true);
         var plan = planOf(helper, player, START);
-        if (plan == null || plan.refused() || plan.blocks().size() != 1
+        if (plan == null || plan.isRefused() || plan.blocks().size() != 1
                 || !plan.blocks().getFirst().pos().equals(helper.absolutePos(START))
                 || plan.blocks().getFirst().state().getValue(BlockStateProperties.HORIZONTAL_FACING) != Direction.SOUTH) {
             helper.fail("a sneak with no start was planned as " + (plan == null ? "nothing" : plan.blocks()), START);
@@ -557,16 +560,16 @@ final class StretchTests {
      * Asks the plan of a click ending at {@code end}, clicks, and holds the world to it: every tile
      * named placed in its state, {@code charged} tier-1 tiles spent, and the start cleared.
      */
-    private static @Nullable PlannedClick accepted(GameTestHelper helper, ListeningPlayer player, BlockPos end, int charged) {
+    private static @Nullable PlacementPlan accepted(GameTestHelper helper, ListeningPlayer player, BlockPos end, int charged) {
         var plan = planOf(helper, player, end);
-        if (plan == null || plan.refused()) {
+        if (plan == null || plan.isRefused()) {
             helper.fail("the stretch to " + end + " was planned as " + (plan == null ? "nothing" : plan.refusal()), end);
             return null;
         }
         var tile = ItemContent.tileFor(BeltTier.BELT);
         int before = count(player, tile);
         click(helper, player, end);
-        for (PlannedClick.Placed placed : plan.blocks()) {
+        for (PlacementPlan.Placed placed : plan.blocks()) {
             BlockState now = helper.getLevel().getBlockState(placed.pos());
             if (!now.equals(placed.state())) {
                 helper.fail("the plan named " + placed.state() + " and the click left " + now, helper.relativePos(placed.pos()));
@@ -624,8 +627,8 @@ final class StretchTests {
         helper.succeed();
     }
 
-    private static @Nullable PlannedClick planOf(GameTestHelper helper, ListeningPlayer player, BlockPos end) {
-        return PlannedClick.of(helper.getLevel(), player, player.getMainHandItem(),
+    private static @Nullable PlacementPlan planOf(GameTestHelper helper, ListeningPlayer player, BlockPos end) {
+        return Placements.planFor(helper.getLevel(), player, InteractionHand.MAIN_HAND, player.getMainHandItem(),
                 hit(helper, end.below()));
     }
 

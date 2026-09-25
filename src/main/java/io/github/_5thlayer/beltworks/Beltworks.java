@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 
+import io.github._5thlayer.placementpreview.Placements;
+
 import io.github._5thlayer.beltworks.api.item.ItemApi;
 import io.github._5thlayer.beltworks.blocks.BeltEndBlockEntity;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
@@ -21,6 +23,7 @@ import io.github._5thlayer.beltworks.neoforge.BeltHandPayload;
 import io.github._5thlayer.beltworks.neoforge.BeltLinePayload;
 import io.github._5thlayer.beltworks.neoforge.LoaderEnergyHandler;
 import io.github._5thlayer.beltworks.neoforge.NeoforgeItemApiImpl;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -52,6 +55,8 @@ public final class Beltworks {
     public Beltworks(IEventBus modBus, ModContainer container) {
         container.registerConfig(ModConfig.Type.SERVER, BeltworksConfig.SPEC);
         ItemApi.BLOCK = new NeoforgeItemApiImpl();
+        // Every block of the Mod's that places as vanilla does, such as a loader, gets a preview (ADR 0010).
+        Placements.optIn(block -> BuiltInRegistries.BLOCK.getKey(block).getNamespace().equals(MOD_ID));
         modBus.addListener(Beltworks::registerCapabilities);
         modBus.addListener(Beltworks::registerPayloads);
         NeoForge.EVENT_BUS.addListener(Beltworks::sendLinesOfChunk);

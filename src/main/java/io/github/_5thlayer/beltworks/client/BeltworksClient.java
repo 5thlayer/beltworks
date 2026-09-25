@@ -25,6 +25,7 @@ public final class BeltworksClient {
         eventBus.addListener(BeltworksClient::registerRenderers);
         NeoForge.EVENT_BUS.addListener(BeltHandClient::tick);
         NeoForge.EVENT_BUS.addListener(BeltHandClient::interact);
+        BeltPreviews.register();
     }
 
     /** Runs at the start of each client level tick, before its entities move. */
