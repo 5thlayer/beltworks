@@ -4,10 +4,8 @@
 package io.github._5thlayer.beltworks.client;
 
 import io.github._5thlayer.groundworks.PlacementPlan;
-import io.github._5thlayer.groundworks.client.Outline;
 import io.github._5thlayer.groundworks.client.PlacementPreviewEvent;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -18,8 +16,6 @@ import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.neoforged.neoforge.common.NeoForge;
@@ -28,11 +24,11 @@ import io.github._5thlayer.beltworks.ComponentContent;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
 import io.github._5thlayer.beltworks.client.renderers.BeltEndRenderer;
 import io.github._5thlayer.beltworks.items.BeltTileItem;
-import io.github._5thlayer.beltworks.items.Dismantling;
 
 /**
  * The Mod's own drawing in the Groundworks library's Placement Preview (ADR 0010): a held tile
- * stack's stored start, a Dismantle Plan's span, and a planned splitter's belt surface.
+ * stack's stored start and a planned splitter's belt surface. Groundworks draws the Dismantle's span
+ * itself (ADR 0011).
  */
 final class BeltPreviews {
 
@@ -47,7 +43,6 @@ final class BeltPreviews {
 
     static void register() {
         NeoForge.EVENT_BUS.addListener(BeltPreviews::stretchStart);
-        NeoForge.EVENT_BUS.addListener(BeltPreviews::dismantle);
         NeoForge.EVENT_BUS.addListener(BeltPreviews::splitterBelts);
     }
 
@@ -90,30 +85,6 @@ final class BeltPreviews {
             }
         });
         poseStack.popPose();
-    }
-
-    /**
-     * A held dismantling tool with a start stored takes the frame: the tiles and wedges its Dismantle
-     * Plan would take up at the aim, or the stored start alone where the plan is refused.
-     */
-    private static void dismantle(PlacementPreviewEvent.Takeover event) {
-        var stack = event.getStack();
-        if (!Dismantling.dismantles(stack)) return;
-        var level = event.getLevel();
-        var start = Dismantling.liveStart(level, stack);
-        if (start == null) return;
-        var plan = event.getHitResult() instanceof BlockHitResult block && block.getType() == HitResult.Type.BLOCK
-                     ? Dismantling.plan(level, stack, block.getBlockPos())
-                     : null;
-        var positions = new ArrayList<BlockPos>();
-        if (plan == null || plan.refused()) {
-            positions.add(start);
-        } else {
-            positions.addAll(plan.tiles());
-            positions.addAll(plan.wedges());
-        }
-        Outline.draw(event.getGeometry(), positions);
-        event.setCanceled(true);
     }
 
     /** A planned splitter half's belt surface, which a block entity renderer draws rather than the block model the preview draws. */

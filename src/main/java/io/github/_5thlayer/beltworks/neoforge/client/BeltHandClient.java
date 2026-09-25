@@ -4,6 +4,8 @@
 
 package io.github._5thlayer.beltworks.neoforge.client;
 
+import io.github._5thlayer.groundworks.Dismantles;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.BlockHitResult;
@@ -15,7 +17,6 @@ import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.collision.BeltCollisionRegistry;
 import io.github._5thlayer.beltworks.items.BeltTileItem;
-import io.github._5thlayer.beltworks.items.Dismantling;
 import io.github._5thlayer.beltworks.items.SplitterItem;
 import io.github._5thlayer.beltworks.neoforge.BeltHandPayload;
 
@@ -59,7 +60,7 @@ public final class BeltHandClient {
         var held = player.getMainHandItem().getItem();
         if (held instanceof SplitterItem || held instanceof BeltTileItem) return null;
         var stack = player.getMainHandItem();
-        if (Dismantling.dismantles(stack) && (player.isShiftKeyDown() || Dismantling.liveStart(minecraft.level, stack) != null)) return null;
+        if (Dismantles.isTool(stack) && (player.isShiftKeyDown() || Dismantles.liveStart(minecraft.level, stack) != null)) return null;
         var eye = player.getEyePosition();
         // A tile is aimed as a whole block, since its surface is too thin to aim at reliably (#396).
         if (minecraft.hitResult instanceof BlockHitResult block && block.getType() == HitResult.Type.BLOCK

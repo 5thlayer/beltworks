@@ -3,11 +3,17 @@
 
 package io.github._5thlayer.beltworks.gametest;
 
+import io.github._5thlayer.groundworks.DismantleSpan;
+import io.github._5thlayer.groundworks.DismantleStart;
+import io.github._5thlayer.groundworks.Dismantles;
+import io.github._5thlayer.groundworks.Groundworks;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -29,27 +35,26 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 import io.github._5thlayer.beltworks.BlockContent;
-import io.github._5thlayer.beltworks.ComponentContent;
 import io.github._5thlayer.beltworks.ItemContent;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
 import io.github._5thlayer.beltworks.blocks.BeltWedgeBlock;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
-import io.github._5thlayer.beltworks.items.DismantlePlan;
-import io.github._5thlayer.beltworks.items.Dismantling;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.TransportLine;
 
 /**
- * A Dismantle (PlanetaryFactory #404): each test sneak-clicks a start with a pickaxe, a dismantling tool by default, through the player's
- * game mode, asks {@link Dismantling#plan} for the end, clicks it, and holds the world, the
- * inventory and the stored start to the plan. An accepted plan leaves none of its tiles or wedges
- * standing and hands the player a tile for each and every item they carried; a refused plan changes
- * no block, no slot and no stored start, and names its reason on the action bar.
+ * A Dismantle of the belt family, run by Groundworks (PlanetaryFactory #404): each test sneak-clicks
+ * a start with a pickaxe, a dismantling tool by default, through the player's game mode, asks
+ * {@link Dismantles#spanTo} for the end, clicks it, and holds the world, the inventory and the stored
+ * start to the span. An accepted span leaves none of the tiles or wedges it draws standing and hands
+ * the player a tile for each and every item they carried; a refused span changes no block, no slot
+ * and no stored start, and names its reason on the action bar.
  */
 final class DismantleTests {
 
     private static final BlockPos START = new BlockPos(2, 1, 3);
     private static final String OFF_LINE = "message.beltworks.dismantle_off_line";
+    private static final String NOT_SAME_KIND = "message.groundworks.dismantle_not_same_kind";
 
     private DismantleTests() {
     }
@@ -67,19 +72,23 @@ final class DismantleTests {
         tests.test("a_dismantle_with_no_room_drops_the_rest_at_the_players_feet", 20, DismantleTests::fullInventory);
         tests.test("a_creative_dismantle_hands_over_nothing", 20, DismantleTests::creative);
         tests.test("a_dismantle_ending_on_a_splitter_changes_nothing", 20, helper -> refused(helper,
-                () -> splitterAt(helper, START.east(3)), START.east(3)));
+                () -> splitterAt(helper, START.east(3)), START.east(3), NOT_SAME_KIND));
         tests.test("a_dismantle_ending_beyond_a_splitter_changes_nothing", 20, helper -> refused(helper,
                 () -> {
                     splitterAt(helper, START.east(3));
                     helper.setBlock(START.east(4), BeltTileTests.tile(BeltTier.BELT, Direction.EAST));
-                }, START.east(4)));
+                }, START.east(4), OFF_LINE));
         tests.test("a_dismantle_ending_on_a_loader_changes_nothing", 20, helper -> refused(helper,
-                () -> helper.setBlock(START.east(3), BeltTileTests.loader(BeltTier.BELT, Direction.WEST)), START.east(3)));
+                () -> helper.setBlock(START.east(3), BeltTileTests.loader(BeltTier.BELT, Direction.WEST)), START.east(3),
+                NOT_SAME_KIND));
         tests.test("a_dismantle_ending_on_another_line_changes_nothing", 20, helper -> refused(helper,
                 () -> {
                     for (int i = 0; i < 3; i++) helper.setBlock(START.south(2).east(i), BeltTileTests.tile(BeltTier.BELT, Direction.EAST));
-                }, START.south(2).east(1)));
-        tests.test("a_sneak_click_after_the_start_tile_broke_is_a_new_start", 20, DismantleTests::staleStart);
+                }, START.south(2).east(1), OFF_LINE));
+        tests.test("a_sneak_click_after_the_start_tile_broke_is_a_new_start", 20, helper ->
+                staleStart(helper, tile -> helper.destroyBlock(tile), "broke"));
+        tests.test("a_sneak_click_after_the_start_tile_turned_is_a_new_start", 20, helper ->
+                staleStart(helper, tile -> helper.setBlock(tile, BeltTileTests.tile(BeltTier.BELT, Direction.SOUTH)), "turned"));
         tests.test("a_sneak_click_with_a_start_stored_moves_the_start", 20, DismantleTests::movesStart);
         tests.test("a_click_with_no_start_stored_takes_up_nothing", 20, DismantleTests::noStart);
         tests.test("a_sneak_use_in_the_air_clears_the_dismantle_start", 20, DismantleTests::clears);
@@ -113,10 +122,11 @@ final class DismantleTests {
         carryOneEach(helper, tiles);
         helper.runAfterDelay(2, () -> {
             var player = started(helper, tiles.getFirst());
-            var plan = accepted(helper, player, tiles.getLast(), tiles.size(), tiles.size());
-            if (plan == null) return;
-            if (!plan.wedges().equals(List.of(helper.absolutePos(START.east(2))))) {
-                helper.fail("the plan names wedges " + plan.wedges() + ", not the one under the top", START.east(2));
+            var span = accepted(helper, player, tiles.getLast(), tiles.size(), tiles.size());
+            if (span == null) return;
+            var wedges = span.draws().stream().filter(pos -> !span.takes().contains(pos)).toList();
+            if (!wedges.equals(List.of(helper.absolutePos(START.east(2))))) {
+                helper.fail("the span draws wedges " + wedges + ", not the one under the top", START.east(2));
                 return;
             }
             helper.succeed();
@@ -201,14 +211,14 @@ final class DismantleTests {
         });
     }
 
-    private static void refused(GameTestHelper helper, Runnable setUp, BlockPos end) {
+    private static void refused(GameTestHelper helper, Runnable setUp, BlockPos end, String reason) {
         row(helper, 3);
         setUp.run();
         helper.runAfterDelay(2, () -> {
             var player = started(helper, START);
-            var plan = planOf(helper, player, end);
-            if (plan == null || plan.refusal() == null || !plan.tiles().isEmpty()) {
-                helper.fail("an end off the start's line was planned as " + (plan == null ? "nothing" : plan.tiles()), end);
+            var span = spanOf(helper, player, end);
+            if (span == null || !span.isRefused() || !span.takes().isEmpty()) {
+                helper.fail("an end off the start's line was planned as " + (span == null ? "nothing" : span.takes()), end);
                 return;
             }
             Map<BlockPos, BlockState> before = world(helper);
@@ -227,27 +237,37 @@ final class DismantleTests {
                 helper.fail("a refused dismantle changed the player's inventory or the stored start", end);
                 return;
             }
-            if (!player.heard.equals(List.of(OFF_LINE))) {
-                helper.fail("the player was told " + player.heard + ", not " + OFF_LINE, end);
+            if (!player.heard.equals(List.of(reason))) {
+                helper.fail("the player was told " + player.heard + ", not " + reason, end);
                 return;
             }
             helper.succeed();
         });
     }
 
-    private static void staleStart(GameTestHelper helper) {
+    /**
+     * The start's tile is changed by {@code change}, which the failures call {@code how}. A click is
+     * then no dismantle's, since a live start's would be refused off its line, and the next
+     * sneak-click stores a fresh start.
+     */
+    private static void staleStart(GameTestHelper helper, Consumer<BlockPos> change, String how) {
         List<BlockPos> tiles = row(helper, 4);
         var player = started(helper, tiles.getFirst());
-        helper.destroyBlock(tiles.getFirst());
+        change.accept(tiles.getFirst());
+        player.heard.clear();
+        click(helper, player, tiles.get(2));
+        if (!player.heard.isEmpty()) {
+            helper.fail("a click after the start " + how + " was answered with " + player.heard + ", as if the start were live", tiles.get(2));
+            return;
+        }
         sneakClick(helper, player, tiles.get(2));
-        if (!helper.absolutePos(tiles.get(2)).equals(player.getMainHandItem().get(ComponentContent.DISMANTLE_START.get()))) {
-            helper.fail("a click after the start broke stored " + player.getMainHandItem().get(ComponentContent.DISMANTLE_START.get())
-                    + ", not the clicked tile", tiles.get(2));
+        if (!helper.absolutePos(tiles.get(2)).equals(storedStart(player))) {
+            helper.fail("a click after the start " + how + " stored " + storedStart(player) + ", not the clicked tile", tiles.get(2));
             return;
         }
         for (BlockPos tile : tiles.subList(1, tiles.size())) {
             if (!(helper.getLevel().getBlockEntity(helper.absolutePos(tile)) instanceof BeltTileBlockEntity)) {
-                helper.fail("a click after the start broke took up a tile", tile);
+                helper.fail("a click after the start " + how + " took up a tile", tile);
                 return;
             }
         }
@@ -258,9 +278,8 @@ final class DismantleTests {
         List<BlockPos> tiles = row(helper, 4);
         var player = started(helper, tiles.getFirst());
         sneakClick(helper, player, tiles.get(2));
-        if (!helper.absolutePos(tiles.get(2)).equals(player.getMainHandItem().get(ComponentContent.DISMANTLE_START.get()))) {
-            helper.fail("a sneak-click with a start stored left " + player.getMainHandItem().get(ComponentContent.DISMANTLE_START.get())
-                    + " as the start, not the clicked tile", tiles.get(2));
+        if (!helper.absolutePos(tiles.get(2)).equals(storedStart(player))) {
+            helper.fail("a sneak-click with a start stored left " + storedStart(player) + " as the start, not the clicked tile", tiles.get(2));
             return;
         }
         for (BlockPos tile : tiles) {
@@ -278,7 +297,7 @@ final class DismantleTests {
         player.setGameMode(GameType.SURVIVAL);
         player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_PICKAXE));
         click(helper, player, tiles.get(1));
-        if (player.getMainHandItem().has(ComponentContent.DISMANTLE_START.get())) {
+        if (storedStart(player) != null) {
             helper.fail("a click with no start stored stored one", tiles.get(1));
             return;
         }
@@ -296,7 +315,7 @@ final class DismantleTests {
         var player = started(helper, tiles.getFirst());
         player.setShiftKeyDown(true);
         player.gameMode.useItem(player, helper.getLevel(), player.getMainHandItem(), InteractionHand.MAIN_HAND);
-        if (player.getMainHandItem().has(ComponentContent.DISMANTLE_START.get())) {
+        if (storedStart(player) != null) {
             helper.fail("a sneak-use in the air left the dismantle's start stored", tiles.getFirst());
             return;
         }
@@ -304,9 +323,9 @@ final class DismantleTests {
     }
 
     /**
-     * Asks the plan of a click at {@code end}, clicks, and holds the world to it: none of its
-     * tiles or wedges standing, {@code tiles} tile items and {@code items} ingots handed over, and the
-     * start cleared.
+     * Asks the span of a click at {@code end}, clicks, and holds the world to it: none of the tiles
+     * or wedges it draws standing, {@code tiles} tile items and {@code items} ingots handed over, and
+     * the start cleared.
      */
     private static void takesUp(GameTestHelper helper, List<BlockPos> tiles, BlockPos start, BlockPos end) {
         int span = Math.abs(tiles.indexOf(end) - tiles.indexOf(start)) + 1;
@@ -316,19 +335,17 @@ final class DismantleTests {
         });
     }
 
-    private static @Nullable DismantlePlan accepted(GameTestHelper helper, ListeningPlayer player, BlockPos end, int tiles, int items) {
-        var plan = planOf(helper, player, end);
-        if (plan == null || plan.refused() || plan.tiles().size() != tiles) {
-            helper.fail("the dismantle to " + end + " was planned as " + (plan == null ? "nothing"
-                    : plan.refused() ? plan.refusal() : plan.tiles().size() + " tiles"), end);
+    private static @Nullable DismantleSpan accepted(GameTestHelper helper, ListeningPlayer player, BlockPos end, int tiles, int items) {
+        var span = spanOf(helper, player, end);
+        if (span == null || span.isRefused() || span.takes().size() != tiles) {
+            helper.fail("the dismantle to " + end + " was planned as " + (span == null ? "nothing"
+                    : span.isRefused() ? span.refusal() : span.takes().size() + " tiles"), end);
             return null;
         }
         click(helper, player, end);
-        List<BlockPos> gone = new ArrayList<>(plan.tiles());
-        gone.addAll(plan.wedges());
-        for (BlockPos pos : gone) {
+        for (BlockPos pos : span.draws()) {
             if (!helper.getLevel().getBlockState(pos).isAir()) {
-                helper.fail("the plan named " + pos + " and the click left " + helper.getLevel().getBlockState(pos), helper.relativePos(pos));
+                helper.fail("the span drew " + pos + " and the click left " + helper.getLevel().getBlockState(pos), helper.relativePos(pos));
                 return null;
             }
         }
@@ -343,11 +360,11 @@ final class DismantleTests {
             helper.fail("the dismantle left items on the ground", end);
             return null;
         }
-        if (player.getMainHandItem().has(ComponentContent.DISMANTLE_START.get())) {
+        if (storedStart(player) != null) {
             helper.fail("a dismantle left its start stored", end);
             return null;
         }
-        return plan;
+        return span;
     }
 
     /** {@code count} tier-1 tiles running east from {@link #START}, each carrying one ingot. */
@@ -384,15 +401,20 @@ final class DismantleTests {
         player.setPos(helper.absoluteVec(new Vec3(START.getX() + 0.5, START.getY(), START.getZ() - 1.5)));
         player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_PICKAXE));
         sneakClick(helper, player, start);
-        if (!helper.absolutePos(start).equals(player.getMainHandItem().get(ComponentContent.DISMANTLE_START.get()))) {
-            helper.fail("a sneak-click on a tile stored " + player.getMainHandItem().get(ComponentContent.DISMANTLE_START.get())
-                    + " as the start", start);
+        if (!helper.absolutePos(start).equals(storedStart(player))) {
+            helper.fail("a sneak-click on a tile stored " + storedStart(player) + " as the start", start);
         }
         return player;
     }
 
-    private static @Nullable DismantlePlan planOf(GameTestHelper helper, ListeningPlayer player, BlockPos end) {
-        return Dismantling.plan(helper.getLevel(), player.getMainHandItem(), helper.absolutePos(end));
+    /** Where the held stack's stored start is, live or not, or null when none is stored. */
+    private static @Nullable BlockPos storedStart(ListeningPlayer player) {
+        DismantleStart start = player.getMainHandItem().get(Groundworks.DISMANTLE_START.get());
+        return start == null ? null : start.pos();
+    }
+
+    private static @Nullable DismantleSpan spanOf(GameTestHelper helper, ListeningPlayer player, BlockPos end) {
+        return Dismantles.spanTo(helper.getLevel(), player.getMainHandItem(), helper.absolutePos(end));
     }
 
     private static void sneakClick(GameTestHelper helper, ListeningPlayer player, BlockPos at) {

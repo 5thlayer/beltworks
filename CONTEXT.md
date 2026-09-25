@@ -115,7 +115,7 @@ The tiles one drag of the tile item lays, placed, charged and refused as one. A 
 _Avoid_: run, zoop, drag (the gesture, not what it lays), tile path
 
 **Dismantle**:
-Taking up a span of one transport line from one tile to another, both included, with a dismantling tool (by default a wrench or a pickaxe): a sneak-click stores the start, and a click names the end. A sneak-click with a start stored moves it there. The span follows the line through its corners and slopes, either way along it, and takes the tiles' wedges and every item they carry; the rest of the line keeps what it carries. Loaders and splitters are never taken. What the span drops goes to the inventory, and what does not fit drops at the player's feet. Distinct from mining, which breaks one tile.
+Taking up a span of one transport line from one tile to another, both included, with a dismantling tool (by default a wrench or a pickaxe, the Mod's members of `groundworks:dismantles`): a sneak-click stores the start, and a click names the end. Groundworks runs it, and the Mod supplies the belt family (ADR 0011). A sneak-click with a start stored moves it there. The span follows the line through its corners and slopes, either way along it, and takes the tiles' wedges and every item they carry; the rest of the line keeps what it carries. Loaders and splitters are never taken. What the span drops goes to the inventory, and what does not fit drops at the player's feet. Distinct from mining, which breaks one tile.
 _Avoid_: deconstruct, mass mine, unstretch
 
 **Anchor**:
@@ -131,7 +131,7 @@ A kind of connected block that a **Dismantle** takes up as one span, with its ow
 _Avoid_: dismantle group, connected type
 
 **Dismantle Plan**:
-What a **Dismantle** would take up at an aimed tile: the tiles of the span from the stored start, and a refusal or none. Dismantling executes a plan and the preview draws one, as with a **Placement Plan**; the two are separate things.
+What a **Dismantle** would take up at an aimed tile: the tiles of the span from the stored start, the tiles and wedges it draws, and a refusal or none. Groundworks owns the plan and asks the belt family for it; dismantling executes a plan and the preview draws one, as with a **Placement Plan**; the two are separate things.
 _Avoid_: removal plan, placement plan (for a dismantle)
 
 **Placement Preview**:
