@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.2.2
+
 - The Dismantle game tests hold the first tool in `groundworks:dismantles` rather than an iron pickaxe, so they pass in a pack that trims the tag to its own tools.
 
 ## 0.2.1
