@@ -42,6 +42,8 @@ neoForge {
         client {
             client()
             programArguments.addAll '--username', 'Developer', '--uuid', '123456781234123412341234567890ab'
+            // -PquickPlay=<save> opens that save straight from launch (scripts/quicklaunch.sh).
+            programArguments.addAll providers.gradleProperty('quickPlay').map { ['--quickPlaySingleplayer', it] }.orElse([])
         }
         server {
             server()
