@@ -19,7 +19,7 @@ The library mod for mass placement and **Dismantle**, for the Mod and the Pack a
 _Avoid_: placementpreview (its old name), preview lib, the renderer, Groundwork
 
 **the Pack**:
-PlanetaryFactory, the modpack that is the Mod's first consumer.
+PlanetaryFactory, the modpack that is the Mod's first consumer. Its repo is adamico/planetary-factory, checked out at `~/curseforge/Instances/PlanetaryFactory`.
 _Avoid_: the modpack, PF
 
 **Proving set**:
