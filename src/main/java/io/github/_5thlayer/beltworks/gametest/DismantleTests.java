@@ -41,7 +41,7 @@ import io.github._5thlayer.beltworks.model.TransportLine;
 
 /**
  * A Dismantle (PlanetaryFactory #404): each test sneak-clicks a start with a pickaxe, a dismantling tool by default, through the player's
- * game mode, asks {@link Dismantling#plan} for the end, sneak-clicks it, and holds the world, the
+ * game mode, asks {@link Dismantling#plan} for the end, clicks it, and holds the world, the
  * inventory and the stored start to the plan. An accepted plan leaves none of its tiles or wedges
  * standing and hands the player a tile for each and every item they carried; a refused plan changes
  * no block, no slot and no stored start, and names its reason on the action bar.
@@ -79,7 +79,9 @@ final class DismantleTests {
                 () -> {
                     for (int i = 0; i < 3; i++) helper.setBlock(START.south(2).east(i), BeltTileTests.tile(BeltTier.BELT, Direction.EAST));
                 }, START.south(2).east(1)));
-        tests.test("a_click_after_the_start_tile_broke_is_a_new_start", 20, DismantleTests::staleStart);
+        tests.test("a_sneak_click_after_the_start_tile_broke_is_a_new_start", 20, DismantleTests::staleStart);
+        tests.test("a_sneak_click_with_a_start_stored_moves_the_start", 20, DismantleTests::movesStart);
+        tests.test("a_click_with_no_start_stored_takes_up_nothing", 20, DismantleTests::noStart);
         tests.test("a_sneak_use_in_the_air_clears_the_dismantle_start", 20, DismantleTests::clears);
     }
 
@@ -237,7 +239,7 @@ final class DismantleTests {
         List<BlockPos> tiles = row(helper, 4);
         var player = started(helper, tiles.getFirst());
         helper.destroyBlock(tiles.getFirst());
-        click(helper, player, tiles.get(2));
+        sneakClick(helper, player, tiles.get(2));
         if (!helper.absolutePos(tiles.get(2)).equals(player.getMainHandItem().get(ComponentContent.DISMANTLE_START.get()))) {
             helper.fail("a click after the start broke stored " + player.getMainHandItem().get(ComponentContent.DISMANTLE_START.get())
                     + ", not the clicked tile", tiles.get(2));
@@ -246,6 +248,43 @@ final class DismantleTests {
         for (BlockPos tile : tiles.subList(1, tiles.size())) {
             if (!(helper.getLevel().getBlockEntity(helper.absolutePos(tile)) instanceof BeltTileBlockEntity)) {
                 helper.fail("a click after the start broke took up a tile", tile);
+                return;
+            }
+        }
+        helper.succeed();
+    }
+
+    private static void movesStart(GameTestHelper helper) {
+        List<BlockPos> tiles = row(helper, 4);
+        var player = started(helper, tiles.getFirst());
+        sneakClick(helper, player, tiles.get(2));
+        if (!helper.absolutePos(tiles.get(2)).equals(player.getMainHandItem().get(ComponentContent.DISMANTLE_START.get()))) {
+            helper.fail("a sneak-click with a start stored left " + player.getMainHandItem().get(ComponentContent.DISMANTLE_START.get())
+                    + " as the start, not the clicked tile", tiles.get(2));
+            return;
+        }
+        for (BlockPos tile : tiles) {
+            if (!(helper.getLevel().getBlockEntity(helper.absolutePos(tile)) instanceof BeltTileBlockEntity)) {
+                helper.fail("a sneak-click with a start stored took up a tile", tile);
+                return;
+            }
+        }
+        helper.succeed();
+    }
+
+    private static void noStart(GameTestHelper helper) {
+        List<BlockPos> tiles = row(helper, 3);
+        var player = new ListeningPlayer(helper);
+        player.setGameMode(GameType.SURVIVAL);
+        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_PICKAXE));
+        click(helper, player, tiles.get(1));
+        if (player.getMainHandItem().has(ComponentContent.DISMANTLE_START.get())) {
+            helper.fail("a click with no start stored stored one", tiles.get(1));
+            return;
+        }
+        for (BlockPos tile : tiles) {
+            if (!(helper.getLevel().getBlockEntity(helper.absolutePos(tile)) instanceof BeltTileBlockEntity)) {
+                helper.fail("a click with no start stored took up a tile", tile);
                 return;
             }
         }
@@ -265,7 +304,7 @@ final class DismantleTests {
     }
 
     /**
-     * Asks the plan of a sneak-click at {@code end}, clicks, and holds the world to it: none of its
+     * Asks the plan of a click at {@code end}, clicks, and holds the world to it: none of its
      * tiles or wedges standing, {@code tiles} tile items and {@code items} ingots handed over, and the
      * start cleared.
      */
@@ -344,7 +383,7 @@ final class DismantleTests {
         player.setGameMode(GameType.SURVIVAL);
         player.setPos(helper.absoluteVec(new Vec3(START.getX() + 0.5, START.getY(), START.getZ() - 1.5)));
         player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_PICKAXE));
-        click(helper, player, start);
+        sneakClick(helper, player, start);
         if (!helper.absolutePos(start).equals(player.getMainHandItem().get(ComponentContent.DISMANTLE_START.get()))) {
             helper.fail("a sneak-click on a tile stored " + player.getMainHandItem().get(ComponentContent.DISMANTLE_START.get())
                     + " as the start", start);
@@ -356,8 +395,18 @@ final class DismantleTests {
         return Dismantling.plan(helper.getLevel(), player.getMainHandItem(), helper.absolutePos(end));
     }
 
-    private static void click(GameTestHelper helper, ListeningPlayer player, BlockPos at) {
+    private static void sneakClick(GameTestHelper helper, ListeningPlayer player, BlockPos at) {
         player.setShiftKeyDown(true);
+        use(helper, player, at);
+        player.setShiftKeyDown(false);
+    }
+
+    private static void click(GameTestHelper helper, ListeningPlayer player, BlockPos at) {
+        player.setShiftKeyDown(false);
+        use(helper, player, at);
+    }
+
+    private static void use(GameTestHelper helper, ListeningPlayer player, BlockPos at) {
         BlockPos absolute = helper.absolutePos(at);
         player.gameMode.useItemOn(player, helper.getLevel(), player.getMainHandItem(), InteractionHand.MAIN_HAND,
                 new BlockHitResult(Vec3.atCenterOf(absolute), Direction.UP, absolute, false));

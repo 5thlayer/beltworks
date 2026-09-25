@@ -111,7 +111,7 @@ The tiles one drag of the tile item lays, placed, charged and refused as one. A 
 _Avoid_: run, zoop, drag (the gesture, not what it lays), tile path
 
 **Dismantle**:
-Taking up a span of one transport line from one tile to another, both included, in two sneak-clicks of a dismantling tool (by default a wrench or a pickaxe): the first stores the start, the second names the end. The span follows the line through its corners and slopes, either way along it, and takes the tiles' wedges and every item they carry; the rest of the line keeps what it carries. Loaders and splitters are never taken. What the span drops goes to the inventory, and what does not fit drops at the player's feet. Distinct from mining, which breaks one tile.
+Taking up a span of one transport line from one tile to another, both included, with a dismantling tool (by default a wrench or a pickaxe): a sneak-click stores the start, and a click names the end. A sneak-click with a start stored moves it there. The span follows the line through its corners and slopes, either way along it, and takes the tiles' wedges and every item they carry; the rest of the line keeps what it carries. Loaders and splitters are never taken. What the span drops goes to the inventory, and what does not fit drops at the player's feet. Distinct from mining, which breaks one tile.
 _Avoid_: deconstruct, mass mine, unstretch
 
 **Placement Plan**:

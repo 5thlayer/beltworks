@@ -30,10 +30,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Taking up a line's tiles in two sneak-clicks of an item in {@link #DISMANTLES_BELTS}
- * (PlanetaryFactory #404). The first stores the start on the held stack, the second takes up the
- * {@link Dismantle} span to the aimed tile. A start whose tile is gone or turned is no start, so
- * the next click stores a new one; a sneak-use in the air clears it.
+ * Taking up a line's tiles with an item in {@link #DISMANTLES_BELTS} (PlanetaryFactory #404): a
+ * sneak-click stores the start on the held stack, and a click takes up the {@link Dismantle} span
+ * to the aimed tile. A sneak-click with a start stored moves it. A start whose tile is gone or
+ * turned is no start, so a click passes on as it would; a sneak-use in the air clears it.
  */
 public final class Dismantling {
 
@@ -62,7 +62,7 @@ public final class Dismantling {
                  && level.getBlockState(pos.above()).getBlock() instanceof BeltTileBlock ? pos.above() : pos;
     }
 
-    /** What a sneak-click at {@code aimed} would take up, or null when {@code held} has no live start. */
+    /** What a click at {@code aimed} would take up, or null when {@code held} has no live start. */
     public static @Nullable DismantlePlan plan(Level level, ItemStack held, BlockPos aimed) {
         if (!dismantles(held)) return null;
         var start = liveStart(level, held);
@@ -80,14 +80,17 @@ public final class Dismantling {
         return new DismantlePlan(tiles, wedges, null);
     }
 
-    /** A click on a block, or PASS where the gesture has nothing to say and the click goes on as it would. */
+    /**
+     * A click on a block, or PASS where the gesture has nothing to say and the click goes on as it
+     * would. With a live start every click on a block is the dismantle's, as the preview shows the
+     * dismantle whatever the aim.
+     */
     public static InteractionResult useOn(Player player, InteractionHand hand, BlockPos pos) {
         var held = player.getItemInHand(hand);
-        if (!player.isShiftKeyDown() || !dismantles(held)) return InteractionResult.PASS;
+        if (!dismantles(held)) return InteractionResult.PASS;
         var level = player.level();
         var aimed = aimedTile(level, pos);
-        var plan = plan(level, held, aimed);
-        if (plan == null) {
+        if (player.isShiftKeyDown()) {
             if (!(level.getBlockState(aimed).getBlock() instanceof BeltTileBlock)) return InteractionResult.PASS;
             if (!level.isClientSide()) {
                 held.set(ComponentContent.DISMANTLE_START.get(), aimed.immutable());
@@ -96,6 +99,8 @@ public final class Dismantling {
             }
             return InteractionResult.SUCCESS;
         }
+        var plan = plan(level, held, aimed);
+        if (plan == null) return InteractionResult.PASS;
         if (level.isClientSide()) return InteractionResult.SUCCESS;
         if (plan.refused()) {
             tell(player, plan.message());

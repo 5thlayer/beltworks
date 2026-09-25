@@ -50,15 +50,16 @@ public final class BeltHandClient {
 
     /**
      * The belt under the crosshair within reach, unless a block or an entity is nearer. A held tile
-     * or splitter is never a hand, since its click places one, and nor is a sneak with an item that
-     * dismantles, since its click is a dismantle (#404).
+     * or splitter is never a hand, since its click places one, and nor is an item that dismantles
+     * when sneaking or with a start stored, since its click is a dismantle's (#404).
      */
     private static BeltCollisionRegistry.@Nullable BeltHit aim(Minecraft minecraft) {
         var player = minecraft.player;
         if (player == null || minecraft.level == null) return null;
         var held = player.getMainHandItem().getItem();
         if (held instanceof SplitterItem || held instanceof BeltTileItem) return null;
-        if (player.isShiftKeyDown() && Dismantling.dismantles(player.getMainHandItem())) return null;
+        var stack = player.getMainHandItem();
+        if (Dismantling.dismantles(stack) && (player.isShiftKeyDown() || Dismantling.liveStart(minecraft.level, stack) != null)) return null;
         var eye = player.getEyePosition();
         // A tile is aimed as a whole block, since its surface is too thin to aim at reliably (#396).
         if (minecraft.hitResult instanceof BlockHitResult block && block.getType() == HitResult.Type.BLOCK
