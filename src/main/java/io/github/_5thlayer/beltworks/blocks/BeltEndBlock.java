@@ -37,11 +37,12 @@ import io.github._5thlayer.beltworks.model.BeltTier;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-public class LoaderBlock extends HorizontalDirectionalBlock implements EntityBlock {
+/** The block of a belt end: a loader, or through {@link SplitterBlock} a splitter half. */
+public class BeltEndBlock extends HorizontalDirectionalBlock implements EntityBlock {
     
     private final BeltTier tier;
 
-    public LoaderBlock(BlockBehaviour.Properties settings, BeltTier tier) {
+    public BeltEndBlock(BlockBehaviour.Properties settings, BeltTier tier) {
         super(settings);
         this.tier = tier;
         registerDefaultState(defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH));
@@ -109,7 +110,7 @@ public class LoaderBlock extends HorizontalDirectionalBlock implements EntityBlo
     
     @Override
     protected MapCodec<? extends HorizontalDirectionalBlock> codec() {
-        return simpleCodec(settings -> new LoaderBlock(settings, tier));
+        return simpleCodec(settings -> new BeltEndBlock(settings, tier));
     }
     
     @Override
@@ -137,7 +138,7 @@ public class LoaderBlock extends HorizontalDirectionalBlock implements EntityBlo
         
         if (world.isClientSide()) return super.playerWillDestroy(world, pos, state, player);
         
-        world.getBlockEntity(pos, BlockEntitiesContent.BELT_END.get()).ifPresent(loader -> loader.releaseBelts(player));
+        world.getBlockEntity(pos, BlockEntitiesContent.BELT_END.get()).ifPresent(beltEnd -> beltEnd.releaseBelts(player));
         
         return super.playerWillDestroy(world, pos, state, player);
     }

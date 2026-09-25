@@ -74,7 +74,7 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
 
     public BeltEndBlockEntity(BlockPos pos, BlockState state) {
         super(BlockEntitiesContent.BELT_END.get(), pos, state);
-        var tier = ((LoaderBlock) state.getBlock()).tier();
+        var tier = ((BeltEndBlock) state.getBlock()).tier();
         splitter = state.getBlock() instanceof SplitterBlock;
         flow = new FlowLimit(tier.itemsPerTick());
         // Splitters draw no power (ADR 0007).

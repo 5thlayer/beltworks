@@ -6,7 +6,7 @@ package io.github._5thlayer.beltworks;
 
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.BeltWedgeBlock;
-import io.github._5thlayer.beltworks.blocks.LoaderBlock;
+import io.github._5thlayer.beltworks.blocks.BeltEndBlock;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import net.minecraft.core.registries.Registries;
@@ -76,7 +76,7 @@ public class BlockContent {
     }
 
     private static DeferredHolder<Block, Block> loader(BeltTier tier) {
-        return BLOCKS.register(tier.loader(), () -> new LoaderBlock(
+        return BLOCKS.register(tier.loader(), () -> new BeltEndBlock(
           BlockBehaviour.Properties.ofLegacyCopy(Blocks.GLASS).sound(SoundType.POINTED_DRIPSTONE).noOcclusion().setId(ResourceKey.create(Registries.BLOCK, Beltworks.id(tier.loader()))), tier));
     }
 

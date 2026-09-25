@@ -36,7 +36,7 @@ import java.util.Locale;
  * of belt of the splitter's tier (PlanetaryFactory #373). The halves share the loader's block
  * entity, with no inventory and no filter.
  */
-public class SplitterBlock extends LoaderBlock {
+public class SplitterBlock extends BeltEndBlock {
 
     public static final EnumProperty<Side> SIDE = EnumProperty.create("side", Side.class);
 
