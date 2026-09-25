@@ -6,6 +6,7 @@ package io.github._5thlayer.beltworks.model;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.OptionalDouble;
 
 /**
  * The struts that show a raised line held up, where a builder would put them (ADR 0012): a frame
@@ -52,8 +53,12 @@ public record Support(List<Leg> legs, boolean framed) {
 
         Fill fill(LineScan.Spot spot);
 
-        /** Where a leg standing at {@code x}, {@code z} in its block stops on the block at {@code spot}, in blocks from its floor. */
-        double top(LineScan.Spot spot, double x, double z);
+        /**
+         * Where a leg standing at {@code x}, {@code z} in its block stops on the block at {@code spot},
+         * in blocks from its floor, or empty where nothing of that block is drawn there, as outside a
+         * turn's curve, and the leg passes it.
+         */
+        OptionalDouble top(LineScan.Spot spot, double x, double z);
 
         /** Whether the block at {@code spot} is solid on its face turned {@code toward}, so a tile there is fixed to it. */
         boolean fixes(LineScan.Spot spot, LineScan.Travel toward);
@@ -88,7 +93,7 @@ public record Support(List<Leg> legs, boolean framed) {
               && !firstOrLast(spot, travel, pitch, around)) return null;
         if (heldUp(spot, ground) || fixed(spot, travel, shape, ground)) return null;
         return new Support(CORNERS.stream().map(corner -> foot(corner, travel, shape)).map(foot -> {
-            var top = Math.min(Pitch.SURFACE, surface(pitch, travel, foot[0], foot[1]));
+            var top = Math.min(Pitch.SURFACE, surface(pitch, travel, shape, foot[0], foot[1]).orElseThrow());
             return leg(spot, foot, top, ground, setting.reach());
         }).toList(), pitch == Pitch.LEVEL);
     }
@@ -119,12 +124,16 @@ public record Support(List<Leg> legs, boolean framed) {
     // corner is empty: the leg there stands back on the diagonal, where the curve's outer edge is.
     private static double[] foot(double[] corner, LineScan.Travel travel, TileShape shape) {
         if (shape == TileShape.STRAIGHT) return corner;
-        var side = shape == TileShape.FROM_LEFT ? TileShape.left(travel) : TileShape.right(travel);
-        var innerX = 0.5 + 0.5 * (side.x() + travel.x());
-        var innerZ = 0.5 + 0.5 * (side.z() + travel.z());
-        if (corner[0] != 1 - innerX || corner[1] != 1 - innerZ) return corner;
+        var inner = inner(travel, shape);
+        if (corner[0] != 1 - inner[0] || corner[1] != 1 - inner[1]) return corner;
         var back = 1 / Math.sqrt(2);
-        return new double[] {innerX + (corner[0] - innerX) * back, innerZ + (corner[1] - innerZ) * back};
+        return new double[] {inner[0] + (corner[0] - inner[0]) * back, inner[1] + (corner[1] - inner[1]) * back};
+    }
+
+    // The corner of its block a turn's quarter disc is about: between its entry side and its front.
+    private static double[] inner(LineScan.Travel travel, TileShape shape) {
+        var side = shape == TileShape.FROM_LEFT ? TileShape.left(travel) : TileShape.right(travel);
+        return new double[] {0.5 + 0.5 * (side.x() + travel.x()), 0.5 + 0.5 * (side.z() + travel.z())};
     }
 
     // Where a slope bends, a builder holds it up whether or not its line stops there.
@@ -178,15 +187,26 @@ public record Support(List<Leg> legs, boolean framed) {
         for (var down = 1; down <= reach + 1; down++) {
             var at = spot.up(-down);
             if (ground.fill(at) == Fill.OPEN) continue;
-            var bottom = ground.top(at, x, z) - down;
+            var under = ground.top(at, x, z);
+            if (under.isEmpty()) continue;
+            var bottom = under.getAsDouble() - down;
             if (Pitch.SURFACE - bottom > reach) break;
             return new Leg(x, z, top, bottom, true);
         }
         return new Leg(x, z, top, Pitch.SURFACE - reach, false);
     }
 
-    /** The surface of a belt tile of {@code pitch} travelling {@code travel} at {@code x}, {@code z} in its block, where a leg stands on it. */
-    public static double surface(Pitch pitch, LineScan.Travel travel, double x, double z) {
-        return pitch.surface((x - 0.5) * travel.x() + (z - 0.5) * travel.z() + 0.5);
+    /**
+     * The surface of a belt tile of {@code pitch} and {@code shape} travelling {@code travel} at
+     * {@code x}, {@code z} in its block, where a leg stands on it, or empty outside a turn's curve,
+     * where nothing is drawn and a leg passes it.
+     */
+    public static OptionalDouble surface(Pitch pitch, LineScan.Travel travel, TileShape shape, double x, double z) {
+        if (shape != TileShape.STRAIGHT) {
+            var inner = inner(travel, shape);
+            // A turn's own outer leg stands back onto the curve's edge, so a hair's slack keeps it on it.
+            if (Math.hypot(x - inner[0], z - inner[1]) > 1 + 1e-9) return OptionalDouble.empty();
+        }
+        return OptionalDouble.of(pitch.surface((x - 0.5) * travel.x() + (z - 0.5) * travel.z() + 0.5));
     }
 }

@@ -14,6 +14,7 @@ A raised line shows a **support** where a builder would hold it up. See **Suppor
 - Place a block under a floating line's last tile, a few blocks down. The legs shorten to it at once. Dig it out and they lengthen again. Try it 30 blocks down too.
 - Over a drop deeper than 64 blocks, the legs run on out of sight.
 - A raised line crossing a lower one at right angles: its legs land on the lower tile's corners, clear of the items it carries.
+- A raised line one block above a lower line that turns under it: the leg over the corner's empty outer corner passes it and reaches the ground below, with no foot stopping in mid-air beside the curve. Its other legs land on the curve.
 - Walk through the legs. They have no collision.
 - Stand under a raised line's last tile and look up, then look down at it from above. Its legs stay drawn while the tile is off screen.
 - A floating slope's foot and top show a support, whether or not its line stops there; its middles show one only where the spacing falls on them, with no frame. Check a climb and a descent, each mid-line and at a line's ends, and a long climb across a multiple of 8.

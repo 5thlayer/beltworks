@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalDouble;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -549,11 +550,65 @@ class SupportTest {
     // A slope's surface under a leg is its height that far along, so a leg lands on it there.
     @Test
     void aBeltTilesSurfaceUnderALegFollowsItsPitch() {
-        assertEquals(Pitch.SURFACE, Support.surface(Pitch.LEVEL, EAST, 0, 0));
-        assertEquals(0, Support.surface(Pitch.MIDDLE_UP, EAST, 0, 1));
-        assertEquals(1, Support.surface(Pitch.MIDDLE_UP, EAST, 1, 0));
-        assertEquals(1, Support.surface(Pitch.MIDDLE_UP, SOUTH, 0, 1));
-        assertEquals(0, Support.surface(Pitch.MIDDLE_UP, SOUTH, 1, 0));
+        assertEquals(Pitch.SURFACE, Support.surface(Pitch.LEVEL, EAST, TileShape.STRAIGHT, 0, 0).getAsDouble());
+        assertEquals(0, Support.surface(Pitch.MIDDLE_UP, EAST, TileShape.STRAIGHT, 0, 1).getAsDouble());
+        assertEquals(1, Support.surface(Pitch.MIDDLE_UP, EAST, TileShape.STRAIGHT, 1, 0).getAsDouble());
+        assertEquals(1, Support.surface(Pitch.MIDDLE_UP, SOUTH, TileShape.STRAIGHT, 0, 1).getAsDouble());
+        assertEquals(0, Support.surface(Pitch.MIDDLE_UP, SOUTH, TileShape.STRAIGHT, 1, 0).getAsDouble());
+    }
+
+    // A turn is a quarter disc about its inner corner: nothing is drawn at its outer corner.
+    @Test
+    void aTurnHasNoSurfaceAtItsOuterCorner() {
+        // Travelling east and fed from the north: its inner corner is the north-east, its outer the south-west.
+        assertTrue(Support.surface(Pitch.LEVEL, EAST, TileShape.FROM_LEFT, 0, 1).isEmpty());
+        assertEquals(Pitch.SURFACE, Support.surface(Pitch.LEVEL, EAST, TileShape.FROM_LEFT, 1, 0).getAsDouble());
+        assertEquals(Pitch.SURFACE, Support.surface(Pitch.LEVEL, EAST, TileShape.FROM_LEFT, 0, 0).getAsDouble());
+        assertEquals(Pitch.SURFACE, Support.surface(Pitch.LEVEL, EAST, TileShape.FROM_LEFT, 1, 1).getAsDouble());
+        assertEquals(Pitch.SURFACE, Support.surface(Pitch.LEVEL, EAST, TileShape.STRAIGHT, 0, 1).getAsDouble());
+    }
+
+    // A raised line's first tile over a lower line that turns under it, a block below: fed from the
+    // north and leaving east, the lower corner's outer corner is the south-west.
+    private void overACorner() {
+        tile(0, 9, -1, SOUTH);
+        tile(0, 9, 0, EAST);
+        tile(1, 9, 0, EAST);
+        for (var x = 0; x <= 4; x++) tile(x, 11, 0, EAST);
+    }
+
+    // Nothing is drawn at a turn's outer corner, so a leg over it passes it like an open block.
+    @Test
+    void aLegOverACornersOuterCornerPassesIt() {
+        overACorner();
+        fill(0, 8, 0, Support.Fill.SOLID);
+
+        var leg = legAt(support(0, 11, 0), 0, 1);
+
+        // The top of the block at y = 8 is 2 blocks below the raised tile's floor at y = 11.
+        assertEquals(-2, leg.bottom());
+        assertTrue(leg.standing());
+    }
+
+    @Test
+    void aLegOverACornersCurveStandsOnItsSurface() {
+        overACorner();
+        fill(0, 8, 0, Support.Fill.SOLID);
+
+        for (var leg : support(0, 11, 0).legs()) {
+            if (leg.x() == 0 && leg.z() == 1) continue;
+            assertEquals(Pitch.SURFACE - 2, leg.bottom(), leg.toString());
+        }
+    }
+
+    @Test
+    void aLegPassingACornerWithNothingWithinReachRunsOnPastIt() {
+        overACorner();
+
+        var leg = legAt(support(0, 11, 0), 0, 1);
+
+        assertEquals(Pitch.SURFACE - setting.reach(), leg.bottom());
+        assertFalse(leg.standing());
     }
 
     @Test
@@ -620,6 +675,10 @@ class SupportTest {
     /** Where each leg stands, in order round the block. */
     private static List<List<Double>> round(Support support) {
         return support.legs().stream().map(leg -> List.of(leg.x(), leg.z())).toList();
+    }
+
+    private static Support.Leg legAt(Support support, double x, double z) {
+        return support.legs().stream().filter(leg -> leg.x() == x && leg.z() == z).findFirst().orElseThrow();
     }
 
     private static Set<List<Double>> feet(Support support) {
@@ -696,9 +755,12 @@ class SupportTest {
                 return fills.getOrDefault(spot, Support.Fill.OPEN);
             }
 
+            // A tile's surface where the leg stands, as the world's; any other block's top is set or 1.
             @Override
-            public double top(LineScan.Spot spot, double x, double z) {
-                return tops.getOrDefault(spot, 1d);
+            public OptionalDouble top(LineScan.Spot spot, double x, double z) {
+                var travel = tiles.get(spot);
+                if (travel == null || tops.containsKey(spot)) return OptionalDouble.of(tops.getOrDefault(spot, 1d));
+                return Support.surface(Pitch.at(spot, travel, around()), travel, TileShape.at(spot, travel, around()), x, z);
             }
 
             @Override

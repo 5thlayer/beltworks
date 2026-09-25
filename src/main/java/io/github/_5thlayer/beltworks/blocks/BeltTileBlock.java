@@ -47,6 +47,7 @@ import io.github._5thlayer.beltworks.model.Wedge;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.OptionalDouble;
 
 /**
  * One block of belt (PlanetaryFactory #398). Its facing is its direction of travel, and its shape,
@@ -343,16 +344,18 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
                 return state.isFaceSturdy(level, pos, Direction.UP) ? Support.Fill.SOLID : Support.Fill.OPEN;
             }
 
-            // A tile's surface where the leg stands, a loader's or splitter's top, or a solid block's.
+            // A tile's surface where the leg stands, or nothing outside a turn's curve; a loader's or
+            // splitter's top, or a solid block's.
             @Override
-            public double top(LineScan.Spot spot, double x, double z) {
+            public OptionalDouble top(LineScan.Spot spot, double x, double z) {
                 var pos = pos(spot);
                 var state = level.getBlockState(pos);
                 if (state.getBlock() instanceof BeltTileBlock) {
-                    return Support.surface(state.getValue(PITCH).model(), travel(state.getValue(BlockStateProperties.HORIZONTAL_FACING)), x, z);
+                    return Support.surface(state.getValue(PITCH).model(), travel(state.getValue(BlockStateProperties.HORIZONTAL_FACING)),
+                      state.getValue(CORNER).model(), x, z);
                 }
-                if (state.getBlock() instanceof BeltEndBlock) return state.getShape(level, pos).max(Direction.Axis.Y);
-                return 1;
+                if (state.getBlock() instanceof BeltEndBlock) return OptionalDouble.of(state.getShape(level, pos).max(Direction.Axis.Y));
+                return OptionalDouble.of(1);
             }
 
             @Override
