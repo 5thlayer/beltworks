@@ -61,14 +61,19 @@ public record Support(List<Leg> legs) {
 
     /**
      * The support a tile at {@code spot} travelling {@code travel} shows, or null where it shows
-     * none: only where the tile turns or is its line's first or last, and only over air. A slope's
-     * legs start at a level tile's surface too, and pass its wedge.
+     * none: only where the tile turns, is a foot or a top, or is its line's first or last, and only
+     * over air. Each leg stops at the tile's surface where it stands, and no higher than a level
+     * tile's, so a slope's legs pass its wedge and meet its low edge.
      */
     public static @Nullable Support at(LineScan.Spot spot, LineScan.Travel travel, TileShape.Around around, Ground ground) {
+        var pitch = Pitch.at(spot, travel, around);
         var shape = TileShape.at(spot, travel, around);
-        if (shape == TileShape.STRAIGHT && !firstOrLast(spot, travel, around)) return null;
+        if (shape == TileShape.STRAIGHT && !footOrTop(pitch) && !firstOrLast(spot, travel, pitch, around)) return null;
         if (heldUp(spot, ground) || fixed(spot, travel, shape, ground)) return null;
-        return new Support(CORNERS.stream().map(corner -> foot(corner, travel, shape)).map(foot -> leg(spot, foot, ground)).toList());
+        return new Support(CORNERS.stream().map(corner -> foot(corner, travel, shape)).map(foot -> {
+            var top = Math.min(Pitch.SURFACE, surface(pitch, travel, foot[0], foot[1]));
+            return leg(spot, foot, top, ground);
+        }).toList());
     }
 
     /**
@@ -86,7 +91,7 @@ public record Support(List<Leg> legs) {
         return new Support(CORNERS.stream().map(corner -> {
             // A corner on the left half's right side moves out to the right half's.
             var onRight = (corner[0] - 0.5) * toRight.x() + (corner[1] - 0.5) * toRight.z() > 0;
-            return onRight ? leg(right, corner, ground).shifted(toRight) : leg(left, corner, ground);
+            return onRight ? leg(right, corner, Pitch.SURFACE, ground).shifted(toRight) : leg(left, corner, Pitch.SURFACE, ground);
         }).toList());
     }
 
@@ -102,10 +107,14 @@ public record Support(List<Leg> legs) {
         return new double[] {innerX + (corner[0] - innerX) * back, innerZ + (corner[1] - innerZ) * back};
     }
 
+    // Where a slope bends, a builder holds it up whether or not its line stops there.
+    private static boolean footOrTop(Pitch pitch) {
+        return pitch == Pitch.FOOT_UP || pitch == Pitch.TOP_UP || pitch == Pitch.FOOT_DOWN || pitch == Pitch.TOP_DOWN;
+    }
+
     // A tile's line runs on through the tile behind it, at its feeder's height, that travels its way
     // and feeds it, and through the tile ahead, at its fed height, that enters from it.
-    private static boolean firstOrLast(LineScan.Spot spot, LineScan.Travel travel, TileShape.Around around) {
-        var pitch = Pitch.at(spot, travel, around);
+    private static boolean firstOrLast(LineScan.Spot spot, LineScan.Travel travel, Pitch pitch, TileShape.Around around) {
         var behind = spot.step(travel, -1).up(pitch.feeder());
         if (!travel.equals(around.tile(behind)) || Pitch.at(behind, travel, around).fed() != -pitch.feeder()) return true;
         var ahead = spot.step(travel, 1).up(pitch.fed());
@@ -136,7 +145,7 @@ public record Support(List<Leg> legs) {
         return ground.fixes(spot.step(side, 1), TileShape.back(side));
     }
 
-    private static Leg leg(LineScan.Spot spot, double[] foot, Ground ground) {
+    private static Leg leg(LineScan.Spot spot, double[] foot, double top, Ground ground) {
         var x = foot[0];
         var z = foot[1];
         for (var down = 1; down <= REACH + 1; down++) {
@@ -144,9 +153,9 @@ public record Support(List<Leg> legs) {
             if (ground.fill(at) == Fill.OPEN) continue;
             var bottom = ground.top(at, x, z) - down;
             if (Pitch.SURFACE - bottom > REACH) break;
-            return new Leg(x, z, Pitch.SURFACE, bottom, true);
+            return new Leg(x, z, top, bottom, true);
         }
-        return new Leg(x, z, Pitch.SURFACE, Pitch.SURFACE - REACH, false);
+        return new Leg(x, z, top, Pitch.SURFACE - REACH, false);
     }
 
     /** The surface of a belt tile of {@code pitch} travelling {@code travel} at {@code x}, {@code z} in its block, where a leg stands on it. */

@@ -116,19 +116,19 @@ class SupportTest {
     }
 
     @Test
-    void aClimbMidLineShowsNone() {
+    void aClimbMidLineShowsASupportAtItsFootAndTopButNotItsMiddle() {
         climb();
 
         assertEquals(Pitch.FOOT_UP, Pitch.at(spot(1, 10, 0), EAST, around()));
         assertEquals(Pitch.MIDDLE_UP, Pitch.at(spot(2, 11, 0), EAST, around()));
         assertEquals(Pitch.TOP_UP, Pitch.at(spot(3, 12, 0), EAST, around()));
-        assertNull(support(1, 10, 0));
+        assertNotNull(support(1, 10, 0));
         assertNull(support(2, 11, 0));
-        assertNull(support(3, 12, 0));
+        assertNotNull(support(3, 12, 0));
     }
 
     @Test
-    void aDescentMidLineShowsNone() {
+    void aDescentMidLineShowsASupportAtItsTopAndFootButNotItsMiddle() {
         tile(0, 12, 0, EAST);
         tile(1, 12, 0, EAST);
         tile(2, 11, 0, EAST);
@@ -138,9 +138,9 @@ class SupportTest {
         assertEquals(Pitch.TOP_DOWN, Pitch.at(spot(1, 12, 0), EAST, around()));
         assertEquals(Pitch.MIDDLE_DOWN, Pitch.at(spot(2, 11, 0), EAST, around()));
         assertEquals(Pitch.FOOT_DOWN, Pitch.at(spot(3, 10, 0), EAST, around()));
-        assertNull(support(1, 12, 0));
+        assertNotNull(support(1, 12, 0));
         assertNull(support(2, 11, 0));
-        assertNull(support(3, 10, 0));
+        assertNotNull(support(3, 10, 0));
     }
 
     // A level tile's line runs on through a foot ahead of it and a top behind it.
@@ -156,7 +156,7 @@ class SupportTest {
 
     // Its wedge, in the block under it, holds nothing up: the legs pass it.
     @Test
-    void aSlopesLegsStartAtALevelTilesSurfaceAndPassItsWedge() {
+    void aSlopesLegsPassItsWedge() {
         tile(0, 10, 0, EAST);
         tile(1, 10, 0, EAST);
         tile(2, 11, 0, EAST);
@@ -166,11 +166,38 @@ class SupportTest {
         var legs = support(2, 11, 0).legs();
 
         assertEquals(4, legs.size());
-        for (var leg : legs) {
-            assertEquals(Pitch.SURFACE, leg.top());
-            // The top of the block at y = 8 is 2 blocks below the tile's floor at y = 11.
-            assertEquals(-2, leg.bottom());
-        }
+        // The top of the block at y = 8 is 2 blocks below the tile's floor at y = 11.
+        for (var leg : legs) assertEquals(-2, leg.bottom());
+    }
+
+    // A top's back edge is at its floor, and its front at a level tile's surface.
+    @Test
+    void aTopsLegsStopAtItsSurfaceWhereTheyStand() {
+        tile(0, 10, 0, EAST);
+        tile(1, 10, 0, EAST);
+        tile(2, 11, 0, EAST);
+
+        for (var leg : support(2, 11, 0).legs()) assertEquals(leg.x() == 0 ? 0 : Pitch.SURFACE, leg.top(), leg.toString());
+    }
+
+    // A foot's front edge is a block up, and its legs stop at a level tile's surface.
+    @Test
+    void aFootsLegsStopAtALevelTilesSurface() {
+        tile(0, 10, 0, EAST);
+        tile(1, 11, 0, EAST);
+
+        for (var leg : support(0, 10, 0).legs()) assertEquals(Pitch.SURFACE, leg.top(), leg.toString());
+    }
+
+    // A descent's top falls to its floor at its front edge.
+    @Test
+    void aDescentsTopsLegsStopAtItsSurfaceWhereTheyStand() {
+        tile(0, 11, 0, EAST);
+        tile(1, 11, 0, EAST);
+        tile(2, 10, 0, EAST);
+
+        assertEquals(Pitch.TOP_DOWN, Pitch.at(spot(1, 11, 0), EAST, around()));
+        for (var leg : support(1, 11, 0).legs()) assertEquals(leg.x() == 1 ? 0 : Pitch.SURFACE, leg.top(), leg.toString());
     }
 
     @Test
