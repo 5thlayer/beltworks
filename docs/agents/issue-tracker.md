@@ -4,14 +4,14 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 ## Conventions
 
-- **Create an issue**: `gh issue create -R adamico/SimpleBelts --title "..." --body "..."`. Use a heredoc for multi-line bodies.
-- **Read an issue**: `gh issue view -R adamico/SimpleBelts <number> --comments`, filtering comments by `jq` and also fetching labels.
-- **List issues**: `gh issue list -R adamico/SimpleBelts --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
-- **Comment on an issue**: `gh issue comment -R adamico/SimpleBelts <number> --body "..."`
-- **Apply / remove labels**: `gh issue edit -R adamico/SimpleBelts <number> --add-label "..."` / `--remove-label "..."`
-- **Close**: `gh issue close -R adamico/SimpleBelts <number> --comment "..."`
+- **Create an issue**: `gh issue create -R 5thlayer/beltworks --title "..." --body "..."`. Use a heredoc for multi-line bodies.
+- **Read an issue**: `gh issue view -R 5thlayer/beltworks <number> --comments`, filtering comments by `jq` and also fetching labels.
+- **List issues**: `gh issue list -R 5thlayer/beltworks --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
+- **Comment on an issue**: `gh issue comment -R 5thlayer/beltworks <number> --body "..."`
+- **Apply / remove labels**: `gh issue edit -R 5thlayer/beltworks <number> --add-label "..."` / `--remove-label "..."`
+- **Close**: `gh issue close -R 5thlayer/beltworks <number> --comment "..."`
 
-Always pass `-R adamico/SimpleBelts`. `origin` is this repo and is `gh`'s default, but `upstream` is `Rearth/SimpleBelts`, where issues are never filed. The flag keeps every command pinned whatever the default.
+Always pass `-R 5thlayer/beltworks`. `origin` is this repo and is `gh`'s default, but `upstream` is `Rearth/SimpleBelts`, where issues are never filed. The flag keeps every command pinned whatever the default.
 
 ## Pull requests as a triage surface
 
@@ -19,27 +19,27 @@ Always pass `-R adamico/SimpleBelts`. `origin` is this repo and is `gh`'s defaul
 
 When set to `yes`, PRs run through the same labels and states as issues, using the `gh pr` equivalents:
 
-- **Read a PR**: `gh pr view -R adamico/SimpleBelts <number> --comments` and `gh pr diff -R adamico/SimpleBelts <number>` for the diff.
-- **List external PRs for triage**: `gh pr list -R adamico/SimpleBelts --state open --json number,title,body,labels,author,authorAssociation,comments` then keep only `authorAssociation` of `CONTRIBUTOR`, `FIRST_TIME_CONTRIBUTOR`, or `NONE` (drop `OWNER`/`MEMBER`/`COLLABORATOR`).
-- **Comment / label / close**: `gh pr comment -R adamico/SimpleBelts`, `gh pr edit -R adamico/SimpleBelts --add-label`/`--remove-label`, `gh pr close -R adamico/SimpleBelts`.
+- **Read a PR**: `gh pr view -R 5thlayer/beltworks <number> --comments` and `gh pr diff -R 5thlayer/beltworks <number>` for the diff.
+- **List external PRs for triage**: `gh pr list -R 5thlayer/beltworks --state open --json number,title,body,labels,author,authorAssociation,comments` then keep only `authorAssociation` of `CONTRIBUTOR`, `FIRST_TIME_CONTRIBUTOR`, or `NONE` (drop `OWNER`/`MEMBER`/`COLLABORATOR`).
+- **Comment / label / close**: `gh pr comment -R 5thlayer/beltworks`, `gh pr edit -R 5thlayer/beltworks --add-label`/`--remove-label`, `gh pr close -R 5thlayer/beltworks`.
 
-GitHub shares one number space across issues and PRs, so a bare `#42` may be either — resolve with `gh pr view -R adamico/SimpleBelts 42` and fall back to `gh issue view -R adamico/SimpleBelts 42`.
+GitHub shares one number space across issues and PRs, so a bare `#42` may be either — resolve with `gh pr view -R 5thlayer/beltworks 42` and fall back to `gh issue view -R 5thlayer/beltworks 42`.
 
 ## When a skill says "publish to the issue tracker"
 
-Create a GitHub issue on `adamico/SimpleBelts`.
+Create a GitHub issue on `5thlayer/beltworks`.
 
 ## When a skill says "fetch the relevant ticket"
 
-Run `gh issue view -R adamico/SimpleBelts <number> --comments`.
+Run `gh issue view -R 5thlayer/beltworks <number> --comments`.
 
 ## Wayfinding operations
 
 Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.
 
-- **Map**: a single issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body. `gh issue create -R adamico/SimpleBelts --label wayfinder:map`.
+- **Map**: a single issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body. `gh issue create -R 5thlayer/beltworks --label wayfinder:map`.
 - **Child ticket**: an issue linked to the map as a GitHub sub-issue (`gh api` on the sub-issues endpoint). Where sub-issues aren't enabled, add the child to a task list in the map body and put `Part of #<map>` at the top of the child body. Labels: `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`). Once claimed, the ticket is assigned to the driving dev.
-- **Blocking**: GitHub's **native issue dependencies** — the canonical, UI-visible representation. Add an edge with `gh api --method POST repos/adamico/SimpleBelts/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`, where `<blocker-db-id>` is the blocker's numeric **database id** (`gh api repos/adamico/SimpleBelts/issues/<n> --jq .id`, _not_ the `#number` or `node_id`). GitHub reports `issue_dependencies_summary.blocked_by` (open blockers only — the live gate). Where dependencies aren't available, fall back to a `Blocked by: #<n>, #<n>` line at the top of the child body. A ticket is unblocked when every blocker is closed.
-- **Frontier query**: list the map's open children (`gh issue list -R adamico/SimpleBelts --state open`, scoped to the map's sub-issues / task list), drop any with an open blocker (`issue_dependencies_summary.blocked_by > 0`, or an open issue in the `Blocked by` line) or an assignee; first in map order wins.
-- **Claim**: `gh issue edit -R adamico/SimpleBelts <n> --add-assignee @me` — the session's first write.
-- **Resolve**: `gh issue comment -R adamico/SimpleBelts <n> --body "<answer>"`, then `gh issue close -R adamico/SimpleBelts <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.
+- **Blocking**: GitHub's **native issue dependencies** — the canonical, UI-visible representation. Add an edge with `gh api --method POST repos/5thlayer/beltworks/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`, where `<blocker-db-id>` is the blocker's numeric **database id** (`gh api repos/5thlayer/beltworks/issues/<n> --jq .id`, _not_ the `#number` or `node_id`). GitHub reports `issue_dependencies_summary.blocked_by` (open blockers only — the live gate). Where dependencies aren't available, fall back to a `Blocked by: #<n>, #<n>` line at the top of the child body. A ticket is unblocked when every blocker is closed.
+- **Frontier query**: list the map's open children (`gh issue list -R 5thlayer/beltworks --state open`, scoped to the map's sub-issues / task list), drop any with an open blocker (`issue_dependencies_summary.blocked_by > 0`, or an open issue in the `Blocked by` line) or an assignee; first in map order wins.
+- **Claim**: `gh issue edit -R 5thlayer/beltworks <n> --add-assignee @me` — the session's first write.
+- **Resolve**: `gh issue comment -R 5thlayer/beltworks <n> --body "<answer>"`, then `gh issue close -R 5thlayer/beltworks <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.

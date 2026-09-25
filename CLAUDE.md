@@ -2,7 +2,7 @@
 
 ### Issue tracker
 
-GitHub Issues on the fork `adamico/SimpleBelts` (always pass `-R adamico/SimpleBelts`). See `docs/agents/issue-tracker.md`.
+GitHub Issues on `5thlayer/beltworks` (always pass `-R 5thlayer/beltworks`). See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
