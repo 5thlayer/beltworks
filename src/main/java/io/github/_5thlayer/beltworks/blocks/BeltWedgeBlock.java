@@ -19,6 +19,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import io.github._5thlayer.groundworks.TurnsInPlace;
 import io.github._5thlayer.beltworks.model.Wedge;
 
 import java.util.EnumMap;
@@ -30,7 +31,7 @@ import java.util.Map;
  * its downhill edge. Its facing is the way the slope rises. Breaking it breaks the tile, which pays the one drop
  * (PlanetaryFactory #420).
  */
-public class BeltWedgeBlock extends HorizontalDirectionalBlock {
+public class BeltWedgeBlock extends HorizontalDirectionalBlock implements TurnsInPlace {
 
     private static final Map<Direction, VoxelShape> SHAPES = shapes();
 
@@ -57,6 +58,12 @@ public class BeltWedgeBlock extends HorizontalDirectionalBlock {
         shapes.put(Direction.EAST, Block.box(0, 10, 0, 6, 16, 16));
         shapes.put(Direction.WEST, Block.box(10, 10, 0, 16, 16, 16));
         return shapes;
+    }
+
+    // Only its slope's tile keeps a wedge, so a wedge turned alone would never be put right.
+    @Override
+    public TurnsInPlace.Verdict<BlockState> turnInPlace(BlockState state, Level level, BlockPos pos, boolean reverse) {
+        return TurnsInPlace.refused(BeltTileBlock.SLOPE_NOT_TURNED);
     }
 
     @Override

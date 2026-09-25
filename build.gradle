@@ -96,8 +96,8 @@ dependencies {
     // copy and this one resolve to one loaded version.
     jarJar(implementation('io.github.5thlayer:groundworks')) {
         version {
-            strictly '[0.1,0.2)'
-            prefer '0.1.0'
+            strictly '[0.2,0.3)'
+            prefer '0.2.0'
         }
     }
 

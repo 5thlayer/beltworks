@@ -9,9 +9,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
+import java.util.function.Predicate;
 
 import io.github._5thlayer.groundworks.Dismantles;
 import io.github._5thlayer.groundworks.Placements;
+import io.github._5thlayer.groundworks.Rotate;
 
 import io.github._5thlayer.beltworks.api.item.ItemApi;
 import io.github._5thlayer.beltworks.blocks.BeltEndBlockEntity;
@@ -26,6 +28,7 @@ import io.github._5thlayer.beltworks.neoforge.LoaderEnergyHandler;
 import io.github._5thlayer.beltworks.neoforge.NeoforgeItemApiImpl;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -53,8 +56,11 @@ public final class Beltworks {
     public Beltworks(IEventBus modBus, ModContainer container) {
         container.registerConfig(ModConfig.Type.SERVER, BeltworksConfig.SPEC);
         ItemApi.BLOCK = new NeoforgeItemApiImpl();
+        Predicate<Block> ours = block -> BuiltInRegistries.BLOCK.getKey(block).getNamespace().equals(MOD_ID);
         // Every block of the Mod's that places as vanilla does, such as a loader, gets a preview (ADR 0010).
-        Placements.optIn(block -> BuiltInRegistries.BLOCK.getKey(block).getNamespace().equals(MOD_ID));
+        Placements.optIn(ours);
+        // Rotate in Place turns the Mod's own blocks and never another mod's, each answering for itself.
+        Rotate.turnsInPlace(ours);
         // Groundworks runs the Dismantle, and the Mod supplies the belt's part (ADR 0011).
         Dismantles.register(new BeltFamily());
         modBus.addListener(Beltworks::registerCapabilities);

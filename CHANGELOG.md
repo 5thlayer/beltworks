@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Rotate (`R`) and Reverse Rotate (`Shift+R`), from Groundworks 0.2, with nothing else installed. A held tile, splitter or loader places turned a quarter per press, and a stretch's start is stored looking the turned way. A placed level tile or loader turns in place; a splitter half, a slope and a wedge refuse and say why, as does a level tile whose turn would slope a corner or leave its wedge no room. Rotate in Place never turns another mod's block.
+
 ## 0.1.0
 
 - Renamed to Beltworks, a mod of its own, with its version restarting at 0.1.0.

@@ -19,6 +19,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.LiquidBlock;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -32,6 +33,7 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
+import io.github._5thlayer.groundworks.TurnsInPlace;
 import io.github._5thlayer.beltworks.BlockContent;
 import io.github._5thlayer.beltworks.items.SplitterItem;
 import io.github._5thlayer.beltworks.items.StretchPlan;
@@ -51,7 +53,7 @@ import java.util.Map;
  * straight or a corner, follows from what feeds it (#391), as its pitch follows from the heights of
  * what feeds it and what it feeds (#417).
  */
-public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityBlock {
+public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityBlock, TurnsInPlace {
 
     public static final EnumProperty<Shape> CORNER = EnumProperty.create("shape", Shape.class);
     public static final EnumProperty<PitchState> PITCH = EnumProperty.create("pitch", PitchState.class);
@@ -62,6 +64,9 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
     // A tile's pitch asks the tiles a block up or down ahead and behind it, and each of those asks
     // its own (#417).
     private static final int DERIVED_REACH = 2;
+
+    /** Why a slope, or the wedge under one, is not turned in place (ADR 0005). */
+    public static final String SLOPE_NOT_TURNED = "message.beltworks.rotate_slope";
 
     private final BeltTier tier;
 
@@ -122,12 +127,21 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
         builder.add(BlockStateProperties.HORIZONTAL_FACING, CORNER, PITCH);
     }
 
-    // The way the player looks, as a Factorio belt is laid; the pack's Rotate turns the look itself
-    // (the Pack's ADR-0083).
+    // The way the player looks, as a Factorio belt is laid; Groundworks' Rotate turns the look itself.
     @Override
     public @Nullable BlockState getStateForPlacement(BlockPlaceContext ctx) {
         var state = defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, ctx.getHorizontalDirection());
         return shaped(state, ctx.getLevel(), ctx.getClickedPos());
+    }
+
+    // A slope never turns. A level tile takes vanilla's turn, unless a tile placed so would be
+    // refused, since the turn reshapes the tiles around it as a placement does (#419, #420).
+    @Override
+    public TurnsInPlace.Verdict<BlockState> turnInPlace(BlockState state, Level level, BlockPos pos, boolean reverse) {
+        if (state.getValue(PITCH) != PitchState.LEVEL) return TurnsInPlace.refused(SLOPE_NOT_TURNED);
+        var turned = state.rotate(level, pos, reverse ? Rotation.COUNTERCLOCKWISE_90 : Rotation.CLOCKWISE_90);
+        var reshape = reshape(level, Map.of(spot(pos), travel(turned.getValue(BlockStateProperties.HORIZONTAL_FACING))), this);
+        return reshape.refused() ? TurnsInPlace.refused(reshape.refusal().messageKey()) : TurnsInPlace.turned(shaped(turned, level, pos));
     }
 
     @Override

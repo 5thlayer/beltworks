@@ -26,6 +26,7 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
+import io.github._5thlayer.groundworks.TurnsInPlace;
 import io.github._5thlayer.beltworks.BlockEntitiesContent;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.Support;
@@ -38,9 +39,12 @@ import java.util.Locale;
  * of belt of the splitter's tier (PlanetaryFactory #373). The halves share the loader's block
  * entity, with no inventory and no filter.
  */
-public class SplitterBlock extends BeltEndBlock {
+public class SplitterBlock extends BeltEndBlock implements TurnsInPlace {
 
     public static final EnumProperty<Side> SIDE = EnumProperty.create("side", Side.class);
+
+    /** Why a splitter half is not turned in place. */
+    public static final String NOT_TURNED = "message.beltworks.rotate_splitter";
 
     // A tile's slab, with the divider on top (PlanetaryFactory #394).
     private static final VoxelShape SHAPE = Shapes.box(0, 0, 0, 1, 8 / 16d, 1);
@@ -63,6 +67,12 @@ public class SplitterBlock extends BeltEndBlock {
         return candidate.getBlock() == state.getBlock()
                  && candidate.getValue(FACING) == state.getValue(FACING)
                  && candidate.getValue(SIDE) != state.getValue(SIDE);
+    }
+
+    // One half turned alone splits the splitter, until it turns whole (PlanetaryFactory #407).
+    @Override
+    public TurnsInPlace.Verdict<BlockState> turnInPlace(BlockState state, Level level, BlockPos pos, boolean reverse) {
+        return TurnsInPlace.refused(NOT_TURNED);
     }
 
     // One support for both halves, which the left half shows.

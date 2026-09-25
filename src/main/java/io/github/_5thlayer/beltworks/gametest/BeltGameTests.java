@@ -76,6 +76,7 @@ public final class BeltGameTests {
         StretchTests.register(tests);
         DismantleTests.register(tests);
         SupportTests.register(tests);
+        RotateTests.register(tests);
     }
 
     /**

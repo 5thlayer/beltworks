@@ -4,6 +4,8 @@ _Amended by ADR 0010: the previews are drawn by the placementpreview library. Th
 
 _Amended by ADR 0011: the Dismantle and Stretch gestures move to the Groundworks library, and the `dismantles_belts` defaults move to `groundworks:dismantles`. The Mod keeps the belt family and the tile item's joining of anchors._
 
+_Amended by Groundworks ADR 0003: Rotate is no longer the Pack's. It moves into Groundworks, which the Mod bundles, so a tile turns by Rotate in any pack and the Pack still has one `R`. The Mod states that Rotate in Place turns its own blocks, and they answer for themselves: a splitter half, a slope and a wedge refuse, and a level tile refuses where placing it turned would be refused._
+
 Code that exists only because of the Mod's blocks belongs to the Mod, even when the Pack wrote it first: tile and splitter placement plans, the previews of those plans, the dismantle preview, the Jade plugin and the belt gametests move out of the Pack's core. Pack-wide mechanics that happen to cover belts stay in the Pack: Rotate and its `BlockPlaceContext` mixin, Fast Replace groups, build reach. So in another pack a tile turns only by where the player looks. The Mod is survival-playable when nothing else is installed. It ships vanilla-ingredient recipes for every item, members of `dismantles_belts` by default (`#c:tools/wrench` and `#minecraft:pickaxes`), and energy-free loaders by default. A pack changes all of that through recipes, tags and the server config, never by patching the Mod's code. This is how "works with any tech mod" holds when the Pack is only the first consumer.
 
 ## Considered Options

@@ -28,3 +28,14 @@ In the Mods menu, Beltworks' config screen, or `config/beltworks-client.toml`, w
 - Turn **Show supports** off. Every support goes, on tiles, slopes and splitters. Turn it on and they come back, with no restart.
 - Set **Support spacing** to 4. The line's spaced supports move to every 4th block at once. Corners, line ends, feet and tops keep theirs.
 - Set **Support reach** to 8 over a drop deeper than that. The legs stop 8 blocks down and run on out of sight; set it back to 64 and they reach the ground again, with no restart. Look up at a long leg's foot from below with the tile off screen: it stays drawn.
+
+## Rotate (Groundworks ADR 0003)
+
+With nothing but Beltworks installed. See **Rotate** in `CONTEXT.md`.
+
+- `R` and `Shift+R` are listed once each, under Groundworks' key category, in the controls screen.
+- Holding tiles, press `R`: the Placement Preview redraws a quarter clockwise at once, and `Shift+R` turns it back. The click places what the preview drew. Do the same with a splitter and with a loader on the ground.
+- Press `R`, then sneak-click: the stretch's start is drawn facing the turned way, and the stretch runs out along it. With the start stored, press `R`: the stretch drawn does not change.
+- With nothing held, aim at a level tile and press `R`: it turns, and the tiles around it re-derive their corners. A loader turns too.
+- Aim at a splitter half, a slope and a wedge, and press `R`: each stays put, and its reason shows on the action bar.
+- Aim at a vanilla block with a facing, such as a furnace, and press `R`: nothing happens, and nothing is said.

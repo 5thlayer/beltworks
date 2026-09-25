@@ -15,7 +15,7 @@ This project, the Mod. "The Mod" is an accepted alias.
 _Avoid_: the fork, SimpleBelts, Belt Works, belts (that was Upstream's mod id, not a name)
 
 **Groundworks**:
-The library mod for mass placement and **Dismantle**, for the Mod and the Pack alike: it plans what a click would lay or take up, shows the plan before the click, and carries it out. The Mod bundles it in its own jar (ADR 0010). Formerly placementpreview, which only drew **Placement Plans**.
+The library mod for mass placement and **Dismantle**, for the Mod and the Pack alike: it plans what a click would lay or take up, shows the plan before the click, and carries it out. It also runs **Rotate**. The Mod bundles it in its own jar (ADR 0010). Formerly placementpreview, which only drew **Placement Plans**.
 _Avoid_: placementpreview (its old name), preview lib, the renderer, Groundwork
 
 **the Pack**:
@@ -33,7 +33,7 @@ A run of tiles carrying items from one belt end to another, paid for at one belt
 _Avoid_: conveyor, belt segment, lane
 
 **Tile**:
-One block of belt, placed and broken on its own, facing the way items travel through it: the way the player looks when placing it. It holds eight items and carries them at its tier's speed. A tile fed from exactly one side, with nothing feeding it from behind, is a **corner** and turns the line through one block; otherwise it is straight. Its shape and its **pitch** are derived from its neighbours, never chosen, and re-derived when a neighbour is placed, broken or turned; a corner is always level (ADR 0004).
+One block of belt, placed and broken on its own, facing the way items travel through it: the way the player looks when placing it, turned by any **Rotate the Plan**. It holds eight items and carries them at its tier's speed. A tile fed from exactly one side, with nothing feeding it from behind, is a **corner** and turns the line through one block; otherwise it is straight. Its shape and its **pitch** are derived from its neighbours, never chosen, and re-derived when a neighbour is placed, broken or turned; a corner is always level (ADR 0004).
 _Avoid_: belt block, conveyor block, segment
 
 **Transport line**:
@@ -59,7 +59,7 @@ Whether a tile rises, is level or descends along its travel, derived from the he
 _Avoid_: incline, grade
 
 **Slope**:
-A tile whose pitch is not level: a **foot**, a **middle** or a **top**. Together they draw one straight 45° line, one block of height per block of travel. A slope is one block of line like any tile, however long its surface draws; the climb is drawn, not counted. It carries riders and a hand as a level tile does. It never turns, is never turned in place, takes no side-load, and a loader or splitter never meets one.
+A tile whose pitch is not level: a **foot**, a **middle** or a **top**. Together they draw one straight 45° line, one block of height per block of travel. A slope is one block of line like any tile, however long its surface draws; the climb is drawn, not counted. It carries riders and a hand as a level tile does. It never turns, is refused **Rotate in Place**, takes no side-load, and a loader or splitter never meets one.
 _Avoid_: ramp, incline, half slope, full slope
 
 **Foot**:
@@ -108,10 +108,24 @@ _Avoid_: sorter, filter splitter
 A pattern of splitters that spreads several belts evenly across several others. Built by the player, never a block.
 _Avoid_: balancer block
 
+### Rotating
+
+**Rotate**:
+Groundworks' one action on one key (`R` by default, and **Reverse Rotate** the other way on `Shift+R`) that turns a quarter at a time. It **Rotates the Plan** when the held item is rotatable, and otherwise **Rotates in Place** the block under the crosshair. The Mod adds no key of its own: it gets Rotate from the library it bundles, so a tile turns by Rotate in any pack.
+_Avoid_: rotate key, turn, wrench rotate
+
+**Rotate the Plan**:
+**Rotate** on the held item: its next placement turns a quarter from the way the player looks, and the **Placement Preview** redraws with it. The turn stays with the held stack until its last item is placed. A tile, a splitter and a loader turn so, and a sneak-click stores a **stretch**'s start looking the turned way. With a start stored, it leaves the stretch alone, which keeps the look stored at its start; the stack's turn is taken up by the next start or tile.
+_Avoid_: rotate the preview, held rotate
+
+**Rotate in Place**:
+**Rotate** on a placed block: the block under the crosshair turns, and what turning means is the block's own. The Mod states it turns the Mod's own blocks and never another mod's. A level tile and a loader turn a quarter. A splitter half, a **slope** and a **wedge** are refused with their reason, and a level tile is refused with its placement's reason where the turn would slope a corner or its wedge would have no room. A refusal changes nothing.
+_Avoid_: placed rotate, wrench rotate
+
 ### Building
 
 **Stretch**:
-The tiles one drag of the tile item lays, placed, charged and refused as one. A sneak-click stores its start and the way the player looks; the next click lays it to the aimed spot, in one straight leg or two joined by one turn, the first leg along the stored look. Each sneak-click before that adds an **anchor** where the stretch would end. It follows the ground, each tile one block up, level or one block down from the one before, and is refused whole at a step it cannot climb. A line running across its path is climbed over in five tiles, a foot, a top, a level tile on the line, a top and a foot; a stretch never plans a path under a line. Any other tile already on its path is turned to it, or replaced when of another tier.
+The tiles one drag of the tile item lays, placed, charged and refused as one. A sneak-click stores its start and the way the player looks, turned by any **Rotate the Plan**; the next click lays it to the aimed spot, in one straight leg or two joined by one turn, the first leg along the stored look. Each sneak-click before that adds an **anchor** where the stretch would end. It follows the ground, each tile one block up, level or one block down from the one before, and is refused whole at a step it cannot climb. A line running across its path is climbed over in five tiles, a foot, a top, a level tile on the line, a top and a foot; a stretch never plans a path under a line. Any other tile already on its path is turned to it, or replaced when of another tier.
 _Avoid_: run, zoop, drag (the gesture, not what it lays), tile path
 
 **Dismantle**:

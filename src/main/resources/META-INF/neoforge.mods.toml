@@ -31,7 +31,7 @@ side = "BOTH"
 [[dependencies.beltworks]]
 modId = "groundworks"
 type = "required"
-versionRange = "[0.1,0.2)"
+versionRange = "[0.2,0.3)"
 ordering = "NONE"
 side = "BOTH"
 
