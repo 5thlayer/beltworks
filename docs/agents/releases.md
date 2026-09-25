@@ -2,11 +2,19 @@
 
 A release reaches the Pack through the local maven repository (`~/.m2`) at a version of its own. The Pack pins that version and compares the jar's sha256. That only works if the jar published at a version is the one jar that version ever names.
 
+## The changelog
+
+Each change players notice adds its line under `## Unreleased` in `CHANGELOG.md` when it lands, written for players rather than as the commit subject. A release ships what Unreleased lists, so the changelog is written as the work is done and never reconstructed from commits.
+
 ## Cutting a release
 
-1. Bump `mod_version` in `gradle.properties` to a version `~/.m2/repository/io/github/5thlayer/beltworks/` does not hold yet, and commit it.
-2. `./gradlew publishToMavenLocal`. The published jar is the `jar` task's, with Groundworks nested under `META-INF/jarjar/`. The Pack loads the Groundworks that Beltworks bundles, so check `META-INF/jarjar/metadata.json` names the Groundworks and range you meant to ship.
-3. Tag the released commit with an annotated `beltworks-v<version>`.
+`scripts/release.sh <version>` from a clean main. It refuses a version that is already tagged or in `~/.m2`, and an empty Unreleased. It then:
+
+1. sets `mod_version` and turns `## Unreleased` into `## <version>` under a fresh, empty Unreleased
+2. runs the build and the game tests, putting both files back if either fails
+3. commits `Beltworks <version>`, runs `publishToMavenLocal`, and tags `beltworks-v<version>` with the jar's sha256
+
+It pushes nothing, and ends by printing the push command. The published jar is the `jar` task's, with Groundworks nested under `META-INF/jarjar/`. The Pack loads the Groundworks that Beltworks bundles, so check that `META-INF/jarjar/metadata.json` names the Groundworks and the range you meant to ship.
 
 ## A published version is final
 

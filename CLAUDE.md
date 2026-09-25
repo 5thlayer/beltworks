@@ -14,4 +14,4 @@ Single-context: `CONTEXT.md` + `docs/adr/` at repo root. See `docs/agents/domain
 
 ### Releases
 
-Before bumping `mod_version`, publishing to `~/.m2` or tagging a release, read `docs/agents/releases.md`: a published version never changes, and tags are `beltworks-v<version>`.
+A change players notice adds its line under `## Unreleased` in `CHANGELOG.md` as it lands. Before bumping `mod_version`, publishing to `~/.m2` or tagging a release, read `docs/agents/releases.md`: releases go through `scripts/release.sh`, and a published version never changes.
