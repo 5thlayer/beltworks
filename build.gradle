@@ -74,6 +74,8 @@ tasks.named('runGameTestServer') {
 
 dependencies {
     compileOnly 'curse.maven:ftb-filter-system-943925:8300190'
+    // Jade finds the tile's tooltip plugin by its annotation, so the Mod runs without it.
+    compileOnly 'curse.maven:jade-324717:8651070'
 
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'

@@ -7,7 +7,8 @@
     "ClientLevelTickMixin"
   ],
   "mixins": [
-    "EntityCollisionMixin"
+    "EntityCollisionMixin",
+    "ServerLevelUpdateMixin"
   ],
   "injectors": {
     "defaultRequire": 1

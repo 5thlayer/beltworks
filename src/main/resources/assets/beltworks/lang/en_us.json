@@ -51,5 +51,11 @@
   "item.beltworks.express_belt_tile.tooltip": "One block of belt, carrying 45 items a second. Belts in a line carry items as one; a line of mixed tiers runs at its slowest block. Placed running the way you look; sneak-click to start a stretch.",
   "block.beltworks.turbo_belt_tile": "Turbo transport belt",
   "item.beltworks.turbo_belt_tile": "Turbo transport belt",
-  "item.beltworks.turbo_belt_tile.tooltip": "One block of belt, carrying 60 items a second. Belts in a line carry items as one; a line of mixed tiers runs at its slowest block. Placed running the way you look; sneak-click to start a stretch."
+  "item.beltworks.turbo_belt_tile.tooltip": "One block of belt, carrying 60 items a second. Belts in a line carry items as one; a line of mixed tiers runs at its slowest block. Placed running the way you look; sneak-click to start a stretch.",
+  "gui.beltworks.belt_tile.tier": "Tier %s belt — %s items/s",
+  "gui.beltworks.belt_tile.line": "Line: %s tiles at %s items/s",
+  "gui.beltworks.belt_tile.empty": "Empty",
+  "gui.beltworks.belt_tile.holds_one": "Holds %s × %s",
+  "gui.beltworks.belt_tile.holds": "Holds %s items",
+  "config.jade.plugin_beltworks.belt_tile": "Belt tile"
 }
