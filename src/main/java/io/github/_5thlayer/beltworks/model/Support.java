@@ -14,14 +14,28 @@ import java.util.List;
  * floats. Standing at the edge of its tile, a leg never crosses where items pass. A splitter shows
  * one for both its halves; a loader, fixed to its inventory, never shows one. A slope's has no
  * frame: its tilted belt ties the legs, and a frame under its floor would show through it.
+ * Whether supports show, how far apart a straight line's are, and how far a leg reaches are each
+ * player's own settings.
  */
 public record Support(List<Leg> legs, boolean framed) {
 
-    /** How far a leg reaches below a level tile's surface before it runs on out of sight, in blocks. */
-    public static final int REACH = 64;
-
     // Round the block, so each corner's neighbours are the corners a strut ties it to.
     private static final List<double[]> CORNERS = List.of(new double[] {0, 0}, new double[] {1, 0}, new double[] {1, 1}, new double[] {0, 1});
+
+    /**
+     * How a player sees supports: whether they show at all, how many blocks apart a straight line
+     * or a slope mid-line shows them, and how far a leg reaches below a level tile's surface, in
+     * blocks, before it runs on out of sight.
+     */
+    public record Setting(boolean shown, int spacing, int reach) {
+
+        public static final Setting DEFAULT = new Setting(true, 8, 64);
+
+        public Setting {
+            if (spacing < 1) throw new IllegalArgumentException("spacing must be at least 1: " + spacing);
+            if (reach < 1) throw new IllegalArgumentException("reach must be at least 1: " + reach);
+        }
+    }
 
     /** What fills a block, as a support reads it. */
     public enum Fill {
@@ -62,18 +76,20 @@ public record Support(List<Leg> legs, boolean framed) {
 
     /**
      * The support a tile at {@code spot} travelling {@code travel} shows, or null where it shows
-     * none: only where the tile turns, is a foot or a top, or is its line's first or last, and only
-     * over air. Each leg stops at the tile's surface where it stands, and no higher than a level
-     * tile's, so a slope's legs pass its wedge and meet its low edge.
+     * none: only where the tile turns, is a foot or a top, is its line's first or last, or falls on
+     * the spacing, and only over air. Each leg stops at the tile's surface where it stands, and no
+     * higher than a level tile's, so a slope's legs pass its wedge and meet its low edge.
      */
-    public static @Nullable Support at(LineScan.Spot spot, LineScan.Travel travel, TileShape.Around around, Ground ground) {
+    public static @Nullable Support at(LineScan.Spot spot, LineScan.Travel travel, TileShape.Around around, Ground ground, Setting setting) {
+        if (!setting.shown()) return null;
         var pitch = Pitch.at(spot, travel, around);
         var shape = TileShape.at(spot, travel, around);
-        if (shape == TileShape.STRAIGHT && !footOrTop(pitch) && !firstOrLast(spot, travel, pitch, around)) return null;
+        if (shape == TileShape.STRAIGHT && !footOrTop(pitch) && !spaced(spot, travel, setting)
+              && !firstOrLast(spot, travel, pitch, around)) return null;
         if (heldUp(spot, ground) || fixed(spot, travel, shape, ground)) return null;
         return new Support(CORNERS.stream().map(corner -> foot(corner, travel, shape)).map(foot -> {
             var top = Math.min(Pitch.SURFACE, surface(pitch, travel, foot[0], foot[1]));
-            return leg(spot, foot, top, ground);
+            return leg(spot, foot, top, ground, setting.reach());
         }).toList(), pitch == Pitch.LEVEL);
     }
 
@@ -83,7 +99,8 @@ public record Support(List<Leg> legs, boolean framed) {
      * a solid block at either outer side fixes it. Its legs stand at the pair's outer corners, in
      * the left half's block space, each over the ground under its own half.
      */
-    public static @Nullable Support splitter(LineScan.Spot left, LineScan.Travel travel, Ground ground) {
+    public static @Nullable Support splitter(LineScan.Spot left, LineScan.Travel travel, Ground ground, Setting setting) {
+        if (!setting.shown()) return null;
         var toRight = TileShape.right(travel);
         var toLeft = TileShape.left(travel);
         var right = left.step(toRight, 1);
@@ -92,7 +109,9 @@ public record Support(List<Leg> legs, boolean framed) {
         return new Support(CORNERS.stream().map(corner -> {
             // A corner on the left half's right side moves out to the right half's.
             var onRight = (corner[0] - 0.5) * toRight.x() + (corner[1] - 0.5) * toRight.z() > 0;
-            return onRight ? leg(right, corner, Pitch.SURFACE, ground).shifted(toRight) : leg(left, corner, Pitch.SURFACE, ground);
+            return onRight
+                     ? leg(right, corner, Pitch.SURFACE, ground, setting.reach()).shifted(toRight)
+                     : leg(left, corner, Pitch.SURFACE, ground, setting.reach());
         }).toList(), true);
     }
 
@@ -111,6 +130,13 @@ public record Support(List<Leg> legs, boolean framed) {
     // Where a slope bends, a builder holds it up whether or not its line stops there.
     private static boolean footOrTop(Pitch pitch) {
         return pitch == Pitch.FOOT_UP || pitch == Pitch.TOP_UP || pitch == Pitch.FOOT_DOWN || pitch == Pitch.TOP_DOWN;
+    }
+
+    // Spaced by its place along its travel in the world, so a line shows them at the same blocks
+    // whichever end it was built from, with no scan of it.
+    private static boolean spaced(LineScan.Spot spot, LineScan.Travel travel, Setting setting) {
+        var along = travel.x() != 0 ? spot.x() : spot.z();
+        return Math.floorMod(along, setting.spacing()) == 0;
     }
 
     // A tile's line runs on through the tile behind it, at its feeder's height, that travels its way
@@ -146,17 +172,17 @@ public record Support(List<Leg> legs, boolean framed) {
         return ground.fixes(spot.step(side, 1), TileShape.back(side));
     }
 
-    private static Leg leg(LineScan.Spot spot, double[] foot, double top, Ground ground) {
+    private static Leg leg(LineScan.Spot spot, double[] foot, double top, Ground ground, int reach) {
         var x = foot[0];
         var z = foot[1];
-        for (var down = 1; down <= REACH + 1; down++) {
+        for (var down = 1; down <= reach + 1; down++) {
             var at = spot.up(-down);
             if (ground.fill(at) == Fill.OPEN) continue;
             var bottom = ground.top(at, x, z) - down;
-            if (Pitch.SURFACE - bottom > REACH) break;
+            if (Pitch.SURFACE - bottom > reach) break;
             return new Leg(x, z, top, bottom, true);
         }
-        return new Leg(x, z, top, Pitch.SURFACE - REACH, false);
+        return new Leg(x, z, top, Pitch.SURFACE - reach, false);
     }
 
     /** The surface of a belt tile of {@code pitch} travelling {@code travel} at {@code x}, {@code z} in its block, where a leg stands on it. */

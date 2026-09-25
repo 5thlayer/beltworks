@@ -67,10 +67,10 @@ public class SplitterBlock extends BeltEndBlock {
 
     // One support for both halves, which the left half shows.
     @Override
-    public @Nullable Support support(BlockGetter level, BlockPos pos, BlockState state) {
+    public @Nullable Support support(BlockGetter level, BlockPos pos, BlockState state, Support.Setting setting) {
         if (state.getValue(SIDE) != Side.LEFT) return null;
         var travel = BeltTileBlock.travel(state.getValue(FACING));
-        return Support.splitter(BeltTileBlock.spot(pos), travel, BeltTileBlock.ground(level));
+        return Support.splitter(BeltTileBlock.spot(pos), travel, BeltTileBlock.ground(level), setting);
     }
 
     @Override

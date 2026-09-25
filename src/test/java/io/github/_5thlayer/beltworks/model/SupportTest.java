@@ -5,6 +5,7 @@ package io.github._5thlayer.beltworks.model;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -15,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Where a raised tile, slope or splitter shows its support, what holds it up or fixes it, and where its legs stop (ADR 0012). */
@@ -75,6 +77,128 @@ class SupportTest {
         run();
 
         assertNotNull(support(0, 10, 0));
+    }
+
+    // A straight line along y = 10, from x = -12 to x = 20, travelling east or west.
+    private void longLine(LineScan.Travel travel) {
+        for (var x = -12; x <= 20; x++) tile(x, 10, 0, travel);
+    }
+
+    /** The blocks from x = -11 to x = 19, mid-line on a long line, that show a support. */
+    private List<Integer> spaced() {
+        var shown = new ArrayList<Integer>();
+        for (var x = -11; x <= 19; x++) if (support(x, 10, 0) != null) shown.add(x);
+        return shown;
+    }
+
+    @Test
+    void aStraightFloatingLineShowsASupportEveryEighthBlock() {
+        longLine(EAST);
+
+        assertEquals(List.of(-8, 0, 8, 16), spaced());
+    }
+
+    @Test
+    void aLineShowsItsSpacedSupportsAtTheSameBlocksWhicheverWayItTravels() {
+        longLine(WEST);
+
+        assertEquals(List.of(-8, 0, 8, 16), spaced());
+    }
+
+    // Along its travel: a line south is spaced by its z, whatever its x.
+    @Test
+    void aLineIsSpacedByItsPlaceAlongItsTravel() {
+        for (var z = 1; z <= 12; z++) tile(3, 10, z, SOUTH);
+
+        assertNotNull(support(3, 10, 8));
+        assertNull(support(3, 10, 4));
+        assertNull(support(3, 10, 3));
+    }
+
+    @Test
+    void theSpacingIsASetting() {
+        setting = new Support.Setting(true, 5, 64);
+        longLine(EAST);
+
+        assertEquals(List.of(-10, -5, 0, 5, 10, 15), spaced());
+    }
+
+    @Test
+    void aSpacedTileHeldUpOrFixedShowsNone() {
+        longLine(EAST);
+        fill(8, 9, 0, Support.Fill.SOLID);
+        fixes(16, 10, 1, NORTH);
+
+        assertEquals(List.of(-8, 0), spaced());
+    }
+
+    // Level from x = 0, a climb from a foot at x = 5 through middles at x = 6 to 10 up to a top at x = 11.
+    private void longClimb() {
+        for (var x = 0; x <= 5; x++) tile(x, 10, 0, EAST);
+        for (var x = 6; x <= 11; x++) tile(x, 10 + x - 5, 0, EAST);
+        for (var x = 12; x <= 14; x++) tile(x, 16, 0, EAST);
+    }
+
+    @Test
+    void aClimbMidLineShowsASupportOnlyWhereTheSpacingFallsOnIt() {
+        longClimb();
+
+        assertEquals(Pitch.MIDDLE_UP, Pitch.at(spot(8, 13, 0), EAST, around()));
+        assertNotNull(support(8, 13, 0));
+        assertFalse(support(8, 13, 0).framed());
+        assertNull(support(7, 12, 0));
+        assertNull(support(9, 14, 0));
+    }
+
+    @Test
+    void aClimbShowsNoSpacedSupportWhereTheSpacingMissesIt() {
+        setting = new Support.Setting(true, 16, 64);
+        longClimb();
+
+        for (var x = 6; x <= 10; x++) assertNull(support(x, 10 + x - 5, 0), "x = " + x);
+    }
+
+    // Level from x = 0, a descent from a top at x = 5 through middles at x = 6 to 10 down to a foot at x = 11.
+    @Test
+    void aDescentMidLineShowsASupportOnlyWhereTheSpacingFallsOnIt() {
+        for (var x = 0; x <= 5; x++) tile(x, 16, 0, EAST);
+        for (var x = 6; x <= 11; x++) tile(x, 16 - (x - 5), 0, EAST);
+        for (var x = 12; x <= 14; x++) tile(x, 10, 0, EAST);
+
+        assertEquals(Pitch.MIDDLE_DOWN, Pitch.at(spot(8, 13, 0), EAST, around()));
+        assertNotNull(support(8, 13, 0));
+        assertNull(support(7, 14, 0));
+        assertNull(support(9, 12, 0));
+    }
+
+    @Test
+    void supportsTurnedOffShowNone() {
+        setting = new Support.Setting(false, 8, 64);
+        longLine(EAST);
+        tile(21, 10, 0, SOUTH);
+
+        assertNull(support(-12, 10, 0));
+        assertNull(support(8, 10, 0));
+        assertNull(support(21, 10, 0));
+        assertNull(splitter(0, 20, 0, EAST));
+    }
+
+    @Test
+    void aShorterReachStopsALegSooner() {
+        setting = new Support.Setting(true, 8, 16);
+        run();
+        fill(0, 10 - 20, 0, Support.Fill.SOLID);
+
+        var leg = support(0, 10, 0).legs().getFirst();
+
+        assertEquals(Pitch.SURFACE - 16, leg.bottom());
+        assertFalse(leg.standing());
+    }
+
+    @Test
+    void theSpacingAndReachAreAtLeastOne() {
+        assertThrows(IllegalArgumentException.class, () -> new Support.Setting(true, 0, 64));
+        assertThrows(IllegalArgumentException.class, () -> new Support.Setting(true, 8, 0));
     }
 
     // A climb east from y = 10 to y = 12: level, foot, middle, top, level.
@@ -143,15 +267,20 @@ class SupportTest {
         assertNotNull(support(3, 10, 0));
     }
 
-    // A level tile's line runs on through a foot ahead of it and a top behind it.
+    // A level tile's line runs on through a foot ahead of it and a top behind it. The climb is a
+    // block east of climb()'s, so no level tile beside it falls on the spacing.
     @Test
     void aLevelTileBesideAClimbMidLineShowsNone() {
-        climb();
-        tile(-1, 10, 0, EAST);
+        tile(0, 10, 0, EAST);
+        tile(1, 10, 0, EAST);
+        tile(2, 10, 0, EAST);
+        tile(3, 11, 0, EAST);
+        tile(4, 12, 0, EAST);
         tile(5, 12, 0, EAST);
+        tile(6, 12, 0, EAST);
 
-        assertNull(support(0, 10, 0));
-        assertNull(support(4, 12, 0));
+        assertNull(support(1, 10, 0));
+        assertNull(support(5, 12, 0));
     }
 
     // Its wedge, in the block under it, holds nothing up: the legs pass it.
@@ -384,23 +513,23 @@ class SupportTest {
     @Test
     void aLegOverGroundJustPastReachRunsOnPastIt() {
         run();
-        var y = (int) Math.ceil(10 + Pitch.SURFACE - Support.REACH) - 2;
+        var y = (int) Math.ceil(10 + Pitch.SURFACE - setting.reach()) - 2;
         fill(0, y, 0, Support.Fill.SOLID);
 
         var leg = support(0, 10, 0).legs().getFirst();
 
-        assertEquals(Pitch.SURFACE - Support.REACH, leg.bottom());
+        assertEquals(Pitch.SURFACE - setting.reach(), leg.bottom());
         assertFalse(leg.standing());
     }
 
     @Test
     void aLegWithNothingWithinReachRunsOnPastIt() {
         run();
-        fill(0, 10 - Support.REACH - 2, 0, Support.Fill.SOLID);
+        fill(0, 10 - setting.reach() - 2, 0, Support.Fill.SOLID);
 
         var leg = support(0, 10, 0).legs().getFirst();
 
-        assertEquals(Pitch.SURFACE - Support.REACH, leg.bottom());
+        assertEquals(Pitch.SURFACE - setting.reach(), leg.bottom());
         assertFalse(leg.standing());
     }
 
@@ -408,12 +537,12 @@ class SupportTest {
     void aLegStandsOnGroundJustWithinReach() {
         run();
         // The highest block top no further than REACH below the surface.
-        var y = (int) Math.ceil(10 + Pitch.SURFACE - Support.REACH) - 1;
+        var y = (int) Math.ceil(10 + Pitch.SURFACE - setting.reach()) - 1;
         fill(0, y, 0, Support.Fill.SOLID);
 
         var leg = support(0, 10, 0).legs().getFirst();
 
-        assertTrue(leg.top() - leg.bottom() <= Support.REACH);
+        assertTrue(leg.top() - leg.bottom() <= setting.reach());
         assertTrue(leg.standing());
     }
 
@@ -497,6 +626,7 @@ class SupportTest {
         return new HashSet<>(support.legs().stream().map(leg -> List.of(leg.x(), leg.z())).toList());
     }
 
+    private Support.Setting setting = Support.Setting.DEFAULT;
     private final Map<LineScan.Spot, LineScan.Travel> tiles = new HashMap<>();
     private final Map<LineScan.Spot, LineScan.Travel> mouths = new HashMap<>();
     private final Map<LineScan.Spot, Support.Fill> fills = new HashMap<>();
@@ -535,12 +665,12 @@ class SupportTest {
 
     private Support support(int x, int y, int z) {
         var spot = spot(x, y, z);
-        return Support.at(spot, tiles.get(spot), around(), ground());
+        return Support.at(spot, tiles.get(spot), around(), ground(), setting);
     }
 
     /** The support of a splitter whose left half is at {@code x}, {@code y}, {@code z}, travelling {@code travel}. */
     private Support splitter(int x, int y, int z, LineScan.Travel travel) {
-        return Support.splitter(spot(x, y, z), travel, ground());
+        return Support.splitter(spot(x, y, z), travel, ground(), setting);
     }
 
     private TileShape.Around around() {

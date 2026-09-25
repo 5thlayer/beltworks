@@ -59,7 +59,7 @@ public class BeltEndBlock extends HorizontalDirectionalBlock implements EntityBl
      * The support the belt end at {@code pos} shows, or null: a loader never shows one, being fixed
      * to its inventory (ADR 0012).
      */
-    public @Nullable Support support(BlockGetter level, BlockPos pos, BlockState state) {
+    public @Nullable Support support(BlockGetter level, BlockPos pos, BlockState state, Support.Setting setting) {
         return null;
     }
 

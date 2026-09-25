@@ -55,5 +55,10 @@
   "gui.beltworks.belt_tile.empty": "Empty",
   "gui.beltworks.belt_tile.holds_one": "Holds %s × %s",
   "gui.beltworks.belt_tile.holds": "Holds %s items",
-  "config.jade.plugin_beltworks.belt_tile": "Belt tile"
+  "config.jade.plugin_beltworks.belt_tile": "Belt tile",
+  "beltworks.configuration.showSupports": "Show supports",
+  "beltworks.configuration.supportSpacing": "Support spacing",
+  "beltworks.configuration.supportReach": "Support reach",
+  "beltworks.configuration.loadersNeedPower": "Loaders need power",
+  "beltworks.configuration.joulesPerFe": "Joules per FE"
 }

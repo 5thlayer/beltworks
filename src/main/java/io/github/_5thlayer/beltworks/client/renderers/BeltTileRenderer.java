@@ -20,8 +20,8 @@ import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
+import io.github._5thlayer.beltworks.client.BeltworksClientConfig;
 import io.github._5thlayer.beltworks.client.TileLines;
-import io.github._5thlayer.beltworks.model.Support;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,7 +55,7 @@ public class BeltTileRenderer implements BlockEntityRenderer<BeltTileBlockEntity
         var travel = BeltTileBlock.travel(entity.travel());
         // Worked out every frame, so the legs follow the world however far below it changes.
         var pos = entity.getBlockPos();
-        var support = BeltTileBlock.support(level, pos, travel);
+        var support = BeltTileBlock.support(level, pos, travel, BeltworksClientConfig.supports());
         if (support != null) state.support = SupportRenderer.boxes(support, level, pos);
 
         var place = TileLines.at(level, pos);
@@ -102,7 +102,7 @@ public class BeltTileRenderer implements BlockEntityRenderer<BeltTileBlockEntity
     // A support's legs reach far below the tile, and are drawn while any of them is in view.
     @Override
     public AABB getRenderBoundingBox(BeltTileBlockEntity entity) {
-        return new AABB(entity.getBlockPos()).expandTowards(0, -Support.REACH, 0);
+        return new AABB(entity.getBlockPos()).expandTowards(0, -BeltworksClientConfig.supports().reach(), 0);
     }
 
     public record Item(Vec3 at, float yaw, float tilt, float scale, ItemStackRenderState itemState) {

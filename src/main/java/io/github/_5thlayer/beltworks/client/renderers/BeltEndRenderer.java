@@ -34,6 +34,7 @@ import io.github._5thlayer.beltworks.Beltworks;
 import io.github._5thlayer.beltworks.BlockEntitiesContent;
 import io.github._5thlayer.beltworks.blocks.BeltEndBlock;
 import io.github._5thlayer.beltworks.blocks.BeltEndBlockEntity;
+import io.github._5thlayer.beltworks.client.BeltworksClientConfig;
 import io.github._5thlayer.beltworks.model.BeltContents;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.Splitter;
@@ -89,7 +90,7 @@ public class BeltEndRenderer implements BlockEntityRenderer<BeltEndBlockEntity, 
         var pos = entity.getBlockPos();
         var blockState = entity.getBlockState();
         if (blockState.getBlock() instanceof BeltEndBlock end) {
-            var support = end.support(level, pos, blockState);
+            var support = end.support(level, pos, blockState, BeltworksClientConfig.supports());
             if (support != null) state.support = SupportRenderer.boxes(support, level, pos);
         }
         if (entity.isSplitter()) addHalfItems(entity, state, partialTicks);

@@ -19,4 +19,4 @@ A support is part of the tile's shape. Like a corner or a pitch, it is derived a
 - Groundworks' height gesture (5thlayer/placementpreview#7) needs no support rule. A level leg across a dip shows legs down into it, and nothing is refused.
 - Adding a limit on floating later would break raised lines that worlds already have, so it would take a new decision.
 - The support is the Mod's, as ADR 0011 left it: the rule, the spacing, the legs and the drawing. The Placement Preview draws each planned tile's support through Groundworks' overlay hook (ADR 0010), with the same code as a placed tile, and works it out from the world with the plan's tiles counted as placed, so it matches what the click lays (ADR 0006). Groundworks never hears of supports. If the Pack's stretched pipes want supports too, a shared support in Groundworks is decided then.
-- Showing supports is a client setting, on by default, as is the spacing along a straight run.
+- Showing supports is a client setting, on by default, as are the spacing along a straight run and how far a leg reaches before it runs on out of sight.

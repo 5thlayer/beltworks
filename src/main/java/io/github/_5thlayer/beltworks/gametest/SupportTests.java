@@ -123,11 +123,11 @@ final class SupportTests {
     private static @Nullable Support endSupport(GameTestHelper helper, BlockPos at) {
         var pos = helper.absolutePos(at);
         var state = helper.getLevel().getBlockState(pos);
-        return ((BeltEndBlock) state.getBlock()).support(helper.getLevel(), pos, state);
+        return ((BeltEndBlock) state.getBlock()).support(helper.getLevel(), pos, state, Support.Setting.DEFAULT);
     }
 
     private static @Nullable Support support(GameTestHelper helper, BlockPos at, Direction facing) {
-        return BeltTileBlock.support(helper.getLevel(), helper.absolutePos(at), BeltTileBlock.travel(facing));
+        return BeltTileBlock.support(helper.getLevel(), helper.absolutePos(at), BeltTileBlock.travel(facing), Support.Setting.DEFAULT);
     }
 
     private static void none(GameTestHelper helper, BlockPos at, Direction facing) {
