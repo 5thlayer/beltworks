@@ -14,9 +14,9 @@ _Avoid_: SimpleBelts (when meaning the Mod), the original
 This project, the Mod. "The Mod" is an accepted alias.
 _Avoid_: the fork, SimpleBelts, Belt Works, belts (that was Upstream's mod id, not a name)
 
-**placementpreview**:
-The library mod that draws **Placement Plans**, for the Mod and the Pack alike. The Mod bundles it in its own jar (ADR 0010).
-_Avoid_: preview lib, the renderer
+**Groundworks**:
+The library mod for mass placement and **Dismantle**, for the Mod and the Pack alike: it plans what a click would lay or take up, shows the plan before the click, and carries it out. The Mod bundles it in its own jar (ADR 0010). Formerly placementpreview, which only drew **Placement Plans**.
+_Avoid_: placementpreview (its old name), preview lib, the renderer, Groundwork
 
 **the Pack**:
 PlanetaryFactory, the modpack that is the Mod's first consumer.
@@ -107,16 +107,24 @@ _Avoid_: balancer block
 ### Building
 
 **Stretch**:
-The tiles one drag of the tile item lays, placed, charged and refused as one. A sneak-click stores its start and the way the player looks; the next click lays it to the aimed spot, in one straight leg or two joined by one corner, the first leg along the stored look. Each sneak-click before that adds a corner where the stretch would end. It follows the ground, each tile one block up, level or one block down from the one before, and is refused whole at a step it cannot climb. A line running across its path is climbed over in five tiles, a foot, a top, a level tile on the line, a top and a foot; a stretch never plans a path under a line. Any other tile already on its path is turned to it, or replaced when of another tier.
+The tiles one drag of the tile item lays, placed, charged and refused as one. A sneak-click stores its start and the way the player looks; the next click lays it to the aimed spot, in one straight leg or two joined by one turn, the first leg along the stored look. Each sneak-click before that adds an **anchor** where the stretch would end. It follows the ground, each tile one block up, level or one block down from the one before, and is refused whole at a step it cannot climb. A line running across its path is climbed over in five tiles, a foot, a top, a level tile on the line, a top and a foot; a stretch never plans a path under a line. Any other tile already on its path is turned to it, or replaced when of another tier.
 _Avoid_: run, zoop, drag (the gesture, not what it lays), tile path
 
 **Dismantle**:
 Taking up a span of one transport line from one tile to another, both included, with a dismantling tool (by default a wrench or a pickaxe): a sneak-click stores the start, and a click names the end. A sneak-click with a start stored moves it there. The span follows the line through its corners and slopes, either way along it, and takes the tiles' wedges and every item they carry; the rest of the line keeps what it carries. Loaders and splitters are never taken. What the span drops goes to the inventory, and what does not fit drops at the player's feet. Distinct from mining, which breaks one tile.
 _Avoid_: deconstruct, mass mine, unstretch
 
+**Anchor**:
+A point of a stretch's route that the player fixed, at its height: its start, each point a sneak-click adds, and the aimed end. A stretch passes through every anchor, and the item placed decides how to join each anchor to the next.
+_Avoid_: corner (a tile's shape, not a point of a route), waypoint, node
+
 **Placement Plan**:
 What a held belt piece would do at an aimed spot: the positions it would fill, the blockstate at each, and a refusal or none. Placing executes a plan and the **Placement Preview** draws one, so both ask one rule (ADR 0006). A stretch's plan is its tiles, from the stored start to the aimed spot; a splitter's is both halves, refused whole.
 _Avoid_: placement context (vanilla's own type, one input to a plan), build plan, preview state
+
+**Dismantle family**:
+A kind of connected block that a **Dismantle** takes up as one span, with its own rule for which blocks a span follows between its two ends and what the span takes. The Mod's is the belt family, whose span follows one transport line and takes the tiles' wedges and items with them. Groundworks runs the gesture for every family alike.
+_Avoid_: dismantle group, connected type
 
 **Dismantle Plan**:
 What a **Dismantle** would take up at an aimed tile: the tiles of the span from the stored start, and a refusal or none. Dismantling executes a plan and the preview draws one, as with a **Placement Plan**; the two are separate things.
