@@ -63,10 +63,7 @@ path = [
     "src/main/resources/assets/beltworks/items/loader.json",
     "src/main/resources/assets/beltworks/models/item/loader.json",
     "src/main/resources/data/beltworks/loot_table/blocks/loader.json",
-    "src/main/resources/data/beltworks/recipe/belt_item.json",
-    "src/main/resources/data/beltworks/recipe/belt_item_alt.json",
     "src/main/resources/data/beltworks/recipe/loader_item.json",
-    "src/main/resources/data/beltworks/recipe/improved_belt.json",
 ]
 SPDX-FileCopyrightText = ["Rearth", "2026 5thlayer"]
 SPDX-License-Identifier = "CC-BY-4.0"
