@@ -61,11 +61,11 @@ final class LineSmokeTest {
         for (var index = 0; index < TILES; index++) {
             use(helper, player, new ItemStack(ItemContent.tileFor(BeltTier.BELT)), FIRST_TILE.east(index).below(), Direction.UP);
         }
-        // A sneak-click on a chest places the loader against it.
-        player.setShiftKeyDown(true);
-        use(helper, player, new ItemStack(BlockContent.loaderFor(BeltTier.BELT)), SOURCE, Direction.EAST);
-        use(helper, player, new ItemStack(BlockContent.loaderFor(BeltTier.BELT)), TARGET, Direction.WEST);
-        player.setShiftKeyDown(false);
+        // A loader on the ground faces the player, so each is placed looking at its chest.
+        player.setYRot(Direction.WEST.toYRot());
+        use(helper, player, new ItemStack(BlockContent.loaderFor(BeltTier.BELT)), SOURCE.east().below(), Direction.UP);
+        player.setYRot(Direction.EAST.toYRot());
+        use(helper, player, new ItemStack(BlockContent.loaderFor(BeltTier.BELT)), TARGET.west().below(), Direction.UP);
     }
 
     private static void use(GameTestHelper helper, ServerPlayer player, ItemStack stack, BlockPos on, Direction face) {

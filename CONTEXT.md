@@ -82,7 +82,7 @@ Where a belt starts or stops: a loader, set against an inventory; a splitter hal
 _Avoid_: terminator, endpoint
 
 **Loader**:
-A belt end set against an inventory: it pulls onto the belt from the inventory behind it, or pushes into it. It has tiers of its own that cap what it moves, and draws power for each item only when the server config says loaders need power (ADR 0007). It carries no items itself: like Factorio's 1×1 loader, it hands items straight between the inventory and the tile at its mouth, so a line's capacity is its tiles' alone. It is drawn as a solid housing with a low mouth at belt height.
+A belt end set against an inventory: it pulls onto the belt from the inventory behind it, or pushes into it. It has tiers of its own that cap what it moves, and draws power for each item only when the server config says loaders need power (ADR 0007). It carries no items itself: like Factorio's 1×1 loader, it hands items straight between the inventory and the tile at its mouth, so a line's capacity is its tiles' alone. It is placed like any block beside the inventory, with its back to it and its mouth to the belt: on the ground it faces the player, and against a block's side it faces away from that block. It is drawn as a solid housing with a low mouth at belt height.
 _Avoid_: chute (Upstream's name), inserter, funnel
 
 **Splitter**:
