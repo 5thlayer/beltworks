@@ -32,6 +32,7 @@ import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 import io.github._5thlayer.beltworks.Beltworks;
 import io.github._5thlayer.beltworks.BlockEntitiesContent;
+import io.github._5thlayer.beltworks.blocks.BeltEndBlock;
 import io.github._5thlayer.beltworks.blocks.BeltEndBlockEntity;
 import io.github._5thlayer.beltworks.model.BeltContents;
 import io.github._5thlayer.beltworks.model.BeltTier;
@@ -80,9 +81,17 @@ public class BeltEndRenderer implements BlockEntityRenderer<BeltEndBlockEntity, 
 
         state.items.clear();
         state.filter = null;
+        state.support = List.of();
 
         var level = entity.getLevel();
         if (level == null) return;
+        // Worked out every frame, as a tile's is, so the legs follow the world below.
+        var pos = entity.getBlockPos();
+        var blockState = entity.getBlockState();
+        if (blockState.getBlock() instanceof BeltEndBlock end) {
+            var support = end.support(level, pos, blockState);
+            if (support != null) state.support = SupportRenderer.boxes(support, level, pos);
+        }
         if (entity.isSplitter()) addHalfItems(entity, state, partialTicks);
 
         if (!entity.filteredItem.isEmpty()) {
@@ -153,6 +162,7 @@ public class BeltEndRenderer implements BlockEntityRenderer<BeltEndBlockEntity, 
 
     @Override
     public void submit(RenderState state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState cameraRenderState) {
+        SupportRenderer.submit(state.support, poseStack, collector);
         for (var item : state.items) {
             poseStack.pushPose();
             poseStack.translate(item.position.x + 0.5, item.position.y + 0.8f - 3 / 16f, item.position.z + 0.5);
@@ -311,5 +321,6 @@ public class BeltEndRenderer implements BlockEntityRenderer<BeltEndBlockEntity, 
         private final List<RenderedItem> items = new ArrayList<>();
         private ItemStackRenderState filter;
         private Direction filterFacing = Direction.NORTH;
+        private List<SupportRenderer.Box> support = List.of();
     }
 }

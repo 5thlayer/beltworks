@@ -10,14 +10,18 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import org.jspecify.annotations.Nullable;
 import io.github._5thlayer.beltworks.BlockContent;
+import io.github._5thlayer.beltworks.blocks.BeltEndBlock;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
+import io.github._5thlayer.beltworks.blocks.SplitterBlock;
+import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.Pitch;
 import io.github._5thlayer.beltworks.model.Support;
 
 /**
  * A raised tile's support as the world gives it (ADR 0012): what a leg passes and stands on, what
- * holds a tile up or fixes it. The rule itself is {@code SupportTest}'s; these hold the world's
- * blocks to it. Each tile here stands alone, so it is its line's first and last.
+ * holds a tile up or fixes it, and which belt ends show one. The rule itself is
+ * {@code SupportTest}'s; these hold the world's blocks to it. A tile here stands alone, or ends
+ * its short line, so it is its line's first or last.
  */
 final class SupportTests {
 
@@ -70,10 +74,56 @@ final class SupportTests {
             bottom(helper, lower.above(3), Direction.SOUTH, Pitch.SURFACE - 3);
             helper.succeed();
         });
+        tests.test("a_line_ending_on_a_top_shows_legs_past_its_wedge", 20, helper -> {
+            var top = RAISED.east().above();
+            tile(helper, RAISED, Direction.EAST);
+            tile(helper, top, Direction.EAST);
+            helper.setBlock(top.below(), BlockContent.BELT_WEDGE.get().defaultBlockState()
+              .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.WEST));
+            helper.setBlock(top.below(3), Blocks.STONE);
+            // The stone's top is two blocks under the top's floor.
+            bottom(helper, top, Direction.EAST, -2);
+            helper.succeed();
+        });
+        tests.test("a_loader_never_shows_a_support", 20, helper -> {
+            helper.setBlock(RAISED, BeltTileTests.loader(BeltTier.BELT, Direction.EAST));
+            if (endSupport(helper, RAISED) != null) helper.fail("a floating loader shows a support", RAISED);
+            helper.succeed();
+        });
+        tests.test("a_floating_splitter_shows_one_support_from_its_left_half", 20, helper -> {
+            var right = RAISED.south();
+            splitter(helper, RAISED);
+            // Only the right half stands over air.
+            helper.setBlock(RAISED.below(), Blocks.STONE);
+            var support = endSupport(helper, RAISED);
+            if (support == null || support.legs().size() != 4) {
+                helper.fail("a splitter with a half over air shows no support", RAISED);
+            }
+            if (endSupport(helper, right) != null) helper.fail("a splitter's right half shows a second support", right);
+            helper.setBlock(right.below(), Blocks.STONE);
+            if (endSupport(helper, RAISED) != null) helper.fail("a splitter held up under both halves shows a support", RAISED);
+            helper.succeed();
+        });
     }
 
     private static void tile(GameTestHelper helper, BlockPos at, Direction facing) {
         helper.setBlock(at, BlockContent.BELT_TILE.get().defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, facing));
+    }
+
+    /** A splitter facing east, its left half at {@code left} and its right half south of it. */
+    private static void splitter(GameTestHelper helper, BlockPos left) {
+        for (var side : SplitterBlock.Side.values()) {
+            helper.setBlock(side == SplitterBlock.Side.LEFT ? left : left.south(),
+              BlockContent.splitterFor(BeltTier.BELT).defaultBlockState()
+                .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.EAST)
+                .setValue(SplitterBlock.SIDE, side));
+        }
+    }
+
+    private static @Nullable Support endSupport(GameTestHelper helper, BlockPos at) {
+        var pos = helper.absolutePos(at);
+        var state = helper.getLevel().getBlockState(pos);
+        return ((BeltEndBlock) state.getBlock()).support(helper.getLevel(), pos, state);
     }
 
     private static @Nullable Support support(GameTestHelper helper, BlockPos at, Direction facing) {

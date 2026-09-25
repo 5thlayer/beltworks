@@ -14,6 +14,7 @@ import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.BlockPos;
 import net.minecraft.data.AtlasIds;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.BlockAndLightGetter;
 import io.github._5thlayer.beltworks.Beltworks;
 import io.github._5thlayer.beltworks.model.Support;
@@ -22,8 +23,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A tile's support drawn as boxes in its block's space (ADR 0012), so a placed tile and a planned
- * one draw it with the same code. It is only drawn: it has no collision.
+ * A tile's or a splitter's support drawn as boxes in its block's space (ADR 0012), so a placed
+ * tile and a planned one draw it with the same code. It is only drawn: it has no collision.
  */
 public final class SupportRenderer {
 
@@ -54,7 +55,6 @@ public final class SupportRenderer {
      */
     public static List<Box> boxes(Support support, BlockAndLightGetter level, BlockPos pos) {
         var boxes = new ArrayList<Box>();
-        var light = LevelRenderer.getLightCoords(level, pos);
         var legs = support.legs();
         var centres = new float[legs.size()][];
         for (var at = 0; at < legs.size(); at++) {
@@ -62,22 +62,24 @@ public final class SupportRenderer {
             var x0 = inward((float) leg.x());
             var z0 = inward((float) leg.z());
             centres[at] = new float[] {x0 + LEG_WIDTH / 2, z0 + LEG_WIDTH / 2};
+            // Lit as the block each piece is in, since a splitter's legs stand under both its halves.
+            var column = pos.offset(Mth.floor(centres[at][0]), 0, Mth.floor(centres[at][1]));
             var drawnTop = leg.top() - OUTSET;
             for (var block = (int) Math.floor(drawnTop); block >= Math.floor(leg.bottom()); block--) {
                 var top = Math.min(drawnTop, block + 1);
                 var bottom = Math.max(leg.bottom(), block);
                 if (top - bottom < 1e-4) continue;
                 boxes.add(new Box(x0, (float) bottom, z0, x0 + LEG_WIDTH, (float) top, z0 + LEG_WIDTH, 0,
-                  block == 0 ? light : LevelRenderer.getLightCoords(level, pos.above(block))));
+                  LevelRenderer.getLightCoords(level, column.above(block))));
             }
         }
-        var under = LevelRenderer.getLightCoords(level, pos.below());
         for (var at = 0; at < centres.length; at++) {
             var from = centres[at];
             var to = centres[(at + 1) % centres.length];
             var length = (float) Math.hypot(to[0] - from[0], to[1] - from[1]) - LEG_WIDTH;
             var midX = (from[0] + to[0]) / 2;
             var midZ = (from[1] + to[1]) / 2;
+            var under = LevelRenderer.getLightCoords(level, pos.offset(Mth.floor(midX), -1, Mth.floor(midZ)));
             boxes.add(new Box(midX - length / 2, -STRUT_HEIGHT, midZ - LEG_WIDTH / 2, midX + length / 2, 0, midZ + LEG_WIDTH / 2,
               (float) Math.atan2(to[1] - from[1], to[0] - from[0]), under));
         }

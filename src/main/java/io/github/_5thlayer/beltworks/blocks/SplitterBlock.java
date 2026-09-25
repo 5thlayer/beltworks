@@ -25,8 +25,10 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.beltworks.BlockEntitiesContent;
 import io.github._5thlayer.beltworks.model.BeltTier;
+import io.github._5thlayer.beltworks.model.Support;
 
 import java.util.Locale;
 
@@ -61,6 +63,14 @@ public class SplitterBlock extends BeltEndBlock {
         return candidate.getBlock() == state.getBlock()
                  && candidate.getValue(FACING) == state.getValue(FACING)
                  && candidate.getValue(SIDE) != state.getValue(SIDE);
+    }
+
+    // One support for both halves, which the left half shows.
+    @Override
+    public @Nullable Support support(BlockGetter level, BlockPos pos, BlockState state) {
+        if (state.getValue(SIDE) != Side.LEFT) return null;
+        var travel = BeltTileBlock.travel(state.getValue(FACING));
+        return Support.splitter(BeltTileBlock.spot(pos), travel, BeltTileBlock.ground(level));
     }
 
     @Override

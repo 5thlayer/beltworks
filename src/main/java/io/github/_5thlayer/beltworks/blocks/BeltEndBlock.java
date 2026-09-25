@@ -18,6 +18,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
@@ -33,6 +34,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.beltworks.BlockEntitiesContent;
 import io.github._5thlayer.beltworks.model.BeltTier;
+import io.github._5thlayer.beltworks.model.Support;
 
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -51,6 +53,14 @@ public class BeltEndBlock extends HorizontalDirectionalBlock implements EntityBl
     /** The tier whose items a second this loader moves, whatever belt it is on (ADR 0007). */
     public BeltTier tier() {
         return tier;
+    }
+
+    /**
+     * The support the belt end at {@code pos} shows, or null: a loader never shows one, being fixed
+     * to its inventory (ADR 0012).
+     */
+    public @Nullable Support support(BlockGetter level, BlockPos pos, BlockState state) {
+        return null;
     }
 
     @Override

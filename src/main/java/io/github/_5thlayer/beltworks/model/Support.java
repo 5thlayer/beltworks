@@ -8,10 +8,11 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 /**
- * The struts that show a raised line held up, where a builder would put them (ADR 0012): a crossbar
+ * The struts that show a raised line held up, where a builder would put them (ADR 0012): a frame
  * under the tile and a leg down each corner of its block. Like a tile's shape and pitch, it is
  * derived from the tile and the world around it, never placed, and never limits how far a line
- * floats. Standing at the edge of its tile, a leg never crosses where items pass.
+ * floats. Standing at the edge of its tile, a leg never crosses where items pass. A splitter shows
+ * one for both its halves; a loader, fixed to its inventory, never shows one.
  */
 public record Support(List<Leg> legs) {
 
@@ -45,24 +46,48 @@ public record Support(List<Leg> legs) {
 
     /**
      * A leg whose outer edge stands at {@code x}, {@code z} in its block, in blocks east and south of
-     * its north-west corner, from {@code top} down to {@code bottom}, in blocks from its tile's floor.
+     * its north-west corner, or in the next block for a splitter's right half, from {@code top}
+     * down to {@code bottom}, in blocks from its tile's floor.
      * Its legs are listed round the block. A leg not {@code standing} found nothing within reach and
      * is drawn running on past it.
      */
     public record Leg(double x, double z, double top, double bottom, boolean standing) {
+
+        /** This leg a block off toward {@code travel}. */
+        public Leg shifted(LineScan.Travel travel) {
+            return new Leg(x + travel.x(), z + travel.z(), top, bottom, standing);
+        }
     }
 
     /**
      * The support a tile at {@code spot} travelling {@code travel} shows, or null where it shows
-     * none: only where the tile turns or is its line's first or last, and only over air. Only a
-     * level tile shows one yet.
+     * none: only where the tile turns or is its line's first or last, and only over air. A slope's
+     * legs start at a level tile's surface too, and pass its wedge.
      */
     public static @Nullable Support at(LineScan.Spot spot, LineScan.Travel travel, TileShape.Around around, Ground ground) {
-        if (Pitch.at(spot, travel, around) != Pitch.LEVEL) return null;
         var shape = TileShape.at(spot, travel, around);
         if (shape == TileShape.STRAIGHT && !firstOrLast(spot, travel, around)) return null;
         if (heldUp(spot, ground) || fixed(spot, travel, shape, ground)) return null;
         return new Support(CORNERS.stream().map(corner -> foot(corner, travel, shape)).map(foot -> leg(spot, foot, ground)).toList());
+    }
+
+    /**
+     * The one support of a splitter whose left half is at {@code left}, facing {@code travel}, or
+     * null where it shows none: a splitter always shows one when either half stands over air, unless
+     * a solid block at either outer side fixes it. Its legs stand at the pair's outer corners, in
+     * the left half's block space, each over the ground under its own half.
+     */
+    public static @Nullable Support splitter(LineScan.Spot left, LineScan.Travel travel, Ground ground) {
+        var toRight = TileShape.right(travel);
+        var toLeft = TileShape.left(travel);
+        var right = left.step(toRight, 1);
+        if (heldUp(left, ground) && heldUp(right, ground)) return null;
+        if (fixedAt(left, toLeft, ground) || fixedAt(right, toRight, ground)) return null;
+        return new Support(CORNERS.stream().map(corner -> {
+            // A corner on the left half's right side moves out to the right half's.
+            var onRight = (corner[0] - 0.5) * toRight.x() + (corner[1] - 0.5) * toRight.z() > 0;
+            return onRight ? leg(right, corner, ground).shifted(toRight) : leg(left, corner, ground);
+        }).toList());
     }
 
     // A turn is a quarter disc about the corner between its entry side and its front, so its outer
@@ -77,15 +102,17 @@ public record Support(List<Leg> legs) {
         return new double[] {innerX + (corner[0] - innerX) * back, innerZ + (corner[1] - innerZ) * back};
     }
 
-    // A level tile's line runs on through a level tile behind it travelling its way, and through the
-    // tile ahead only if that tile enters from it.
+    // A tile's line runs on through the tile behind it, at its feeder's height, that travels its way
+    // and feeds it, and through the tile ahead, at its fed height, that enters from it.
     private static boolean firstOrLast(LineScan.Spot spot, LineScan.Travel travel, TileShape.Around around) {
-        if (!travel.equals(around.tile(spot.step(travel, -1)))) return true;
-        var ahead = spot.step(travel, 1);
+        var pitch = Pitch.at(spot, travel, around);
+        var behind = spot.step(travel, -1).up(pitch.feeder());
+        if (!travel.equals(around.tile(behind)) || Pitch.at(behind, travel, around).fed() != -pitch.feeder()) return true;
+        var ahead = spot.step(travel, 1).up(pitch.fed());
         var onward = around.tile(ahead);
         return onward == null
                  || !TileShape.at(ahead, onward, around).entry(onward).equals(travel)
-                 || Pitch.at(ahead, onward, around).feeder() != 0;
+                 || Pitch.at(ahead, onward, around).feeder() != -pitch.fed();
     }
 
     private static boolean heldUp(LineScan.Spot spot, Ground ground) {
@@ -101,7 +128,12 @@ public record Support(List<Leg> legs) {
             case FROM_LEFT -> List.of(TileShape.right(travel), TileShape.back(travel));
             case FROM_RIGHT -> List.of(TileShape.left(travel), TileShape.back(travel));
         };
-        return free.stream().anyMatch(side -> ground.fixes(spot.step(side, 1), TileShape.back(side)));
+        return free.stream().anyMatch(side -> fixedAt(spot, side, ground));
+    }
+
+    // Fixed to the block on that side of it, when that block is solid on the face turned to it.
+    private static boolean fixedAt(LineScan.Spot spot, LineScan.Travel side, Ground ground) {
+        return ground.fixes(spot.step(side, 1), TileShape.back(side));
     }
 
     private static Leg leg(LineScan.Spot spot, double[] foot, Ground ground) {
