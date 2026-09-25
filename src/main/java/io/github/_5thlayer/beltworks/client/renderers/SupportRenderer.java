@@ -50,7 +50,8 @@ public final class SupportRenderer {
     /**
      * The boxes of the support of the tile at {@code pos}: each leg, from where it stands inward, up
      * its tile's side to just under the surface, cut at block boundaries, since an atlas sprite
-     * cannot repeat; and a frame under the tile, a strut from each leg to the next round the block.
+     * cannot repeat; and, unless it is a slope's, a frame under the tile, a strut from each leg to
+     * the next round the block.
      * Each piece is lit as the block it is in.
      */
     public static List<Box> boxes(Support support, BlockAndLightGetter level, BlockPos pos) {
@@ -73,6 +74,7 @@ public final class SupportRenderer {
                   LevelRenderer.getLightCoords(level, column.above(block))));
             }
         }
+        if (!support.framed()) return boxes;
         for (var at = 0; at < centres.length; at++) {
             var from = centres[at];
             var to = centres[(at + 1) % centres.length];

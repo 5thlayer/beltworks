@@ -17,6 +17,6 @@ A raised line shows a **support** where a builder would hold it up. See **Suppor
 - Walk through the legs. They have no collision.
 - Stand under a raised line's last tile and look up, then look down at it from above. Its legs stay drawn while the tile is off screen.
 - A floating slope's foot and top show a support, whether or not its line stops there; its middles show none. Check a climb and a descent, each mid-line and at a line's ends.
-- A slope's legs pass its wedge down to the ground, and meet its surface: a foot's rise to a level tile's surface, and a top's stop at its low edge, at the tile's floor, never sticking up above the belt. See how the frame inside a top's wedge looks.
+- A slope's legs pass its wedge down to the ground, and meet its surface: a foot's rise to a level tile's surface, and a top's stop at its low edge, at the tile's floor, never sticking up above the belt. A slope's support has no frame, so nothing shows through its belt.
 - A floating splitter shows one support: a leg at each of the pair's four outer corners, and a frame under both halves. It still shows one when only one half is over air. Place a solid block against either outer side and it goes; one behind or ahead of a half doesn't count. Check a splitter facing each way.
 - A floating loader never shows a support.

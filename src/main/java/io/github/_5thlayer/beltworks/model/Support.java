@@ -12,9 +12,10 @@ import java.util.List;
  * under the tile and a leg down each corner of its block. Like a tile's shape and pitch, it is
  * derived from the tile and the world around it, never placed, and never limits how far a line
  * floats. Standing at the edge of its tile, a leg never crosses where items pass. A splitter shows
- * one for both its halves; a loader, fixed to its inventory, never shows one.
+ * one for both its halves; a loader, fixed to its inventory, never shows one. A slope's has no
+ * frame: its tilted belt ties the legs, and a frame under its floor would show through it.
  */
-public record Support(List<Leg> legs) {
+public record Support(List<Leg> legs, boolean framed) {
 
     /** How far a leg reaches below a level tile's surface before it runs on out of sight, in blocks. */
     public static final int REACH = 64;
@@ -73,7 +74,7 @@ public record Support(List<Leg> legs) {
         return new Support(CORNERS.stream().map(corner -> foot(corner, travel, shape)).map(foot -> {
             var top = Math.min(Pitch.SURFACE, surface(pitch, travel, foot[0], foot[1]));
             return leg(spot, foot, top, ground);
-        }).toList());
+        }).toList(), pitch == Pitch.LEVEL);
     }
 
     /**
@@ -92,7 +93,7 @@ public record Support(List<Leg> legs) {
             // A corner on the left half's right side moves out to the right half's.
             var onRight = (corner[0] - 0.5) * toRight.x() + (corner[1] - 0.5) * toRight.z() > 0;
             return onRight ? leg(right, corner, Pitch.SURFACE, ground).shifted(toRight) : leg(left, corner, Pitch.SURFACE, ground);
-        }).toList());
+        }).toList(), true);
     }
 
     // A turn is a quarter disc about the corner between its entry side and its front, so its outer

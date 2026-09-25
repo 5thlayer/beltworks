@@ -200,6 +200,23 @@ class SupportTest {
         for (var leg : support(1, 11, 0).legs()) assertEquals(leg.x() == 1 ? 0 : Pitch.SURFACE, leg.top(), leg.toString());
     }
 
+    // A slope's tilted belt ties its legs, and a frame under its floor would show through it.
+    @Test
+    void aSlopesSupportHasNoFrame() {
+        climb();
+
+        assertFalse(support(1, 10, 0).framed());
+        assertFalse(support(3, 12, 0).framed());
+    }
+
+    @Test
+    void aLevelTilesAndASplittersSupportHaveAFrame() {
+        run();
+
+        assertTrue(support(0, 10, 0).framed());
+        assertTrue(splitter(0, 20, 0, EAST).framed());
+    }
+
     @Test
     void aSlopeOnASolidTopShowsNone() {
         tile(0, 10, 0, EAST);
