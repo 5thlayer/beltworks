@@ -58,7 +58,7 @@ class JoinTest {
         var positions = new java.util.ArrayList<Double>();
         for (int tick = 0; tick < MINUTE; tick++) {
             if (receiverFirst) out.tick(4, speed, () -> null, item -> false);
-            var receiving = new Splitter.Lane<>(out, 4, speed, null, receiverFirst ? 0 : speed);
+            var receiving = new Splitter.Handoff<>(out, 4, speed, null, receiverFirst ? 0 : speed);
             in.tick(4, speed, () -> loaded[0] ? null : (loaded[0] = true) ? "item" : null,
               item -> Join.offer(item, in.overshoot(4, speed), receiving));
             if (!receiverFirst) out.tick(4, speed, () -> null, item -> false);
@@ -91,7 +91,7 @@ class JoinTest {
         void run(int ticks) {
             for (int tick = 0; tick < ticks; tick++) {
                 // The receiving belt ticks after, so the join places short by its move.
-                var receiving = new Splitter.Lane<>(out, 8, outTier.blocksPerTick(), null, outTier.blocksPerTick());
+                var receiving = new Splitter.Handoff<>(out, 8, outTier.blocksPerTick(), null, outTier.blocksPerTick());
                 in.tick(8, inTier.blocksPerTick(), () -> {
                     loaded++;
                     return "item";

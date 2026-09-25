@@ -188,11 +188,11 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
     }
 
     private Splitter.Side<ItemStack> side(Level level) {
-        return new Splitter.Side<>(half, outgoingLane(), hand(level));
+        return new Splitter.Side<>(half, outgoingHandoff(), hand(level));
     }
 
-    private @Nullable Splitter.Lane<ItemStack> outgoingLane() {
-        return tileAhead().map(tile -> tile.entryLane(getOwnFacing())).orElse(null);
+    private @Nullable Splitter.Handoff<ItemStack> outgoingHandoff() {
+        return tileAhead().map(tile -> tile.entryHandoff(getOwnFacing())).orElse(null);
     }
 
     // A half feeds the tile line in front of it, where that line starts (#394).
@@ -223,12 +223,12 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
      * line's {@link BeltContents#overshoot} (#394).
      */
     public boolean offerFromLine(ItemStack item, double overshoot) {
-        if (!splitter || !Join.offer(item, overshoot, enteringLane())) return false;
+        if (!splitter || !Join.offer(item, overshoot, enteringHandoff())) return false;
         setChanged();
         return true;
     }
 
-    private Splitter.Lane<ItemStack> enteringLane() {
+    private Splitter.Handoff<ItemStack> enteringHandoff() {
         return Splitter.entering(half, halfSpeed, hand(level), halfMovedAt == level.getGameTime() ? 0 : halfSpeed);
     }
 

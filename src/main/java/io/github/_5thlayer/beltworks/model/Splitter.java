@@ -11,7 +11,7 @@ import java.util.List;
 /**
  * Two belts in and two out, through two halves that are each a block of belt of the splitter's
  * tier. An item rides the first half of the side it entered and changes to its output side at the
- * midline, as Factorio's splitter lane is 128 positions in and 128 out (PlanetaryFactory #373).
+ * midline, as each side of Factorio's splitter is 128 positions in and 128 out (PlanetaryFactory #373).
  *
  * <p>At the midline the two sides are each taken in turn, so one input splits evenly and two merge
  * evenly; a side that cannot move is skipped, so a backed-up output sends everything to the other.
@@ -46,7 +46,7 @@ public final class Splitter<T> {
         var sides = List.of(left, right);
         var changed = false;
         for (var side : sides) {
-            if (side.out != null) changed |= Join.pass(new Lane<>(side.half.leaving, MIDLINE, speed, side.hand(true)), side.out);
+            if (side.out != null) changed |= Join.pass(new Handoff<>(side.half.leaving, MIDLINE, speed, side.hand(true)), side.out);
             changed |= side.half.leaving.tick(MIDLINE, speed, () -> null, item -> false, side.hand(true));
         }
         // Before the first segments move, as a belt delivers before it moves: the pass looks a
@@ -65,8 +65,8 @@ public final class Splitter<T> {
      * @param hand    a hand held on the half, at a point along the whole half
      * @param pending how far the splitter is still to move this tick
      */
-    public static <T> Lane<T> entering(Half<T> half, double speed, BeltContents.@Nullable Hand<T> hand, double pending) {
-        return new Lane<>(half.entering, MIDLINE, speed, onSegment(hand, false), pending);
+    public static <T> Handoff<T> entering(Half<T> half, double speed, BeltContents.@Nullable Hand<T> hand, double pending) {
+        return new Handoff<>(half.entering, MIDLINE, speed, onSegment(hand, false), pending);
     }
 
     private static <T> BeltContents.@Nullable Hand<T> onSegment(BeltContents.@Nullable Hand<T> hand, boolean pastMidline) {
@@ -133,7 +133,7 @@ public final class Splitter<T> {
      * A half with the belt leaving it, null when there is none, and a player's hand on it at a
      * point along the whole half.
      */
-    public record Side<T>(Half<T> half, @Nullable Lane<T> out, BeltContents.@Nullable Hand<T> hand) {
+    public record Side<T>(Half<T> half, @Nullable Handoff<T> out, BeltContents.@Nullable Hand<T> hand) {
 
         private BeltContents.@Nullable Hand<T> hand(boolean pastMidline) {
             return onSegment(hand, pastMidline);
@@ -144,13 +144,13 @@ public final class Splitter<T> {
      * A belt an entry is handed across, with the length and speed its own tick uses, any hand held
      * on it, and how far it is still to move this tick.
      */
-    public record Lane<T>(BeltContents<T> belt, double length, double speed, BeltContents.@Nullable Hand<T> hand, double pending) {
+    public record Handoff<T>(BeltContents<T> belt, double length, double speed, BeltContents.@Nullable Hand<T> hand, double pending) {
 
-        public Lane(BeltContents<T> belt, double length, double speed) {
+        public Handoff(BeltContents<T> belt, double length, double speed) {
             this(belt, length, speed, null, 0);
         }
 
-        public Lane(BeltContents<T> belt, double length, double speed, BeltContents.@Nullable Hand<T> hand) {
+        public Handoff(BeltContents<T> belt, double length, double speed, BeltContents.@Nullable Hand<T> hand) {
             this(belt, length, speed, hand, 0);
         }
     }

@@ -184,10 +184,10 @@ public class BeltTileBlockEntity extends BlockEntity {
      * The line this tile heads, as a splitter half behind it hands it items, or null where this
      * tile is not a line's head entered from {@code travel} (#394).
      */
-    public Splitter.@Nullable Lane<ItemStack> entryLane(Direction travel) {
+    public Splitter.@Nullable Handoff<ItemStack> entryHandoff(Direction travel) {
         if (line == null || line.ring() || !shape().entry(BeltTileBlock.travel(travel())).equals(BeltTileBlock.travel(travel))) return null;
         var pending = movedAt == level.getGameTime() ? 0 : line.speed();
-        return new Splitter.Lane<>(line.contents(), line.length(), line.speed(), null, pending);
+        return new Splitter.Handoff<>(line.contents(), line.length(), line.speed(), null, pending);
     }
 
     /** Tells this tile its run has changed under it, so it scans again on its next tick. */

@@ -145,10 +145,10 @@ public class BeltEndRenderer implements BlockEntityRenderer<BeltEndBlockEntity, 
 
         var forward = nextWorldPoint.subtract(worldPoint);
         var flatForward = new Vec3(forward.x, 0, forward.z).normalize();
-        // Drawn in two lanes of four per block, by id parity, so items at a readable size do not
+        // Drawn in two rows of four per block, by id parity, so items at a readable size do not
         // overlap and z-fight. The belt itself has one lane (#344).
-        var lane = (entry.id() & 1) == 0 ? 0.125 : -0.125;
-        renderPosition = renderPosition.add(flatForward.cross(UP).scale(lane));
+        var row = (entry.id() & 1) == 0 ? 0.125 : -0.125;
+        renderPosition = renderPosition.add(flatForward.cross(UP).scale(row));
         var scale = stack.getItem() instanceof BlockItem ? 0.5f : 0.35f;
         var yaw = (float) Math.toDegrees(Math.atan2(-flatForward.z, flatForward.x));
         var pitch = (float) Math.toDegrees(Math.atan2(forward.y, Math.sqrt(forward.x * forward.x + forward.z * forward.z)));

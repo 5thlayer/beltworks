@@ -297,8 +297,8 @@ class SplitterTest {
             if (inRight != null) inRight.sink = item -> Join.offer(item, inRight.overshoot(),
               Splitter.entering(halves.right, speed, null, speed));
             splitters.add(() -> splitter.tick(now,
-              new Splitter.Side<>(halves.left, lane(outLeft), hand),
-              new Splitter.Side<>(halves.right, lane(outRight), null)));
+              new Splitter.Side<>(halves.left, handoff(outLeft), hand),
+              new Splitter.Side<>(halves.right, handoff(outRight), null)));
             return halves;
         }
 
@@ -321,8 +321,8 @@ class SplitterTest {
             return belt;
         }
 
-        private static Splitter.Lane<String> lane(Belt belt) {
-            return belt == null ? null : new Splitter.Lane<>(belt.contents, belt.length(), belt.speed());
+        private static Splitter.Handoff<String> handoff(Belt belt) {
+            return belt == null ? null : new Splitter.Handoff<>(belt.contents, belt.length(), belt.speed());
         }
     }
 

@@ -67,9 +67,9 @@ public class BeltTileRenderer implements BlockEntityRenderer<BeltTileBlockEntity
         for (var drawn : place.drawn(partialTicks)) {
             var stack = drawn.entry().payload();
             var block = stack.getItem() instanceof BlockItem;
-            // Two lanes of four per block by id parity, as a splitter half draws them, so items at
+            // Two rows of four per block by id parity, as a splitter half draws them, so items at
             // a readable size do not overlap. The line itself has one lane (#344).
-            var lane = (drawn.entry().id() & 1) == 0 ? 0.125 : -0.125;
+            var row = (drawn.entry().id() & 1) == 0 ? 0.125 : -0.125;
             var point = shape.point(drawn.offset(), travel);
             var forward = new Vec3(point.headingX(), 0, point.headingZ());
             var yaw = (float) Math.toDegrees(Math.atan2(-forward.z, forward.x));
@@ -77,7 +77,7 @@ public class BeltTileRenderer implements BlockEntityRenderer<BeltTileBlockEntity
             var normal = forward.scale(-Math.sin(tilt)).add(0, Math.cos(tilt), 0);
             var at = new Vec3(0.5 + point.x(), pitch.surface(drawn.offset()), 0.5 + point.z())
                        .add(normal.scale(block ? BLOCK_LIFT : FLAT_LIFT))
-                       .add(forward.cross(new Vec3(0, 1, 0)).scale(lane));
+                       .add(forward.cross(new Vec3(0, 1, 0)).scale(row));
             var itemState = new ItemStackRenderState();
             resolver.updateForTopItem(itemState, stack, ItemDisplayContext.FIXED, level, null, 0);
             state.items.add(new Item(at, yaw, (float) Math.toDegrees(tilt), block ? 0.5f : 0.35f, itemState));
