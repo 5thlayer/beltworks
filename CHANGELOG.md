@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Groundworks 0.4 ships inside the jar in place of 0.3. Beltworks' belts keep their own stretch for now, so nothing in play changes.
+- Groundworks 0.4.1 ships inside the jar in place of 0.3. Beltworks' belts keep their own stretch for now, so nothing in play changes.
 
 ## 0.2.0
 
