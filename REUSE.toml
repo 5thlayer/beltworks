@@ -31,18 +31,10 @@ path = [
     ".gitignore",
     "src/main/resources/META-INF/neoforge.mods.toml",
     "src/main/resources/beltworks.mixins.json",
-    "readme.md",
+    "CHANGELOG.md",
 ]
 SPDX-FileCopyrightText = ["Rearth", "2026 5thlayer"]
 SPDX-License-Identifier = "CC-BY-4.0 AND MIT"
-
-# Upstream's files, unchanged since the fork point.
-[[annotations]]
-path = [
-    "CHANGELOG.md",
-]
-SPDX-FileCopyrightText = "Rearth"
-SPDX-License-Identifier = "CC-BY-4.0"
 
 # Every asset is CC BY 4.0, whatever its origin (ADR 0001). This covers the
 # art the fork drew from scratch: the loader's band, loader_slate,

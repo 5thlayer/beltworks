@@ -1,42 +1,22 @@
-![Belt connecting chest and furnace](https://cdn.modrinth.com/data/cached_images/ac7f13962088c002ca8a82cfdfb644f8cdd0dc89.png)
+# Beltworks
 
-This mod adds clean, flexible conveyor belts for Minecraft 26.1.2, on **NeoForge**. It’s designed to work seamlessly with **any item storage mod**. The mod is still in **beta**, please report any issues you find.
+> **Want spline belts?** Those are **Simple Conveyor Belts** by Rearth, the mod Beltworks started from: [GitHub](https://github.com/Rearth/SimpleBelts) · [CurseForge](https://www.curseforge.com/minecraft/mc-mods/simple-conveyor-belts). Beltworks is a different mod, with belts laid on the block grid.
 
-### 🚚 Features:
+Beltworks adds Factorio-style belts to Minecraft, laid block by block on the grid and built to work with any tech mod. It runs on **NeoForge** for **Minecraft 26.1.2**. It is early work, so please report any issues you find.
 
-*   Adds a new **Conveyor Belt** item, plus optional **Support** and **Loader** blocks.
-*   **Fully dynamic spline-based belts**: Only the start and end need to be placed on blocks. Everything in-between can curve, bend, and twist freely.
-*   **Item transfer speed**: ~1 stack per second.
-*   **Smart overflow handling**: If the destination is full, items visibly pile up on the belt.
-*   **Shader-compatible**: Works with iris and oculus shaders.
-*   **Easy filtering**: Click a loader with an item to set it as filter. Also works with the Smart Filters from the FTB Filters mod.
+## Features
 
-***
+- **Tiles merged into transport lines.** A belt is laid one tile per block, one belt item per tile, facing the way you look. Tiles feeding one another join into a transport line that moves as one, around corners and up and down slopes. A tile holds eight items, so a line is a buffer as well as a route, and when its end backs up you can see the items waiting.
+- **One gesture lays a whole stretch.** Sneak-click a tile item to start a stretch, sneak-click again to add a corner, then click where it ends. The stretch follows the ground and is laid, and paid for, in one go. While you aim, the Placement Preview draws what the click would lay, in red where it would be refused.
+- **Slopes, and crossing over a line.** A line climbs or descends one block per block of travel, and a stretch whose path meets another line climbs over it on its own.
+- **Tiers.** Transport belts, splitters and loaders come in four tiers, carrying 15, 30, 45 and 60 items a second. Each piece caps only its own flow, so a line of mixed tiers runs at its slowest piece.
+- **Splitters.** A splitter takes two belts in and sends two belts out, splitting evenly and sending everything to one side when the other backs up. Build balancers from them.
+- **Works with any tech mod, through the loader.** A loader set against any inventory, vanilla or modded, pulls items from it onto the belt or pushes them into it. Right-click a loader with an item to filter what it moves; FTB Filters' smart filters work too.
+- **Dismantle.** Sneak-click a line's tile with a wrench or a pickaxe, then click another tile of the same line: everything between them comes up with its items.
 
-## 🛠️ How to Use
+## Dependencies
 
-1.  _(Optional)_ Place **Loaders** where the belt will start and end. These can also be auto-placed when using the belt item.
-2.  _(Optional)_ Add **Support blocks** anywhere along the path to shape the belt's curve.
-3.  Right-click the **belt item** on a starting inventory (e.g., a chest).
-4.  Walk to the destination inventory and right-click it to finish the belt.
-
-The belt path will auto-connect between the two points!
-
-***
-
-## 🔗 Dependencies
-
-None beyond NeoForge.
-
-***
-
-## 🔍 Planned Features
-
-*   Belt entity collisions / hitboxes
-*   Entity movement
-*   A backport to 1.20.1 or other versions is **NOT** planned.
-
-***
+None beyond NeoForge. Groundworks, the library that plans and previews placements, comes inside the jar.
 
 ## Credits
 
