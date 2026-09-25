@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
@@ -44,7 +45,7 @@ import io.github._5thlayer.beltworks.model.TransportLine;
 
 /**
  * A Dismantle of the belt family, run by Groundworks (PlanetaryFactory #404): each test sneak-clicks
- * a start with a pickaxe, a dismantling tool by default, through the player's game mode, asks
+ * a start with a dismantling tool through the player's game mode, asks
  * {@link Dismantles#spanTo} for the end, clicks it, and holds the world, the inventory and the stored
  * start to the span. An accepted span leaves none of the tiles or wedges it draws standing and hands
  * the player a tile for each and every item they carried; a refused span changes no block, no slot
@@ -295,7 +296,7 @@ final class DismantleTests {
         List<BlockPos> tiles = row(helper, 3);
         var player = new ListeningPlayer(helper);
         player.setGameMode(GameType.SURVIVAL);
-        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_PICKAXE));
+        player.setItemInHand(InteractionHand.MAIN_HAND, tool());
         click(helper, player, tiles.get(1));
         if (storedStart(player) != null) {
             helper.fail("a click with no start stored stored one", tiles.get(1));
@@ -394,12 +395,17 @@ final class DismantleTests {
         }
     }
 
-    /** A survival player holding the pickaxe, standing on the platform, who has sneak-clicked a start at {@code start}. */
+    // The tag's first tool rather than a pickaxe, since a pack may trim the tag to its own tools.
+    private static ItemStack tool() {
+        return new ItemStack(BuiltInRegistries.ITEM.getTagOrEmpty(Dismantles.TOOLS).iterator().next());
+    }
+
+    /** A survival player holding a dismantling tool, standing on the platform, who has sneak-clicked a start at {@code start}. */
     private static ListeningPlayer started(GameTestHelper helper, BlockPos start) {
         var player = new ListeningPlayer(helper);
         player.setGameMode(GameType.SURVIVAL);
         player.setPos(helper.absoluteVec(new Vec3(START.getX() + 0.5, START.getY(), START.getZ() - 1.5)));
-        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.IRON_PICKAXE));
+        player.setItemInHand(InteractionHand.MAIN_HAND, tool());
         sneakClick(helper, player, start);
         if (!helper.absolutePos(start).equals(storedStart(player))) {
             helper.fail("a sneak-click on a tile stored " + storedStart(player) + " as the start", start);

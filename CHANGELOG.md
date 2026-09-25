@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The Dismantle game tests hold the first tool in `groundworks:dismantles` rather than an iron pickaxe, so they pass in a pack that trims the tag to its own tools.
+
 ## 0.2.1
 
 - Groundworks 0.4.1 ships inside the jar in place of 0.3. Beltworks' belts keep their own stretch for now, so nothing in play changes.
