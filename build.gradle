@@ -91,12 +91,33 @@ def syncClientMods = tasks.register('syncClientMods', Sync) {
 
 tasks.named('runClient') { dependsOn syncClientMods }
 
+// The Groundworks versions the Mod nests and, through neoforge.mods.toml, accepts at load.
+def groundworksRange = '[0.4,0.5)'
+
+// A checkout outside the range still builds, and is refused at load: the composite substitutes it
+// whatever the range says. So -PsiblingBuilds (settings.gradle) checks it here.
+if (gradle.ext.has('groundworksCheckout')) {
+    def checkout = gradle.ext.groundworksCheckout
+    def (lower, lowerBound, upperBound, upper) = (groundworksRange =~ /^([\[(])([^,]*),([^\])]*)([\])])$/)[0][1..4]
+    def compare = { String a, String b ->
+        def (x, y) = [a, b].collect { it.tokenize('.')*.toInteger() }
+        def i = (0..<Math.max(x.size(), y.size())).find { (x[it] ?: 0) != (y[it] ?: 0) }
+        i == null ? 0 : (x[i] ?: 0) <=> (y[i] ?: 0)
+    }
+    def v = checkout.version
+    def above = !lowerBound || (lower == '[' ? compare(v, lowerBound) >= 0 : compare(v, lowerBound) > 0)
+    def below = !upperBound || (upper == ']' ? compare(v, upperBound) <= 0 : compare(v, upperBound) < 0)
+    if (!(above && below)) throw new GradleException(
+            "-PsiblingBuilds: Groundworks $v in ${checkout.dir} is outside $groundworksRange, which the Mod nests it under" +
+            " and which would refuse it at load. A Groundworks minor needs this range moved in this checkout too.")
+}
+
 dependencies {
     // Bundled, so the Mod runs with nothing else installed (ADR 0010). The range lets the Pack's own
     // copy and this one resolve to one loaded version.
     jarJar(implementation('io.github.5thlayer:groundworks')) {
         version {
-            strictly '[0.4,0.5)'
+            strictly groundworksRange
             prefer '0.4.1'
         }
     }
@@ -118,8 +139,9 @@ test {
 
 processResources {
     inputs.property 'version', version
+    inputs.property 'groundworksRange', groundworksRange
     filesMatching('META-INF/neoforge.mods.toml') {
-        expand version: version
+        expand version: version, groundworksRange: groundworksRange
     }
 }
 
@@ -138,6 +160,9 @@ tasks.withType(PublishToMavenLocal).configureEach {
     def published = new File(repositories.named('MavenLocal').get().url.path,
             "${maven_group.replace('.', '/')}/$archives_name/$mod_version")
     doFirst {
+        // A released Beltworks never nests an unreleased Groundworks (docs/agents/releases.md).
+        if (gradle.ext.has('groundworksCheckout')) throw new GradleException(
+                "Beltworks is built against the Groundworks checkout under -PsiblingBuilds, and nothing publishes under it")
         if (published.exists()) throw new GradleException(
                 "Beltworks $mod_version is already in $published, and a published version never changes: bump mod_version")
     }

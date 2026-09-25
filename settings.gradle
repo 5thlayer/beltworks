@@ -10,3 +10,32 @@ plugins {
 }
 
 rootProject.name = 'beltworks'
+
+// -PsiblingBuilds builds and runs against the Groundworks checkout in place of the one in ~/.m2, so a
+// change crossing the repos is tried before Groundworks is released (#54). Nothing publishes under it.
+// The property and its default are the Pack's: under the Pack's composite this build sees the Pack's
+// -P values, and the composite holds one Groundworks only while both inclusions name the same directory.
+if (providers.gradleProperty('siblingBuilds').present) {
+    def path = providers.gradleProperty('groundworksDir').getOrElse('~/minecraft_mods/groundworks')
+    def dir = new File(path.replaceFirst('^~', System.getProperty('user.home'))).canonicalFile
+    if (!dir.isDirectory()) {
+        throw new GradleException("-PgroundworksDir: ${dir} is not a directory")
+    }
+    def properties = new File(dir, 'gradle.properties')
+    if (!properties.isFile()) {
+        throw new GradleException("-PgroundworksDir: ${dir} has no gradle.properties, so it is not a Groundworks checkout")
+    }
+    def props = new Properties()
+    properties.withInputStream { props.load(it) }
+    def git = { String... args ->
+        providers.exec {
+            commandLine(['git', '-C', dir.path] + args.toList())
+            ignoreExitValue = true
+        }.standardOutput.asText.get().trim()
+    }
+    def dirty = git('status', '--porcelain') ? ' +uncommitted' : ''
+    includeBuild dir
+    // build.gradle checks the checkout's version against the range it nests Groundworks under.
+    gradle.ext.groundworksCheckout = [dir: dir, version: props.mod_version]
+    println "siblingBuilds: not the published Groundworks -- groundworks ${props.mod_version} at ${git('rev-parse', '--short', 'HEAD')}${dirty} (${dir})"
+}

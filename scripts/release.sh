@@ -21,6 +21,12 @@ published="$repo/io/github/5thlayer/beltworks/$version"
 ! git rev-parse -q --verify "refs/tags/$tag" > /dev/null || fail "$tag already exists."
 [[ ! -e "$published" ]] || fail "$version is already in $published, and a published version never changes."
 
+# A released Beltworks never nests an unreleased Groundworks. -PsiblingBuilds can come from the
+# environment or any gradle.properties, so Gradle itself is asked: under it the build names the
+# Groundworks checkout on a siblingBuilds: line.
+sibling="$(sh ./gradlew -q help 2>&1 | grep '^siblingBuilds:' || true)"
+[[ -z "$sibling" ]] || fail "the build is under -PsiblingBuilds (${sibling#siblingBuilds: }); unset it to release."
+
 # The entries between "## Unreleased" and the next heading are what this release ships.
 entries="$(awk '/^## /{on = ($0 == "## Unreleased"); next} on && NF' CHANGELOG.md)"
 [[ -n "$entries" ]] || fail "CHANGELOG.md has nothing under \"## Unreleased\"; a release ships what it lists."

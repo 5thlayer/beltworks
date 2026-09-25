@@ -8,7 +8,7 @@ Each change players notice adds its line under `## Unreleased` in `CHANGELOG.md`
 
 ## Cutting a release
 
-`scripts/release.sh <version>` from a clean main. It refuses a version that is already tagged or in `~/.m2`, and an empty Unreleased. It then:
+`scripts/release.sh <version>` from a clean main. It refuses a version that is already tagged or in `~/.m2`, an empty Unreleased, and a build under `-PsiblingBuilds`. It then:
 
 1. sets `mod_version` and turns `## Unreleased` into `## <version>` under a fresh, empty Unreleased
 2. runs the build and the game tests, putting both files back if either fails
@@ -19,6 +19,12 @@ It pushes nothing, and ends by printing the push command. The published jar is t
 ## A published version is final
 
 A version in `~/.m2` never changes. A fix, or a rebuild against another Groundworks, is the next patch version. `publishToMavenLocal` refuses a version that is already there (`build.gradle`), and nothing is deleted or overwritten by hand to get past it.
+
+## Trying an unreleased Groundworks
+
+`-PsiblingBuilds` is for trying a change across Groundworks and Beltworks before Groundworks is released (#54). It includes the Groundworks checkout (`-PgroundworksDir`, default `~/minecraft_mods/groundworks`, the Pack's property and default) as a composite, so the compile, the nested jar and every dev run, `runGameTestServer` included, use the checkout and never `~/.m2`. The build prints one `siblingBuilds:` line naming the checkout, its version and HEAD, and fails if the checkout's version is outside the range Beltworks nests Groundworks under: a Groundworks minor needs that range moved in this checkout too. Under the Pack's `-PsiblingBuilds` this build sees the same properties, so it names the same checkout.
+
+Nothing publishes under it: `publishToMavenLocal` and `scripts/release.sh` refuse. A green run under it proves nothing about a release, which still goes Groundworks, then Beltworks, then the Pack, through release-train. Under the composite the nested jar is named `io.github.5thlayer.groundworks-<minecraft>-<version>.jar`, so read `metadata.json`, not the file name.
 
 ## Tags
 
