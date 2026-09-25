@@ -13,7 +13,7 @@ Code that exists only because of the Mod's blocks belongs to the Mod, even when 
 
 ## Consequences
 
-- Loader power keeps the Factorio joule derivation in the Mod. A server config sets whether loaders need power (off by default) and **joules per FE** (100 by default, the Pack's rate). The Pack ships `defaultconfigs` that switch power on.
+- Loader power keeps the Factorio joule derivation in the Mod. A server config sets whether loaders need power (off by default) and **joules per FE** (100 by default, the Pack's rate). The Pack ships a `config/beltworks-server.toml` that switches power on: on 26.1 a server config is read from `config/`, with a world's `serverconfig/` overriding it, and `defaultconfigs/` is no longer read.
 - The loader is a belt end, not *the* inserter. "No inserter anywhere" and "no long-handed inserter" are the Pack's rulings.
 - Optional integrations with third-party mods, such as FTB Filter System and Jade, live in the Mod as soft dependencies.
 - Recipes from the Factorio corpus, Researchd unlocks, the Engineer's Pick and reach 16 stay in the Pack.

@@ -13,6 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LoaderEnergyTest {
 
+    private static final LoaderEnergy.Setting POWERED = new LoaderEnergy.Setting(true, 100);
+
     @ParameterizedTest
     @CsvSource({"2, 6650", "3, 8120", "4, 11600"})
     void eachItemCostsTheInsertersSwing(int tier, long joules) {
@@ -37,7 +39,7 @@ class LoaderEnergyTest {
 
     @Test
     void aShortChargeMovesNothing() {
-        var energy = new LoaderEnergy(BeltTier.IMPROVED);
+        var energy = new LoaderEnergy(BeltTier.IMPROVED, POWERED);
         energy.insertFe(66);
 
         assertFalse(energy.canMove());
@@ -47,7 +49,7 @@ class LoaderEnergyTest {
 
     @Test
     void theDrainStopsAtZero() {
-        var energy = new LoaderEnergy(BeltTier.IMPROVED);
+        var energy = new LoaderEnergy(BeltTier.IMPROVED, POWERED);
         energy.insertFe(1);
 
         for (int tick = 0; tick < 10; tick++) energy.drain();
@@ -57,7 +59,7 @@ class LoaderEnergyTest {
 
     @Test
     void aTierOneLoaderMovesUnpowered() {
-        var energy = new LoaderEnergy(BeltTier.BELT);
+        var energy = new LoaderEnergy(BeltTier.BELT, POWERED);
 
         assertFalse(energy.powered());
         assertTrue(energy.canMove());
@@ -70,7 +72,7 @@ class LoaderEnergyTest {
     @ParameterizedTest
     @CsvSource({"2, 200", "3, 326", "4, 465"})
     void theBufferHoldsTheLargestTickTheFlowLimitAllows(int tier, long fe) {
-        var energy = new LoaderEnergy(BeltTier.of(tier));
+        var energy = new LoaderEnergy(BeltTier.of(tier), POWERED);
 
         assertEquals(fe, energy.capacityFe());
         assertEquals(fe, energy.insertFe(Long.MAX_VALUE));
@@ -86,8 +88,40 @@ class LoaderEnergyTest {
         assertEquals(200 - 67, energy.storedFe());
     }
 
+    @ParameterizedTest
+    @CsvSource({"1", "2", "3", "4"})
+    void byDefaultNoLoaderNeedsPower(int tier) {
+        var energy = new LoaderEnergy(BeltTier.of(tier), LoaderEnergy.Setting.DEFAULT);
+
+        assertFalse(energy.powered());
+        assertTrue(energy.canMove());
+        energy.move();
+        energy.drain();
+        assertEquals(0, energy.joules());
+        assertEquals(0, energy.insertFe(100));
+        assertEquals(0, energy.capacityFe());
+    }
+
+    @Test
+    void anItemCostsItsJoulesAtTheSettingsRate() {
+        var energy = new LoaderEnergy(BeltTier.IMPROVED, new LoaderEnergy.Setting(true, 50));
+        energy.insertFe(132);
+
+        assertFalse(energy.canMove());
+        energy.insertFe(1);
+        assertTrue(energy.canMove());
+        assertEquals(133 * 50, energy.joules());
+    }
+
+    @Test
+    void theBufferIsCountedInTheSettingsFe() {
+        var energy = new LoaderEnergy(BeltTier.IMPROVED, new LoaderEnergy.Setting(true, 50));
+
+        assertEquals(400, energy.capacityFe());
+    }
+
     private static LoaderEnergy full(BeltTier tier) {
-        var energy = new LoaderEnergy(tier);
+        var energy = new LoaderEnergy(tier, POWERED);
         energy.insertFe(Long.MAX_VALUE);
         return energy;
     }

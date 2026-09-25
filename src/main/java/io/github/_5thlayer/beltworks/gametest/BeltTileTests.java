@@ -140,10 +140,12 @@ final class BeltTileTests {
         tests.test("backed_up_64_tile_line_holds_" + LONG_LINE_HOLDS, LONG_LINE_SETTLED_TICKS + 20,
                 BeltGameTests.LONG_PLATFORM, BeltTileTests::backedUpLineHolds512);
         tests.test("tier_1_loader_moves_onto_tiles_with_no_power", UNPOWERED_TICKS + 20,
-                BeltTileTests::tierOneRunsUnpowered);
-        tests.test("tier_2_loader_with_no_fe_puts_nothing_on_tiles", UNPOWERED_TICKS + 20,
+                helper -> runsUnpowered(helper, BeltTier.BELT));
+        tests.withLoaderPower(false).test("tier_2_loader_moves_onto_tiles_with_no_fe_when_loaders_need_no_power",
+                UNPOWERED_TICKS + 20, helper -> runsUnpowered(helper, BeltTier.IMPROVED));
+        tests.withLoaderPower(true).test("tier_2_loader_with_no_fe_puts_nothing_on_tiles", UNPOWERED_TICKS + 20,
                 BeltTileTests::tierTwoStallsUnpowered);
-        tests.test("fed_tier_2_loader_on_tiles_draws_66_5_fe_per_item",
+        tests.withLoaderPower(true).test("fed_tier_2_loader_on_tiles_draws_66_5_fe_per_item",
                 FED_WARMUP_TICKS + DRAW_WINDOW_TICKS + 20, BeltTileTests::fedLoaderDrawsPerItem);
         tests.test("a_line_built_by_hand_carries_items", 200, BeltTileTests::lineBuiltByHand);
         tests.test("a_tile_placed_between_two_lines_merges_them", MERGE_FILL_TICKS + 20,
@@ -626,23 +628,22 @@ final class BeltTileTests {
         }).thenSucceed();
     }
 
-    // The control for the stall: the same line with the loaders' tier changed moves items.
-    private static void tierOneRunsUnpowered(GameTestHelper helper) {
-        place(helper, tiers(BeltTier.BELT), BeltTier.BELT, RATE_SUPPLY);
-        BlockPos target = targetOf(tiers(BeltTier.BELT));
+    // The control for the stall: the same line with the loaders' tier or the config changed moves items.
+    private static void runsUnpowered(GameTestHelper helper, BeltTier loaders) {
+        place(helper, tiers(loaders), loaders, RATE_SUPPLY);
+        BlockPos target = targetOf(tiers(loaders));
         helper.startSequence().thenIdle(UNPOWERED_TICKS).thenExecute(() -> {
             if (helper.getLevel().getCapability(Capabilities.Energy.BLOCK, helper.absolutePos(FROM), null) != null) {
-                helper.fail("a tier-1 loader has an energy face", FROM);
+                helper.fail("an unpowered tier-" + loaders.number() + " loader has an energy face", FROM);
             }
             int arrived = count(chest(helper, target));
             if (arrived == 0) {
-                helper.fail("unfed tier-1 loaders delivered nothing onto tiles in "
+                helper.fail("unfed tier-" + loaders.number() + " loaders delivered nothing onto tiles in "
                         + UNPOWERED_TICKS + " ticks", target);
             }
         }).thenSucceed();
     }
 
-    // Holds only while loaders always need power: ADR 0002's server config, off by default, isn't in yet.
     private static void tierTwoStallsUnpowered(GameTestHelper helper) {
         place(helper, tiers(BeltTier.IMPROVED), BeltTier.IMPROVED, RATE_SUPPLY);
         helper.startSequence().thenIdle(UNPOWERED_TICKS).thenExecute(() -> {

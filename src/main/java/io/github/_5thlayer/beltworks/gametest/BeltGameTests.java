@@ -36,8 +36,12 @@ public final class BeltGameTests {
     private static final DeferredRegister<MapCodec<? extends GameTestInstance>> TEST_TYPES =
       DeferredRegister.create(Registries.TEST_INSTANCE_TYPE, Beltworks.MOD_ID);
 
+    private static final DeferredRegister<MapCodec<? extends TestEnvironmentDefinition<?>>> ENVIRONMENT_TYPES =
+      DeferredRegister.create(Registries.TEST_ENVIRONMENT_DEFINITION_TYPE, Beltworks.MOD_ID);
+
     static {
         TEST_TYPES.register("code", () -> CodeGameTest.CODEC);
+        ENVIRONMENT_TYPES.register("loader_power", () -> LoaderPowerEnvironment.CODEC);
     }
 
     private BeltGameTests() {
@@ -45,6 +49,7 @@ public final class BeltGameTests {
 
     public static void register(IEventBus modBus) {
         TEST_TYPES.register(modBus);
+        ENVIRONMENT_TYPES.register(modBus);
         // Posted only when game tests are enabled, so a production server never registers the tests.
         modBus.addListener(BeltGameTests::registerTests);
     }
@@ -52,7 +57,9 @@ public final class BeltGameTests {
     private static void registerTests(RegisterGameTestsEvent event) {
         // Registered rather than borrowed, since the event hands out no lookup for vanilla's.
         var environment = event.registerEnvironment(Beltworks.id("default"), new TestEnvironmentDefinition.AllOf(List.of()));
-        var tests = new Registrar(event, environment);
+        var powered = event.registerEnvironment(Beltworks.id("loaders_need_power"), new LoaderPowerEnvironment(true));
+        var unpowered = event.registerEnvironment(Beltworks.id("loaders_need_no_power"), new LoaderPowerEnvironment(false));
+        var tests = new Registrar(event, environment, powered, unpowered);
         LineSmokeTest.register(tests);
         BeltTileTests.register(tests);
         BeltCornerTests.register(tests);
@@ -69,8 +76,16 @@ public final class BeltGameTests {
         DismantleTests.register(tests);
     }
 
-    /** What a test class is handed: a name, a tick budget and a body. */
-    record Registrar(RegisterGameTestsEvent event, Holder<TestEnvironmentDefinition<?>> environment) {
+    /**
+     * What a test class is handed: a name, a tick budget and a body. A test in the default environment
+     * holds whatever the config says about loader power, and one that doesn't asks for a setting.
+     */
+    record Registrar(RegisterGameTestsEvent event, Holder<TestEnvironmentDefinition<?>> environment,
+                     Holder<TestEnvironmentDefinition<?>> powered, Holder<TestEnvironmentDefinition<?>> unpowered) {
+
+        Registrar withLoaderPower(boolean loadersNeedPower) {
+            return new Registrar(event, loadersNeedPower ? powered : unpowered, powered, unpowered);
+        }
 
         void test(String name, int maxTicks, Consumer<GameTestHelper> body) {
             test(name, maxTicks, PLATFORM, body);

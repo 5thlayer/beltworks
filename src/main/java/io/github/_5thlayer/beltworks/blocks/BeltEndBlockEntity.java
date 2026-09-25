@@ -32,6 +32,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.fml.ModList;
 import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.beltworks.BeltSync;
+import io.github._5thlayer.beltworks.BeltworksConfig;
 import io.github._5thlayer.beltworks.BlockEntitiesContent;
 import io.github._5thlayer.beltworks.api.item.ItemApi;
 import io.github._5thlayer.beltworks.collision.BeltCollisionRegistry;
@@ -77,8 +78,9 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
         var tier = ((BeltEndBlock) state.getBlock()).tier();
         splitter = state.getBlock() instanceof SplitterBlock;
         flow = new FlowLimit(tier.itemsPerTick());
-        // Splitters draw no power (ADR 0007).
-        energy = new LoaderEnergy(splitter ? BeltTier.BELT : tier);
+        // Splitters draw no power (ADR 0007). The setting is read once, so a changed config reaches a
+        // loader when its chunk next loads.
+        energy = new LoaderEnergy(splitter ? BeltTier.BELT : tier, BeltworksConfig.loaderPower());
         splitterModel = splitter ? new Splitter<>(tier) : null;
         half = splitter ? new Splitter.Half<>() : null;
         halfSpeed = tier.blocksPerTick();

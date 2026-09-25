@@ -26,7 +26,9 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.common.NeoForge;
@@ -47,7 +49,8 @@ public final class Beltworks {
     private static final Map<BeltEndBlockEntity, LoaderEnergyHandler> ENERGY_FACES =
       Collections.synchronizedMap(new WeakHashMap<>());
 
-    public Beltworks(IEventBus modBus) {
+    public Beltworks(IEventBus modBus, ModContainer container) {
+        container.registerConfig(ModConfig.Type.SERVER, BeltworksConfig.SPEC);
         ItemApi.BLOCK = new NeoforgeItemApiImpl();
         modBus.addListener(Beltworks::registerCapabilities);
         modBus.addListener(Beltworks::registerPayloads);
