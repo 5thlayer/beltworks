@@ -11,3 +11,7 @@ Default five-role vocabulary (needs-triage, needs-info, ready-for-agent, ready-f
 ### Domain docs
 
 Single-context: `CONTEXT.md` + `docs/adr/` at repo root. See `docs/agents/domain.md`.
+
+### Releases
+
+Before bumping `mod_version`, publishing to `~/.m2` or tagging a release, read `docs/agents/releases.md`: a published version never changes, and tags are `beltworks-v<version>`.

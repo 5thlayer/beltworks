@@ -131,3 +131,14 @@ publishing {
         }
     }
 }
+
+// A version in the local maven repository never changes: the Pack pins it and compares its sha256, so
+// a fix is the next patch version (docs/agents/releases.md).
+tasks.withType(PublishToMavenLocal).configureEach {
+    def published = new File(repositories.named('MavenLocal').get().url.path,
+            "${maven_group.replace('.', '/')}/$archives_name/$mod_version")
+    doFirst {
+        if (published.exists()) throw new GradleException(
+                "Beltworks $mod_version is already in $published, and a published version never changes: bump mod_version")
+    }
+}
