@@ -47,8 +47,10 @@ neoForge {
         }
         // Runs the Mod's game tests headless and exits, non-zero if any fails. 26.1 has no
         // namespace property, so the selector is what keeps vanilla's tests out.
+        // A directory of its own, so the mods the dev client loads from run/mods never reach it.
         gameTestServer {
             type = 'gameTestServer'
+            gameDirectory = project.file('run/gametest')
             programArguments.addAll '--tests', "${mod_id}:*", '--report', gameTestReport.absolutePath
         }
     }
@@ -72,7 +74,22 @@ tasks.named('runGameTestServer') {
     }
 }
 
+// Mods the dev client loads alongside the Mod, to check its integrations by hand. 26.1 has no
+// per-run classpath, so they go into the client's mods folder, which holds only what is listed here.
+configurations {
+    clientMods { transitive = false }
+}
+
+def syncClientMods = tasks.register('syncClientMods', Sync) {
+    from configurations.clientMods
+    into layout.projectDirectory.dir('run/mods')
+}
+
+tasks.named('runClient') { dependsOn syncClientMods }
+
 dependencies {
+    clientMods 'curse.maven:jade-324717:8651070'
+
     compileOnly 'curse.maven:ftb-filter-system-943925:8300190'
     // Jade finds the tile's tooltip plugin by its annotation, so the Mod runs without it.
     compileOnly 'curse.maven:jade-324717:8651070'
