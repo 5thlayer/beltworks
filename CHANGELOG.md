@@ -4,6 +4,16 @@
 
 - Rotate (`R`) and Reverse Rotate (`Shift+R`), from Groundworks 0.2, with nothing else installed. A held tile, splitter or loader places turned a quarter per press, and a stretch's start is stored looking the turned way. A placed level tile or loader turns in place; a splitter half, a slope and a wedge refuse and say why, as does a level tile whose turn would slope a corner or leave its wedge no room. Rotate in Place never turns another mod's block.
 
+## 0.1.1
+
+- Groundworks 0.1 now ships inside the jar, so nothing else needs installing. A tile, splitter or stretch shows its plan before the click, and a refused placement says why.
+- Groundworks also runs the Stretch and the Dismantle. With a pickaxe or wrench, a sneak-click stores the Dismantle's start and a click names its end. An end on a splitter or loader is refused as not the same kind.
+- A raised belt shows supports: legs down to the first solid top or belt piece, at corners, line ends, a slope's foot and top, splitters, and every 8 blocks along a straight run. They are only drawn: nothing is placed, and they never refuse a placement.
+- A client config, `beltworks-client.toml`, holds each player's view of supports: whether they show, the spacing and how far a leg reaches. It's editable from the Mods menu and takes effect at once.
+- Loaders need no power unless the server config says so. `beltworks-server.toml` has `loadersNeedPower` (off by default) and `joulesPerFe`.
+- With Jade installed, a belt tile has a tooltip.
+- Upstream's recipes for belt items the Mod doesn't have are gone, so none fails to load.
+
 ## 0.1.0
 
 - Renamed to Beltworks, a mod of its own, with its version restarting at 0.1.0.
