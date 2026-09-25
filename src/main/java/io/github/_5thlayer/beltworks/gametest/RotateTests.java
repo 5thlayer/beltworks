@@ -19,6 +19,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import io.github._5thlayer.beltworks.Beltworks;
 import io.github._5thlayer.beltworks.BlockContent;
 import io.github._5thlayer.beltworks.ComponentContent;
 import io.github._5thlayer.beltworks.ItemContent;
@@ -60,14 +61,15 @@ final class RotateTests {
         tests.test("rotate_in_place_refuses_a_foot_a_middle_a_top_and_a_wedge", 40, RotateTests::slopeRefuses);
         tests.test("rotate_in_place_refuses_a_level_tile_whose_turn_would_slope_a_corner", 20, RotateTests::wouldSlopeACorner);
         tests.test("rotate_in_place_refuses_a_level_tile_whose_wedge_would_stand_on_a_loader", 20, RotateTests::wedgeOnALoader);
-        // No statement of the Mod's covers another mod's block. The library's own tests state some of
-        // vanilla's while game tests run, and not this one.
+        // The Mod's statement covers only its own blocks. A pack may state every block, and then a
+        // press turns the jack o'lantern by the pack's choice, so the press is checked only where no
+        // statement covers it: standalone, the library's own tests state some of vanilla's, not this one.
         tests.test("rotate_in_place_leaves_another_mods_block_alone", 20, helper -> {
-            if (Rotate.isTurnedInPlace(Blocks.JACK_O_LANTERN)) {
-                helper.fail("a statement covers the jack o'lantern, so it proves nothing here: pick a block none covers", AIMED);
+            if (Beltworks.OURS.test(Blocks.JACK_O_LANTERN)) helper.fail("the Mod's statement covers the jack o'lantern", AIMED);
+            if (!Rotate.isTurnedInPlace(Blocks.JACK_O_LANTERN)) {
+                helper.setBlock(AIMED, Blocks.JACK_O_LANTERN.defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, LOOK));
+                refused(helper, emptyHanded(helper), AIMED, AIMED, List.of());
             }
-            helper.setBlock(AIMED, Blocks.JACK_O_LANTERN.defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, LOOK));
-            refused(helper, emptyHanded(helper), AIMED, AIMED, List.of());
             helper.succeed();
         });
     }

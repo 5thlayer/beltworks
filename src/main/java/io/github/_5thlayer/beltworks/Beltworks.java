@@ -53,14 +53,16 @@ public final class Beltworks {
     private static final Map<BeltEndBlockEntity, LoaderEnergyHandler> ENERGY_FACES =
       Collections.synchronizedMap(new WeakHashMap<>());
 
+    /** The Mod's own blocks: what it opts in to previews and states Rotate in Place turns. */
+    public static final Predicate<Block> OURS = block -> BuiltInRegistries.BLOCK.getKey(block).getNamespace().equals(MOD_ID);
+
     public Beltworks(IEventBus modBus, ModContainer container) {
         container.registerConfig(ModConfig.Type.SERVER, BeltworksConfig.SPEC);
         ItemApi.BLOCK = new NeoforgeItemApiImpl();
-        Predicate<Block> ours = block -> BuiltInRegistries.BLOCK.getKey(block).getNamespace().equals(MOD_ID);
         // Every block of the Mod's that places as vanilla does, such as a loader, gets a preview (ADR 0010).
-        Placements.optIn(ours);
+        Placements.optIn(OURS);
         // Rotate in Place turns the Mod's own blocks and never another mod's, each answering for itself.
-        Rotate.turnsInPlace(ours);
+        Rotate.turnsInPlace(OURS);
         // Groundworks runs the Dismantle, and the Mod supplies the belt's part (ADR 0011).
         Dismantles.register(new BeltFamily());
         modBus.addListener(Beltworks::registerCapabilities);
