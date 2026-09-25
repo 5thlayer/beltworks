@@ -6,7 +6,7 @@ What the unit and game tests cannot see: how a change looks and feels in a runni
 
 A raised line shows a **support** where a builder would hold it up. See **Support** in `CONTEXT.md`.
 
-- A floating corner shows a support: a leg down each corner of its block, with a crossbar under the tile at each end tying that end's legs. So do a floating line's first and last tiles.
+- A floating corner shows a support: a leg up each corner of its block to the tile's top, and a frame under the tile tying the legs along each edge. The legs meet the tile's corners with no gap and no flicker. On a turn, the leg at its outer corner stands back where the curve's outer edge is, and the struts to it run at an angle. A floating line's first and last tiles show a support too.
 - A straight tile mid-line shows none.
 - A tile on the ground, or on top of another tile, shows none.
 - A tile beside a solid block on a side its line does not use shows none: left or right of a straight tile, or behind a corner or on the side opposite its entry. A solid block ahead of a line's last tile, or behind its first, doesn't count, and a support shows.

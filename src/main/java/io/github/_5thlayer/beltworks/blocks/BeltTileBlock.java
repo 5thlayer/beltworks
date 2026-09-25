@@ -329,13 +329,13 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
                 return state.isFaceSturdy(level, pos, Direction.UP) ? Support.Fill.SOLID : Support.Fill.OPEN;
             }
 
-            // A tile's surface at the corner, a loader's or splitter's top, or a solid block's.
+            // A tile's surface where the leg stands, a loader's or splitter's top, or a solid block's.
             @Override
-            public double top(LineScan.Spot spot, Support.Corner corner) {
+            public double top(LineScan.Spot spot, double x, double z) {
                 var pos = pos(spot);
                 var state = level.getBlockState(pos);
                 if (state.getBlock() instanceof BeltTileBlock) {
-                    return Support.surface(state.getValue(PITCH).model(), travel(state.getValue(BlockStateProperties.HORIZONTAL_FACING)), corner);
+                    return Support.surface(state.getValue(PITCH).model(), travel(state.getValue(BlockStateProperties.HORIZONTAL_FACING)), x, z);
                 }
                 if (state.getBlock() instanceof BeltEndBlock) return state.getShape(level, pos).max(Direction.Axis.Y);
                 return 1;

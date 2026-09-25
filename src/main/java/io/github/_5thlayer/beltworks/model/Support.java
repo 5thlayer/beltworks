@@ -11,14 +11,15 @@ import java.util.List;
  * The struts that show a raised line held up, where a builder would put them (ADR 0012): a crossbar
  * under the tile and a leg down each corner of its block. Like a tile's shape and pitch, it is
  * derived from the tile and the world around it, never placed, and never limits how far a line
- * floats. Standing at block corners, a leg never crosses where items pass.
+ * floats. Standing at the edge of its tile, a leg never crosses where items pass.
  */
 public record Support(List<Leg> legs) {
 
     /** How far a leg reaches below a level tile's surface before it runs on out of sight, in blocks. */
     public static final int REACH = 64;
 
-    private static final List<Corner> CORNERS = List.of(new Corner(0, 0), new Corner(1, 0), new Corner(0, 1), new Corner(1, 1));
+    // Round the block, so each corner's neighbours are the corners a strut ties it to.
+    private static final List<double[]> CORNERS = List.of(new double[] {0, 0}, new double[] {1, 0}, new double[] {1, 1}, new double[] {0, 1});
 
     /** What fills a block, as a support reads it. */
     public enum Fill {
@@ -35,22 +36,20 @@ public record Support(List<Leg> legs) {
 
         Fill fill(LineScan.Spot spot);
 
-        /** Where a leg at {@code corner} stops on the block at {@code spot}, in blocks from its floor. */
-        double top(LineScan.Spot spot, Corner corner);
+        /** Where a leg standing at {@code x}, {@code z} in its block stops on the block at {@code spot}, in blocks from its floor. */
+        double top(LineScan.Spot spot, double x, double z);
 
         /** Whether the block at {@code spot} is solid on its face turned {@code toward}, so a tile there is fixed to it. */
         boolean fixes(LineScan.Spot spot, LineScan.Travel toward);
     }
 
-    /** A corner of a block, as unit steps east and south of its north-west corner. */
-    public record Corner(int x, int z) {
-    }
-
     /**
-     * A leg at {@code corner}, from {@code top} down to {@code bottom}, in blocks from its tile's
-     * floor. A leg not {@code standing} found nothing within reach and is drawn running on past it.
+     * A leg whose outer edge stands at {@code x}, {@code z} in its block, in blocks east and south of
+     * its north-west corner, from {@code top} down to {@code bottom}, in blocks from its tile's floor.
+     * Its legs are listed round the block. A leg not {@code standing} found nothing within reach and
+     * is drawn running on past it.
      */
-    public record Leg(Corner corner, double top, double bottom, boolean standing) {
+    public record Leg(double x, double z, double top, double bottom, boolean standing) {
     }
 
     /**
@@ -63,7 +62,19 @@ public record Support(List<Leg> legs) {
         var shape = TileShape.at(spot, travel, around);
         if (shape == TileShape.STRAIGHT && !firstOrLast(spot, travel, around)) return null;
         if (heldUp(spot, ground) || fixed(spot, travel, shape, ground)) return null;
-        return new Support(CORNERS.stream().map(corner -> leg(spot, corner, ground)).toList());
+        return new Support(CORNERS.stream().map(corner -> foot(corner, travel, shape)).map(foot -> leg(spot, foot, ground)).toList());
+    }
+
+    // A turn is a quarter disc about the corner between its entry side and its front, so its outer
+    // corner is empty: the leg there stands back on the diagonal, where the curve's outer edge is.
+    private static double[] foot(double[] corner, LineScan.Travel travel, TileShape shape) {
+        if (shape == TileShape.STRAIGHT) return corner;
+        var side = shape == TileShape.FROM_LEFT ? TileShape.left(travel) : TileShape.right(travel);
+        var innerX = 0.5 + 0.5 * (side.x() + travel.x());
+        var innerZ = 0.5 + 0.5 * (side.z() + travel.z());
+        if (corner[0] != 1 - innerX || corner[1] != 1 - innerZ) return corner;
+        var back = 1 / Math.sqrt(2);
+        return new double[] {innerX + (corner[0] - innerX) * back, innerZ + (corner[1] - innerZ) * back};
     }
 
     // A level tile's line runs on through a level tile behind it travelling its way, and through the
@@ -93,19 +104,21 @@ public record Support(List<Leg> legs) {
         return free.stream().anyMatch(side -> ground.fixes(spot.step(side, 1), TileShape.back(side)));
     }
 
-    private static Leg leg(LineScan.Spot spot, Corner corner, Ground ground) {
+    private static Leg leg(LineScan.Spot spot, double[] foot, Ground ground) {
+        var x = foot[0];
+        var z = foot[1];
         for (var down = 1; down <= REACH + 1; down++) {
             var at = spot.up(-down);
             if (ground.fill(at) == Fill.OPEN) continue;
-            var bottom = ground.top(at, corner) - down;
+            var bottom = ground.top(at, x, z) - down;
             if (Pitch.SURFACE - bottom > REACH) break;
-            return new Leg(corner, Pitch.SURFACE, bottom, true);
+            return new Leg(x, z, Pitch.SURFACE, bottom, true);
         }
-        return new Leg(corner, Pitch.SURFACE, Pitch.SURFACE - REACH, false);
+        return new Leg(x, z, Pitch.SURFACE, Pitch.SURFACE - REACH, false);
     }
 
-    /** The surface of a belt tile of {@code pitch} travelling {@code travel} at {@code corner}, where a leg stands on it. */
-    public static double surface(Pitch pitch, LineScan.Travel travel, Corner corner) {
-        return pitch.surface((corner.x() - 0.5) * travel.x() + (corner.z() - 0.5) * travel.z() + 0.5);
+    /** The surface of a belt tile of {@code pitch} travelling {@code travel} at {@code x}, {@code z} in its block, where a leg stands on it. */
+    public static double surface(Pitch pitch, LineScan.Travel travel, double x, double z) {
+        return pitch.surface((x - 0.5) * travel.x() + (z - 0.5) * travel.z() + 0.5);
     }
 }

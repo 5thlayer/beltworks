@@ -56,7 +56,7 @@ public class BeltTileRenderer implements BlockEntityRenderer<BeltTileBlockEntity
         // Worked out every frame, so the legs follow the world however far below it changes.
         var pos = entity.getBlockPos();
         var support = BeltTileBlock.support(level, pos, travel);
-        if (support != null) state.support = SupportRenderer.boxes(support, travel, level, pos);
+        if (support != null) state.support = SupportRenderer.boxes(support, level, pos);
 
         var place = TileLines.at(level, pos);
         if (place == null) return;

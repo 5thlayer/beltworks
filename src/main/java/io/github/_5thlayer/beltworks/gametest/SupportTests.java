@@ -93,7 +93,7 @@ final class SupportTests {
         }
         for (var leg : support.legs()) {
             if (!leg.standing() || Math.abs(leg.bottom() - expected) > 1e-6) {
-                helper.fail("a leg at " + leg.corner() + " stops at " + leg.bottom() + ", expected " + expected, at);
+                helper.fail("a leg at " + leg.x() + ", " + leg.z() + " stops at " + leg.bottom() + ", expected " + expected, at);
             }
         }
     }

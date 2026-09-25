@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -159,10 +160,34 @@ class SupportTest {
     void aSupportHasALegAtEachCornerOfItsBlock() {
         run();
 
-        var legs = support(0, 10, 0).legs();
+        assertEquals(Set.of(List.of(0d, 0d), List.of(1d, 0d), List.of(0d, 1d), List.of(1d, 1d)), feet(support(0, 10, 0)));
+    }
 
-        assertEquals(Set.of(new Support.Corner(0, 0), new Support.Corner(1, 0), new Support.Corner(0, 1), new Support.Corner(1, 1)),
-          new HashSet<>(legs.stream().map(Support.Leg::corner).toList()));
+    // A turn is a quarter disc about its inner corner, so its outer corner is empty: the leg there
+    // stands back on the diagonal, where the curve's outer edge crosses it.
+    @Test
+    void aTurnsOuterLegStandsOnItsCurvesOuterEdge() {
+        // Fed from the north and leaving east: its inner corner is the north-east, its outer the south-west.
+        tile(0, 10, -1, SOUTH);
+        tile(0, 10, 0, EAST);
+        tile(1, 10, 0, EAST);
+
+        var back = 1 / Math.sqrt(2);
+        var feet = feet(support(0, 10, 0));
+
+        assertTrue(feet.containsAll(Set.of(List.of(0d, 0d), List.of(1d, 0d), List.of(1d, 1d))), feet.toString());
+        assertTrue(feet.stream().anyMatch(foot -> Math.abs(foot.get(0) - (1 - back)) < 1e-9 && Math.abs(foot.get(1) - back) < 1e-9),
+          feet.toString());
+    }
+
+    // Around the block, so each leg's neighbours in the list are the legs a strut ties it to.
+    @Test
+    void aSupportsLegsGoRoundItsBlock() {
+        run();
+
+        var feet = support(0, 10, 0).legs().stream().map(leg -> List.of(leg.x(), leg.z())).toList();
+
+        assertEquals(List.of(List.of(0d, 0d), List.of(1d, 0d), List.of(1d, 1d), List.of(0d, 1d)), feet);
     }
 
     @Test
@@ -200,7 +225,7 @@ class SupportTest {
     }
 
     @Test
-    void aLegStandsOnABeltPiecesSurfaceAtItsCorner() {
+    void aLegStandsOnABeltPiecesSurfaceWhereItStands() {
         run();
         fill(0, 7, 0, Support.Fill.BELT);
         top(0, 7, 0, Pitch.SURFACE);
@@ -245,14 +270,18 @@ class SupportTest {
         assertTrue(leg.standing());
     }
 
-    // A slope's surface at a corner is its height at that end, so a leg lands on it there.
+    // A slope's surface under a leg is its height that far along, so a leg lands on it there.
     @Test
-    void aBeltTilesSurfaceAtACornerFollowsItsPitch() {
-        assertEquals(Pitch.SURFACE, Support.surface(Pitch.LEVEL, EAST, new Support.Corner(0, 0)));
-        assertEquals(0, Support.surface(Pitch.MIDDLE_UP, EAST, new Support.Corner(0, 1)));
-        assertEquals(1, Support.surface(Pitch.MIDDLE_UP, EAST, new Support.Corner(1, 0)));
-        assertEquals(1, Support.surface(Pitch.MIDDLE_UP, SOUTH, new Support.Corner(0, 1)));
-        assertEquals(0, Support.surface(Pitch.MIDDLE_UP, SOUTH, new Support.Corner(1, 0)));
+    void aBeltTilesSurfaceUnderALegFollowsItsPitch() {
+        assertEquals(Pitch.SURFACE, Support.surface(Pitch.LEVEL, EAST, 0, 0));
+        assertEquals(0, Support.surface(Pitch.MIDDLE_UP, EAST, 0, 1));
+        assertEquals(1, Support.surface(Pitch.MIDDLE_UP, EAST, 1, 0));
+        assertEquals(1, Support.surface(Pitch.MIDDLE_UP, SOUTH, 0, 1));
+        assertEquals(0, Support.surface(Pitch.MIDDLE_UP, SOUTH, 1, 0));
+    }
+
+    private static Set<List<Double>> feet(Support support) {
+        return new HashSet<>(support.legs().stream().map(leg -> List.of(leg.x(), leg.z())).toList());
     }
 
     private final Map<LineScan.Spot, LineScan.Travel> tiles = new HashMap<>();
@@ -320,7 +349,7 @@ class SupportTest {
             }
 
             @Override
-            public double top(LineScan.Spot spot, Support.Corner corner) {
+            public double top(LineScan.Spot spot, double x, double z) {
                 return tops.getOrDefault(spot, 1d);
             }
 
