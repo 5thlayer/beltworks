@@ -18,6 +18,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.block.LiquidBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -37,6 +38,7 @@ import io.github._5thlayer.beltworks.items.StretchPlan;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.LineScan;
 import io.github._5thlayer.beltworks.model.Pitch;
+import io.github._5thlayer.beltworks.model.Support;
 import io.github._5thlayer.beltworks.model.TileShape;
 import io.github._5thlayer.beltworks.model.Wedge;
 
@@ -302,6 +304,47 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
                 var pos = new BlockPos(spot.x(), spot.y(), spot.z());
                 if (level instanceof LevelReader reader && !reader.hasChunkAt(pos)) return Blocks.AIR.defaultBlockState();
                 return level.getBlockState(pos);
+            }
+        };
+    }
+
+    /** The support the tile at {@code pos} travelling {@code travel} shows, or null where it shows none (ADR 0012). */
+    public static @Nullable Support support(BlockGetter level, BlockPos pos, LineScan.Travel travel) {
+        return Support.at(spot(pos), travel, around(level, Map.of()), ground(level));
+    }
+
+    /**
+     * The world under and beside a tile, as its support reads it. Unlike a wedge, a leg passes a
+     * fluid, and stands on a loader or another tile.
+     */
+    public static Support.Ground ground(BlockGetter level) {
+        return new Support.Ground() {
+            @Override
+            public Support.Fill fill(LineScan.Spot spot) {
+                var pos = pos(spot);
+                var state = level.getBlockState(pos);
+                var block = state.getBlock();
+                if (block instanceof BeltTileBlock || block instanceof BeltEndBlock) return Support.Fill.BELT;
+                if (block instanceof BeltWedgeBlock || block instanceof LiquidBlock || state.canBeReplaced()) return Support.Fill.OPEN;
+                return state.isFaceSturdy(level, pos, Direction.UP) ? Support.Fill.SOLID : Support.Fill.OPEN;
+            }
+
+            // A tile's surface at the corner, a loader's or splitter's top, or a solid block's.
+            @Override
+            public double top(LineScan.Spot spot, Support.Corner corner) {
+                var pos = pos(spot);
+                var state = level.getBlockState(pos);
+                if (state.getBlock() instanceof BeltTileBlock) {
+                    return Support.surface(state.getValue(PITCH).model(), travel(state.getValue(BlockStateProperties.HORIZONTAL_FACING)), corner);
+                }
+                if (state.getBlock() instanceof BeltEndBlock) return state.getShape(level, pos).max(Direction.Axis.Y);
+                return 1;
+            }
+
+            @Override
+            public boolean fixes(LineScan.Spot spot, LineScan.Travel toward) {
+                var pos = pos(spot);
+                return level.getBlockState(pos).isFaceSturdy(level, pos, Direction.getApproximateNearest(toward.x(), 0, toward.z()));
             }
         };
     }

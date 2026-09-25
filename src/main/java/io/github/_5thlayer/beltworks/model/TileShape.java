@@ -100,4 +100,8 @@ public enum TileShape {
     static LineScan.Travel right(LineScan.Travel travel) {
         return new LineScan.Travel(-travel.z(), travel.x());
     }
+
+    static LineScan.Travel back(LineScan.Travel travel) {
+        return new LineScan.Travel(-travel.x(), -travel.z());
+    }
 }

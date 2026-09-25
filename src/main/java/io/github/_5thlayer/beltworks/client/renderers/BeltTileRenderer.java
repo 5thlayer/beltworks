@@ -15,17 +15,20 @@ import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
 import io.github._5thlayer.beltworks.client.TileLines;
+import io.github._5thlayer.beltworks.model.Support;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The items a tile carries, drawn from the client's copy of its line (PlanetaryFactory #395).
+ * The items a tile carries, drawn from the client's copy of its line (PlanetaryFactory #395), and
+ * its support where it shows one (ADR 0012).
  * Each tile draws only the items whose centre is on it, so an item crossing into the next tile is
  * drawn once, and a line whose head is off screen still shows every other tile's items.
  */
@@ -45,13 +48,19 @@ public class BeltTileRenderer implements BlockEntityRenderer<BeltTileBlockEntity
                                    ModelFeatureRenderer.@Nullable CrumblingOverlay breakProgress) {
         BlockEntityRenderer.super.extractRenderState(entity, state, partialTicks, cameraPosition, breakProgress);
         state.items.clear();
+        state.support = List.of();
 
         var level = entity.getLevel();
         if (level == null) return;
-        var place = TileLines.at(level, entity.getBlockPos());
+        var travel = BeltTileBlock.travel(entity.travel());
+        // Worked out every frame, so the legs follow the world however far below it changes.
+        var pos = entity.getBlockPos();
+        var support = BeltTileBlock.support(level, pos, travel);
+        if (support != null) state.support = SupportRenderer.boxes(support, travel, level, pos);
+
+        var place = TileLines.at(level, pos);
         if (place == null) return;
 
-        var travel = BeltTileBlock.travel(entity.travel());
         var shape = entity.shape();
         var pitch = entity.pitch();
         var resolver = Minecraft.getInstance().getItemModelResolver();
@@ -77,6 +86,7 @@ public class BeltTileRenderer implements BlockEntityRenderer<BeltTileBlockEntity
 
     @Override
     public void submit(RenderState state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState cameraRenderState) {
+        SupportRenderer.submit(state.support, poseStack, collector);
         for (var item : state.items) {
             poseStack.pushPose();
             poseStack.translate(item.at.x, item.at.y, item.at.z);
@@ -89,10 +99,17 @@ public class BeltTileRenderer implements BlockEntityRenderer<BeltTileBlockEntity
         }
     }
 
+    // A support's legs reach far below the tile, and are drawn while any of them is in view.
+    @Override
+    public AABB getRenderBoundingBox(BeltTileBlockEntity entity) {
+        return new AABB(entity.getBlockPos()).expandTowards(0, -Support.REACH, 0);
+    }
+
     public record Item(Vec3 at, float yaw, float tilt, float scale, ItemStackRenderState itemState) {
     }
 
     public static class RenderState extends BlockEntityRenderState {
         private final List<Item> items = new ArrayList<>();
+        private List<SupportRenderer.Box> support = List.of();
     }
 }
