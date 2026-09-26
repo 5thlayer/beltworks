@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.5
+
 - The Placement Preview draws the supports a click will leave, under a planned tile, a stretch's tiles or a splitter, in the plan's tint: red when it's refused.
 
 ## 0.3.4
