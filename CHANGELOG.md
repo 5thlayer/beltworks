@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Groundworks 0.4.2 ships inside the jar in place of 0.4.1. After Rotate (`R`), a belt stretch's start runs the turned way again, and storing it uses the turn up.
+
 ## 0.3.1
 
 - A stretch whose climb doesn't fit before its next anchor or turn now says so, rather than that a belt slope never turns.

@@ -115,7 +115,7 @@ Groundworks' one action on one key (`R` by default, and **Reverse Rotate** the o
 _Avoid_: rotate key, turn, wrench rotate
 
 **Rotate the Plan**:
-**Rotate** on the held item: its next placement turns a quarter from the way the player looks, and the **Placement Preview** redraws with it. The turn stays with the held stack until its last item is placed. A tile, a splitter and a loader turn so.
+**Rotate** on the held item: its next placement turns a quarter from the way the player looks, and the **Placement Preview** redraws with it. The turn stays with the held stack until its last item is placed. A tile, a splitter and a loader turn so, and a sneak-click stores a **stretch**'s start looking the turned way, which uses the turn up.
 _Avoid_: rotate the preview, held rotate
 
 **Rotate in Place**:
