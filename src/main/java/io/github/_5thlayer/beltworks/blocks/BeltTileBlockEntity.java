@@ -12,6 +12,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -363,7 +364,11 @@ public class BeltTileBlockEntity extends BlockEntity {
 
     private void drop(ItemStack stack) {
         if (level == null || level.isClientSide()) return;
-        var at = worldPosition.getCenter();
+        drop(level, worldPosition, stack);
+    }
+
+    private static void drop(Level level, BlockPos pos, ItemStack stack) {
+        var at = pos.getCenter();
         level.addFreshEntity(new ItemEntity(level, at.x, at.y, at.z, stack));
     }
 
@@ -482,10 +487,36 @@ public class BeltTileBlockEntity extends BlockEntity {
         // the tiles past this one keep their items and run dry rather than losing them (#383).
         var holding = holder();
         if (holding != null) holding.release();
-        for (var share : carried) drop(share.payload());
+        if (level != null && level.getBlockState(pos).getBlock() instanceof BeltTileBlock) handOver(level, pos, carried);
+        else for (var share : carried) drop(share.payload());
         carried = new ArrayList<>();
         invalidate(head);
         invalidateAround(pos);
+    }
+
+    /** What a tile swapped for one of another tier hands the tile replacing it, which takes it as it joins the level. */
+    private record Handoff(Level level, BlockPos pos, List<TransportLine.Share<ItemStack>> shares) {
+    }
+
+    // Set and taken within the one setBlock, on the server thread.
+    private static @Nullable Handoff handoff;
+
+    // The chunk makes the new tile's block entity right after removing this one's, so a swap of
+    // tiers, as a stretch's Fast Replace makes, keeps what the tile carried (#393).
+    private static void handOver(Level level, BlockPos pos, List<TransportLine.Share<ItemStack>> shares) {
+        var stale = handoff;
+        if (stale != null) for (var share : stale.shares()) drop(stale.level(), stale.pos(), share.payload());
+        handoff = shares.isEmpty() ? null : new Handoff(level, pos.immutable(), List.copyOf(shares));
+    }
+
+    @Override
+    public void setLevel(Level level) {
+        super.setLevel(level);
+        var handed = handoff;
+        if (handed != null && handed.level() == level && handed.pos().equals(worldPosition)) {
+            handoff = null;
+            carry(handed.shares());
+        }
     }
 
     @Override

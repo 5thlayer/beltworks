@@ -36,7 +36,16 @@ With nothing but Beltworks installed. See **Rotate** in `CONTEXT.md`.
 
 - `R` and `Shift+R` are listed once each, under Groundworks' key category, in the controls screen.
 - Holding tiles, press `R`: the Placement Preview redraws a quarter clockwise at once, and `Shift+R` turns it back. The click places what the preview drew. Do the same with a splitter and with a loader on the ground.
-- Press `R`, then sneak-click: the stretch's start is drawn facing the turned way, and the stretch runs out along it. With the start stored, press `R`: the stretch drawn does not change.
 - With nothing held, aim at a level tile and press `R`: it turns, and the tiles around it re-derive their corners. A loader turns too.
 - Aim at a splitter half, a slope and a wedge, and press `R`: each stays put, and its reason shows on the action bar.
 - Aim at a vanilla block with a facing, such as a furnace, and press `R`: nothing happens, and nothing is said.
+
+## Stretch (Groundworks ADR 0004)
+
+With nothing but Beltworks installed. See **Stretch** in `CONTEXT.md`.
+
+- Sneak-click a tile item on the ground, press `G` once, and aim a few blocks ahead over flat ground. The preview draws a foot and a top right after the start, with the top's wedge under it, then level tiles one block up in mid-air. Click: what is laid, wedge included, is what the preview drew, and it charges one tile per tile, none for the wedge.
+- Press `G` twice and aim only three blocks ahead: the preview draws red and the click lays nothing. Aim further and it turns clear.
+- Lay a line across your path. Stretch at its height towards it and past: the preview goes round the line's end if it is short, and draws red if it runs wide. It never draws over the line.
+- Cross it: sneak-click a start, press `G`, sneak-click an anchor past the line, press `B`, and click further on. The line underneath still carries, and the new one runs over it.
+- Aim a stretch's end at a line's side: the stretch stops short of it and feeds its side.

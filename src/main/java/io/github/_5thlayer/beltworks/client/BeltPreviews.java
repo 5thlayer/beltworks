@@ -6,85 +6,110 @@ package io.github._5thlayer.beltworks.client;
 import io.github._5thlayer.groundworks.PlacementPlan;
 import io.github._5thlayer.groundworks.client.PlacementPreviewEvent;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.QuadInstance;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
-import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.block.BlockAndTintGetter;
+import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.shapes.Shapes;
-import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.neoforged.neoforge.common.NeoForge;
-import org.joml.Vector3f;
-import io.github._5thlayer.beltworks.ComponentContent;
+import org.jetbrains.annotations.Nullable;
+import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
 import io.github._5thlayer.beltworks.client.renderers.BeltEndRenderer;
-import io.github._5thlayer.beltworks.items.BeltTileItem;
+import io.github._5thlayer.beltworks.model.LineScan;
 
 /**
- * The Mod's own drawing in the Groundworks library's Placement Preview (ADR 0010): a held tile
- * stack's stored start and a planned splitter's belt surface. Groundworks draws the Dismantle's span
+ * The Mod's own drawing in the Groundworks library's Placement Preview (ADR 0010): a planned
+ * splitter's belt surface, and the wedges a stretch's slopes put down, which are no blocks of its
+ * plan since they cost nothing. Groundworks draws the Stretch's anchors and the Dismantle's span
  * itself (ADR 0011).
  */
 final class BeltPreviews {
 
-    private static final int START_COLOUR = 0xFFFFD040;
-    private static final float LINE_WIDTH = 2.5F;
-    // A hair above a tile's belt surface.
-    private static final double SURFACE = 6.0 / 16.0 + 0.01;
-    private static final VoxelShape TILE_OUTLINE = Shapes.create(new AABB(0, 0, 0, 1, SURFACE, 1));
+    // The plan last asked about and its wedges: the preview draws one plan frame after frame.
+    private static @Nullable PlacementPlan wedgesOf;
+    private static Map<BlockPos, BlockState> wedges = Map.of();
 
     private BeltPreviews() {
     }
 
     static void register() {
-        NeoForge.EVENT_BUS.addListener(BeltPreviews::stretchStart);
         NeoForge.EVENT_BUS.addListener(BeltPreviews::splitterBelts);
+        NeoForge.EVENT_BUS.addListener(BeltPreviews::stretchWedges);
     }
 
     /**
-     * The start a held tile stack has stored: an outline round the tile there and an arrow the way
-     * the stretch will run from it, and an outline round each corner added since. A Marker, so they
-     * stay visible whatever the aim while the player looks for the end.
+     * The wedges a plan's tiles put down as they are placed, drawn as the plan is: those under its
+     * slopes, and under the slopes it makes of tiles already down. A plan that names its wedges, as
+     * a single tile's does, has none drawn here.
      */
-    private static void stretchStart(PlacementPreviewEvent.Marker event) {
-        var stack = event.getStack();
-        if (!(stack.getItem() instanceof BeltTileItem)) return;
-        BlockPos start = stack.get(ComponentContent.BELT_START.get());
-        Direction look = stack.get(ComponentContent.BELT_DIR.get());
-        if (start == null || look == null) return;
-
+    private static void stretchWedges(PlacementPreviewEvent.Overlay event) {
+        var plan = event.getPlan();
+        if (plan != wedgesOf) {
+            wedgesOf = plan;
+            wedges = wedges(event.getLevel(), plan);
+        }
+        if (wedges.isEmpty()) return;
         var geometry = event.getGeometry();
         var camera = geometry.getLevelRenderState().cameraRenderState.pos;
-        PoseStack poseStack = geometry.getPoseStack();
-        SubmitNodeCollector collector = geometry.getSubmitNodeCollector();
-        for (BlockPos corner : stack.getOrDefault(ComponentContent.STRETCH_CORNERS.get(), List.<BlockPos>of())) {
+        var poseStack = geometry.getPoseStack();
+        var random = RandomSource.create();
+        var instance = new QuadInstance();
+        instance.setColor(event.getTint());
+        wedges.forEach((pos, state) -> {
+            var parts = new ArrayList<BlockStateModelPart>();
+            random.setSeed(state.getSeed(pos));
+            Minecraft.getInstance().getModelManager().getBlockStateModelSet().get(state)
+              .collectParts(BlockAndTintGetter.EMPTY, pos, state, random, parts);
             poseStack.pushPose();
-            poseStack.translate(corner.getX() - camera.x(), corner.getY() - camera.y(), corner.getZ() - camera.z());
-            collector.submitCustomGeometry(poseStack, RenderTypes.lines(), BeltPreviews::tileOutline);
+            poseStack.translate(pos.getX() - camera.x(), pos.getY() - camera.y(), pos.getZ() - camera.z());
+            geometry.getSubmitNodeCollector().submitCustomGeometry(poseStack, RenderTypes.entityTranslucent(TextureAtlas.LOCATION_BLOCKS),
+              (pose, buffer) -> {
+                  for (var part : parts) {
+                      emit(buffer, pose, part.getQuads(null), instance);
+                      for (var direction : Direction.values()) emit(buffer, pose, part.getQuads(direction), instance);
+                  }
+              });
             poseStack.popPose();
-        }
-        poseStack.pushPose();
-        poseStack.translate(start.getX() - camera.x(), start.getY() - camera.y(), start.getZ() - camera.z());
-        collector.submitCustomGeometry(poseStack, RenderTypes.lines(), (pose, buffer) -> {
-            tileOutline(pose, buffer);
-            var backX = 0.5 - 0.35 * look.getStepX();
-            var backZ = 0.5 - 0.35 * look.getStepZ();
-            var tipX = 0.5 + 0.35 * look.getStepX();
-            var tipZ = 0.5 + 0.35 * look.getStepZ();
-            line(buffer, pose, backX, SURFACE, backZ, tipX, SURFACE, tipZ);
-            var left = look.getCounterClockWise();
-            for (var side : new int[] {1, -1}) {
-                line(buffer, pose, tipX, SURFACE, tipZ,
-                        tipX - 0.2 * look.getStepX() + side * 0.2 * left.getStepX(), SURFACE,
-                        tipZ - 0.2 * look.getStepZ() + side * 0.2 * left.getStepZ());
-            }
         });
-        poseStack.popPose();
+    }
+
+    private static Map<BlockPos, BlockState> wedges(Level level, PlacementPlan plan) {
+        var travels = new LinkedHashMap<LineScan.Spot, LineScan.Travel>();
+        Block tile = null;
+        for (var placed : plan.blocks()) {
+            if (!(placed.state().getBlock() instanceof BeltTileBlock)) continue;
+            tile = placed.state().getBlock();
+            travels.put(BeltTileBlock.spot(placed.pos()), BeltTileBlock.travel(placed.state().getValue(BlockStateProperties.HORIZONTAL_FACING)));
+        }
+        if (tile == null) return Map.of();
+        var planned = plan.blocks().stream().map(PlacementPlan.Placed::pos).toList();
+        var drawn = new LinkedHashMap<BlockPos, BlockState>();
+        BeltTileBlock.reshape(level, travels, tile).wedges().forEach((pos, state) -> {
+            if (!planned.contains(pos)) drawn.put(pos, state);
+        });
+        return drawn;
+    }
+
+    private static void emit(VertexConsumer buffer, PoseStack.Pose pose, List<BakedQuad> quads, QuadInstance instance) {
+        for (var quad : quads) buffer.putBakedQuad(pose, quad, instance);
     }
 
     /** A planned splitter half's belt surface, which a block entity renderer draws rather than the block model the preview draws. */
@@ -97,16 +122,5 @@ final class BeltPreviews {
                         placed.pos(), placed.state().getValue(SplitterBlock.FACING), splitter.tier(), event.getTint());
             }
         }
-    }
-
-    private static void tileOutline(PoseStack.Pose pose, VertexConsumer buffer) {
-        TILE_OUTLINE.forAllEdges((x1, y1, z1, x2, y2, z2) -> line(buffer, pose, x1, y1, z1, x2, y2, z2));
-    }
-
-    private static void line(VertexConsumer buffer, PoseStack.Pose pose,
-                             double x1, double y1, double z1, double x2, double y2, double z2) {
-        var normal = new Vector3f((float) (x2 - x1), (float) (y2 - y1), (float) (z2 - z1)).normalize();
-        buffer.addVertex(pose, (float) x1, (float) y1, (float) z1).setColor(START_COLOUR).setNormal(pose, normal).setLineWidth(LINE_WIDTH);
-        buffer.addVertex(pose, (float) x2, (float) y2, (float) z2).setColor(START_COLOUR).setNormal(pose, normal).setLineWidth(LINE_WIDTH);
     }
 }

@@ -18,7 +18,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import io.github._5thlayer.beltworks.ItemContent;
-import io.github._5thlayer.beltworks.items.StretchPlan;
+import io.github._5thlayer.beltworks.items.BeltRefusal;
 
 import java.util.ArrayList;
 
@@ -45,7 +45,7 @@ final class SplitterPlanTests {
             // A south-facing splitter's right half is west of its left.
             helper.setBlock(ABOVE_FLOOR.west(), Blocks.STONE);
             var plan = check(helper, true);
-            if (plan.refusal() != StretchPlan.Reason.BLOCKED) helper.fail("the plan gave " + plan.refusal() + ", expected BLOCKED", ABOVE_FLOOR);
+            if (plan.refusal() != BeltRefusal.BLOCKED) helper.fail("the plan gave " + plan.refusal() + ", expected BLOCKED", ABOVE_FLOOR);
             if (plan.blocks().size() != HALVES) helper.fail("a refused splitter's plan named " + plan.blocks().size() + " blocks", FLOOR);
             helper.succeed();
         });

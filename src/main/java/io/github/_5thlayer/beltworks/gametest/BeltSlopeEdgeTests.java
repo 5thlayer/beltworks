@@ -16,7 +16,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import io.github._5thlayer.beltworks.ItemContent;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
-import io.github._5thlayer.beltworks.items.StretchPlan;
+import io.github._5thlayer.beltworks.items.BeltRefusal;
 import io.github._5thlayer.beltworks.model.BeltTier;
 
 /**
@@ -60,11 +60,11 @@ final class BeltSlopeEdgeTests {
         if (helper.getBlockState(FIRST).getValue(BeltTileBlock.CORNER) == BeltTileBlock.Shape.STRAIGHT) {
             helper.fail("a tile fed only from its side is straight, so this proves little", FIRST);
         }
-        refused(helper, ABOVE_AHEAD, Direction.EAST, StretchPlan.Reason.SLOPE_TURNS);
+        refused(helper, ABOVE_AHEAD, Direction.EAST, BeltRefusal.SLOPE_TURNS);
     }
 
     /** A tile placed by hand at {@code at} facing {@code facing} is planned refused for {@code expected}, and changes nothing. */
-    private static void refused(GameTestHelper helper, BlockPos at, Direction facing, StretchPlan.Reason expected) {
+    private static void refused(GameTestHelper helper, BlockPos at, Direction facing, BeltRefusal expected) {
         ServerPlayer player = BeltWedgeTests.player(helper);
         player.setYRot(facing.toYRot());
         Map<BlockPos, BlockState> before = BeltWedgeTests.around(helper, at);

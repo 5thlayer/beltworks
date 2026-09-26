@@ -16,7 +16,9 @@ The shapes draw one straight 45° line, each inside its own block. In pixels fro
 
 A slope takes no side-load. A tile that would be both a corner and a slope is a slope, and a placement that would turn a corner into a slope is refused, with its reason and nothing changed. A tile facing another's side a block up or down is a crossing and places level. A loader or splitter half meets the level end of a foot or a top as it meets a level tile. A middle or top over air stands on a **wedge**, placed with its tile for nothing and broken with it, so a belt can climb through open air. A wedge takes the place of a replaceable block. A tile, loader, splitter, machine, fluid or block entity there refuses the placement, so a slope never stands on a belt.
 
-A two-click stretch follows the ground one block up or down at a time, taking the lowest heights that change by at most a block per column. It crosses a line in its path in five tiles: a foot, a top, a level tile over the line, a top and a foot. Lines side by side are crossed as one. Its start and its end are never crossed, since aiming at a line means joining it. It is refused whole where no such path fits.
+_Superseded by Groundworks ADR 0004: a stretch changes height only by Raise and Lower, and a line crossing it is gone round or refused, never climbed on its own._
+
+~~A two-click stretch follows the ground one block up or down at a time, taking the lowest heights that change by at most a block per column. It crosses a line in its path in five tiles: a foot, a top, a level tile over the line, a top and a foot. Lines side by side are crossed as one. Its start and its end are never crossed, since aiming at a line means joining it. It is refused whole where no such path fits.~~
 
 Ported from the Pack's ADR-0085.
 

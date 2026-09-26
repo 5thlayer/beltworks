@@ -29,7 +29,7 @@ import org.jspecify.annotations.Nullable;
 import io.github._5thlayer.beltworks.ItemContent;
 import io.github._5thlayer.beltworks.items.BeltTileItem;
 import io.github._5thlayer.beltworks.items.SplitterItem;
-import io.github._5thlayer.beltworks.items.StretchPlan;
+import io.github._5thlayer.beltworks.items.BeltRefusal;
 import io.github._5thlayer.beltworks.model.BeltTier;
 
 /**
@@ -39,7 +39,6 @@ import io.github._5thlayer.beltworks.model.BeltTier;
  */
 final class PlanTranslationTests {
 
-    private static final BlockPos START = new BlockPos(2, 1, 3);
     private static final BlockPos FLOOR = new BlockPos(3, 0, 3);
     // Two level tiles running east, and a plain click a block above and ahead of the second makes a
     // top over air, which puts a wedge under it.
@@ -50,8 +49,6 @@ final class PlanTranslationTests {
     }
 
     static void register(BeltGameTests.Registrar tests) {
-        tests.test("the_library_plans_a_stretch_as_the_mod_does", 20, helper -> stretch(helper, START.east(4)));
-        tests.test("the_library_plans_a_refused_stretch_as_the_mod_does", 20, helper -> stretch(helper, START.west(2)));
         tests.test("the_library_plans_a_splitter_as_the_mod_does", 20, helper -> splitter(helper, Blocks.AIR));
         tests.test("the_library_plans_a_blocked_splitter_as_the_mod_does", 20, helper -> splitter(helper, Blocks.STONE));
         tests.test("the_library_plans_a_plain_tile_as_the_mod_does", 20, helper -> tile(helper, Blocks.AIR.defaultBlockState()));
@@ -59,32 +56,6 @@ final class PlanTranslationTests {
         tests.test("the_library_plans_a_refused_plain_tile_as_the_mod_does", 20,
                 helper -> tile(helper, BeltTileTests.loader(BeltTier.BELT, Direction.NORTH)));
         tests.test("the_library_plans_a_loader_as_vanilla_does", 20, PlanTranslationTests::loader);
-    }
-
-    // A tile facing back is turned and a tier-2 tile replaced, so the plan replaces some of its
-    // blocks and places the rest.
-    private static void stretch(GameTestHelper helper, BlockPos end) {
-        helper.setBlock(START.east(1), BeltTileTests.tile(BeltTier.BELT, Direction.WEST));
-        helper.setBlock(START.east(3), BeltTileTests.tile(BeltTier.IMPROVED, Direction.EAST));
-        var player = new ListeningPlayer(helper);
-        player.setGameMode(GameType.SURVIVAL);
-        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ItemContent.tileFor(BeltTier.BELT), 32));
-        player.setYRot(Direction.EAST.toYRot());
-        player.setShiftKeyDown(true);
-        helper.useBlock(START.below(), player, onTop(helper, START.below()));
-        player.setShiftKeyDown(false);
-
-        var hit = onTop(helper, end.below());
-        var context = context(player, hit);
-        var stretch = ((BeltTileItem) player.getMainHandItem().getItem()).stretch(context);
-        if (stretch == null || stretch.tiles().isEmpty()) throw helper.assertionException(end, "the Mod plans no stretch here");
-        var blocks = stretch.tiles().stream().map(tile -> new PlacementPlan.Placed(tile.pos(), tile.state())).toList();
-        var replaces = stretch.tiles().stream()
-                         .filter(tile -> tile.action() == StretchPlan.Action.TURN || tile.action() == StretchPlan.Action.REPLACE)
-                         .map(StretchPlan.Tile::pos).toList();
-        var turnedAndReplaced = List.of(helper.absolutePos(START.east(1)), helper.absolutePos(START.east(3)));
-        if (!stretch.refused() && !replaces.equals(turnedAndReplaced)) helper.fail("the Mod's stretch replaces " + replaces + ", not the tile facing back and the tier-2 tile", end);
-        agrees(helper, end, libraryPlan(player, hit), blocks, replaces, stretch.refused() ? stretch.refusal().reason() : null);
     }
 
     // A south-facing splitter's right half is west of its left.
@@ -99,7 +70,7 @@ final class PlanTranslationTests {
         var own = ((SplitterItem) player.getMainHandItem().getItem()).splitterPlan(context);
         if (own == null) throw helper.assertionException(FLOOR, "the Mod plans no splitter here");
         var blocks = own.halves().stream().map(half -> new PlacementPlan.Placed(half.pos(), half.state())).toList();
-        agrees(helper, FLOOR, libraryPlan(player, hit), blocks, List.of(), own.blocked() ? StretchPlan.Reason.BLOCKED : null);
+        agrees(helper, FLOOR, libraryPlan(player, hit), blocks, List.of(), own.blocked() ? BeltRefusal.BLOCKED : null);
     }
 
     // The tile vanilla would place, and the wedges its reshape puts down with it.

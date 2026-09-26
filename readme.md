@@ -7,8 +7,8 @@ Beltworks adds Factorio-style belts to Minecraft, laid block by block on the gri
 ## Features
 
 - **Tiles merged into transport lines.** A belt is laid one tile per block, one belt item per tile, facing the way you look. Tiles feeding one another join into a transport line that moves as one, around corners and up and down slopes. A tile holds eight items, so a line is a buffer as well as a route, and when its end backs up you can see the items waiting.
-- **One gesture lays a whole stretch.** Sneak-click a tile item to start a stretch, sneak-click again to add a corner, then click where it ends. The stretch follows the ground and is laid, and paid for, in one go. While you aim, the Placement Preview draws what the click would lay, in red where it would be refused.
-- **Slopes, and crossing over a line.** A line climbs or descends one block per block of travel, and a stretch whose path meets another line climbs over it on its own.
+- **One gesture lays a whole stretch.** Sneak-click a tile item to start a stretch, sneak-click again to add an anchor, then click where it ends. The stretch is laid, and paid for, in one go, and goes round a block in its way. While you aim, the Placement Preview draws what the click would lay, in red where it would be refused.
+- **Slopes, and crossing over a line.** A line climbs or descends one block per block of travel. A stretch changes height only where you press Raise (`G`) or Lower (`B`), so you cross a line by raising, adding an anchor past it, and lowering.
 - **Tiers.** Transport belts, splitters and loaders come in four tiers, carrying 15, 30, 45 and 60 items a second. Each piece caps only its own flow, so a line of mixed tiers runs at its slowest piece.
 - **Splitters.** A splitter takes two belts in and sends two belts out, splitting evenly and sending everything to one side when the other backs up. Build balancers from them.
 - **Works with any tech mod, through the loader.** A loader set against any inventory, vanilla or modded, pulls items from it onto the belt or pushes them into it. Right-click a loader with an item to filter what it moves; FTB Filters' smart filters work too.

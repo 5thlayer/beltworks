@@ -115,7 +115,7 @@ Groundworks' one action on one key (`R` by default, and **Reverse Rotate** the o
 _Avoid_: rotate key, turn, wrench rotate
 
 **Rotate the Plan**:
-**Rotate** on the held item: its next placement turns a quarter from the way the player looks, and the **Placement Preview** redraws with it. The turn stays with the held stack until its last item is placed. A tile, a splitter and a loader turn so, and a sneak-click stores a **stretch**'s start looking the turned way. With a start stored, it leaves the stretch alone, which keeps the look stored at its start; the stack's turn is taken up by the next start or tile.
+**Rotate** on the held item: its next placement turns a quarter from the way the player looks, and the **Placement Preview** redraws with it. The turn stays with the held stack until its last item is placed. A tile, a splitter and a loader turn so.
 _Avoid_: rotate the preview, held rotate
 
 **Rotate in Place**:
@@ -125,7 +125,7 @@ _Avoid_: placed rotate, wrench rotate
 ### Building
 
 **Stretch**:
-The tiles one drag of the tile item lays, placed, charged and refused as one. A sneak-click stores its start and the way the player looks, turned by any **Rotate the Plan**; the next click lays it to the aimed spot, in one straight leg or two joined by one turn, the first leg along the stored look. Each sneak-click before that adds an **anchor** where the stretch would end. It follows the ground, each tile one block up, level or one block down from the one before, and is refused whole at a step it cannot climb. A line running across its path is climbed over in five tiles, a foot, a top, a level tile on the line, a top and a foot; a stretch never plans a path under a line. Any other tile already on its path is turned to it, or replaced when of another tier.
+The tiles one drag of the tile item lays, planned, charged, laid and refused whole. Groundworks runs it for any item, and the Mod builds a belt's **legs** (ADR 0011, Groundworks ADR 0004). A sneak-click stores its start, at the height **Raise** and **Lower** hold, and the way the player looks; each further sneak-click adds an **anchor**; a click lays it. Its route passes through every anchor, a leg at a time, each seen from above one straight line or two joined by one turn, the first along the stored look. It never changes height by itself, not over a hill, a drop or a line: a leg climbs or descends only by the rise the player set with Raise and Lower, as a **foot**, its **middles** and a **top** right after its first anchor, and runs level after them. A leg whose climb would turn, or reach its next anchor, is refused. A tile running along a leg is kept, turned to it if it faces back, or replaced when of another tier. A line crossing a leg is an obstacle, as is anything else a tile can't take the place of and a wedge with no room: Groundworks goes round it flat, or refuses the stretch. A stretch never cuts a line: to cross one, the player presses Raise, adds an anchor past it, and presses Lower. An end on a line joins it, feeding its side; a start on a line joins it only running its way.
 _Avoid_: run, zoop, drag (the gesture, not what it lays), tile path
 
 **Dismantle**:
@@ -133,11 +133,15 @@ Taking up a span of one transport line from one tile to another, both included, 
 _Avoid_: deconstruct, mass mine, unstretch
 
 **Anchor**:
-A point of a stretch's route that the player fixed, at its height: its start, each point a sneak-click adds, and the aimed end. A stretch passes through every anchor, and the item placed decides how to join each anchor to the next.
+A point of a stretch's route that the player fixed: its start, each point a sneak-click adds, and the aimed end. The aim picks only where it lies seen from above; its height is the stretch's height there, never the aimed block's. A stretch passes through every anchor, and each **leg** runs from one to the next.
 _Avoid_: corner (a tile's shape, not a point of a route), waypoint, node
 
+**Leg**:
+The part of a stretch from one anchor to the next, which Groundworks hands the Mod to build: its first anchor, its rise and its route seen from above. A belt's is a tile in each column, level, with a climb of slopes right after its first anchor when it rises or falls. Not a **support**'s leg, which is a strut down its block's corner.
+_Avoid_: segment, section
+
 **Placement Plan**:
-What a held belt piece would do at an aimed spot: the positions it would fill, the blockstate at each, and a refusal or none. Placing executes a plan and the **Placement Preview** draws one, so both ask one rule (ADR 0006). A stretch's plan is its tiles, from the stored start to the aimed spot; a splitter's is both halves, refused whole.
+What a held belt piece would do at an aimed spot: the positions it would fill, the blockstate at each, and a refusal or none. Placing executes a plan and the **Placement Preview** draws one, so both ask one rule (ADR 0006). A stretch's plan is its tiles, from the stored start through its anchors to the aimed spot; a splitter's is both halves, refused whole.
 _Avoid_: placement context (vanilla's own type, one input to a plan), build plan, preview state
 
 **Dismantle family**:

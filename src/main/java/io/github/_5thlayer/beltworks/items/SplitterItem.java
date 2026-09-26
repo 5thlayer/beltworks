@@ -88,7 +88,7 @@ public class SplitterItem extends BlockItem implements PlansPlacement {
         var plan = splitterPlan(context);
         if (plan == null) return null;
         var blocks = plan.halves().stream().map(half -> new PlacementPlan.Placed(half.pos(), half.state())).toList();
-        return plan.blocked() ? PlacementPlan.refused(blocks, StretchPlan.Reason.BLOCKED) : PlacementPlan.accepted(blocks);
+        return plan.blocked() ? PlacementPlan.refused(blocks, BeltRefusal.BLOCKED) : PlacementPlan.accepted(blocks);
     }
 
     @Override

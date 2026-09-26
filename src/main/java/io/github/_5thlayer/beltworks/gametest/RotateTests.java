@@ -21,19 +21,18 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import io.github._5thlayer.beltworks.Beltworks;
 import io.github._5thlayer.beltworks.BlockContent;
-import io.github._5thlayer.beltworks.ComponentContent;
 import io.github._5thlayer.beltworks.ItemContent;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
-import io.github._5thlayer.beltworks.items.StretchPlan;
+import io.github._5thlayer.beltworks.items.BeltRefusal;
 import io.github._5thlayer.beltworks.model.BeltTier;
 
 /**
  * Rotate on the Mod's own pieces, with nothing but Groundworks to press it (the library's ADR 0003).
- * A held tile Rotates the Plan through the look Groundworks turns, a stretch keeps the look stored at
- * its start, and a placed piece Rotates in Place by its own answer: a level tile and a loader turn, a
- * splitter half, a slope and a wedge refuse and say why, and a level tile refuses where placing it so
- * would be refused. Every press goes through {@link Rotate#press}, which is what the key's payload calls.
+ * A held tile Rotates the Plan through the look Groundworks turns, and a placed piece Rotates in
+ * Place by its own answer: a level tile and a loader turn, a splitter half, a slope and a wedge
+ * refuse and say why, and a level tile refuses where placing it so would be refused. Every press
+ * goes through {@link Rotate#press}, which is what the key's payload calls.
  */
 final class RotateTests {
 
@@ -50,9 +49,7 @@ final class RotateTests {
         for (boolean reverse : List.of(false, true)) {
             String rotate = reverse ? "reverse_rotate" : "rotate";
             tests.test(rotate + "_the_plan_places_a_tile_turned_as_planned", 20, helper -> placesTurned(helper, reverse));
-            tests.test(rotate + "_the_plan_stores_a_stretch_start_looking_turned", 20, helper -> startsTurned(helper, reverse));
         }
-        tests.test("rotate_with_a_start_stored_leaves_the_stretch_alone_and_turns_the_next_start", 20, RotateTests::stretchKept);
         tests.test("rotate_in_place_turns_a_level_tile_a_quarter_each_press_both_ways", 20,
                 helper -> turnsEachPress(helper, BeltTileTests.tile(BeltTier.BELT, LOOK)));
         tests.test("rotate_in_place_turns_a_loader_a_quarter_each_press_both_ways", 20,
@@ -92,61 +89,6 @@ final class RotateTests {
             if (plan == null || plan.isRefused() || !plan.blocks().equals(List.of(new PlacementPlan.Placed(helper.absolutePos(at), placed)))) {
                 helper.fail(presses + " presses planned " + plan + ", and the click placed " + placed, at);
             }
-        }
-        helper.succeed();
-    }
-
-    /** For 0 to 3 presses, a sneak-click stores a start looking the look turned that many quarters, and places nothing. */
-    private static void startsTurned(GameTestHelper helper, boolean reverse) {
-        var player = new ListeningPlayer(helper, STAND);
-        player.setYRot(LOOK.toYRot());
-        for (int presses = 0; presses < 4; presses++) {
-            var at = new BlockPos(1 + 2 * presses, 1, 4);
-            var stack = pressed(player, presses, reverse);
-            sneakClick(helper, player, stack, at);
-            var expected = turned(presses, reverse);
-            if (storedLook(stack) != expected) {
-                helper.fail(presses + " presses stored a start looking " + storedLook(stack)
-                        + ", expected " + expected, at);
-            }
-            if (!helper.getBlockState(at).isAir() || stack.getCount() != 2) {
-                helper.fail("storing a start after " + presses + " presses placed " + helper.getBlockState(at), at);
-            }
-        }
-        helper.succeed();
-    }
-
-    /**
-     * With a start stored, a press changes neither the stored look nor the stretch planned from it,
-     * and the click lays that stretch. The turn stays on the stack, and the next start takes it up.
-     */
-    private static void stretchKept(GameTestHelper helper) {
-        var player = new ListeningPlayer(helper, STAND);
-        player.setYRot(LOOK.toYRot());
-        var stack = new ItemStack(ItemContent.tileFor(BeltTier.BELT), 32);
-        sneakClick(helper, player, stack, FIRST);
-        var end = FIRST.east(4);
-        PlacementPlan before = BeltWedgeTests.planOf(helper, player, stack, end);
-
-        Rotate.press(player, null, false);
-        PlacementPlan after = BeltWedgeTests.planOf(helper, player, stack, end);
-        if (!after.equals(before)) helper.fail("a press with a start stored changed the stretch from " + before + " to " + after, end);
-        if (storedLook(stack) != LOOK) {
-            helper.fail("a press with a start stored turned it to " + storedLook(stack), FIRST);
-        }
-        BeltWedgeTests.use(helper, player, stack, end);
-        for (int i = 0; i <= 4; i++) {
-            var tile = helper.getBlockState(FIRST.east(i));
-            if (!tile.is(BlockContent.BELT_TILE.get()) || tile.getValue(BlockStateProperties.HORIZONTAL_FACING) != LOOK) {
-                helper.fail("tile " + i + " of a stretch laid after a press is " + tile + ", expected facing " + LOOK, FIRST.east(i));
-            }
-        }
-
-        var next = FIRST.south(3);
-        sneakClick(helper, player, stack, next);
-        if (storedLook(stack) != turned(1, false)) {
-            helper.fail("the next start stored " + storedLook(stack) + ", expected the press's "
-                    + turned(1, false), next);
         }
         helper.succeed();
     }
@@ -214,7 +156,7 @@ final class RotateTests {
         if (helper.getBlockState(corner).getValue(BeltTileBlock.CORNER) == BeltTileBlock.Shape.STRAIGHT) {
             helper.fail("the tile fed from its side is " + helper.getBlockState(corner) + ", expected a corner", corner);
         }
-        refused(helper, player, tile, corner, List.of(StretchPlan.Reason.SLOPE_TURNS.messageKey()));
+        refused(helper, player, tile, corner, List.of(BeltRefusal.SLOPE_TURNS.messageKey()));
         helper.succeed();
     }
 
@@ -225,7 +167,7 @@ final class RotateTests {
         helper.setBlock(AIMED.east(), BeltTileTests.loader(BeltTier.BELT, Direction.NORTH));
         placeTile(helper, player, AIMED, LOOK);
         placeTile(helper, player, tile, Direction.NORTH);
-        refused(helper, player, tile, AIMED, List.of(StretchPlan.Reason.WEDGE_BLOCKED.messageKey()));
+        refused(helper, player, tile, AIMED, List.of(BeltRefusal.WEDGE_BLOCKED.messageKey()));
         helper.succeed();
     }
 
@@ -245,17 +187,6 @@ final class RotateTests {
         player.setYRot(look.toYRot());
         BeltWedgeTests.use(helper, player, new ItemStack(ItemContent.tileFor(BeltTier.BELT)), at);
         player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
-    }
-
-    private static void sneakClick(GameTestHelper helper, ListeningPlayer player, ItemStack stack, BlockPos at) {
-        player.setShiftKeyDown(true);
-        BeltWedgeTests.use(helper, player, stack, at);
-        player.setShiftKeyDown(false);
-    }
-
-    /** The look stored with a stretch's start. */
-    private static Direction storedLook(ItemStack stack) {
-        return stack.get(ComponentContent.BELT_DIR.get());
     }
 
     /** A player holding nothing, so a press is Rotate in Place. */

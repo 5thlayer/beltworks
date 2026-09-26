@@ -8,41 +8,22 @@ import io.github._5thlayer.groundworks.PlacementPlan;
 import io.github._5thlayer.groundworks.Placements;
 import io.github._5thlayer.groundworks.PlansPlacement;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
-import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.ContainerHelper;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.gameevent.GameEvent;
 import org.jetbrains.annotations.Nullable;
-import io.github._5thlayer.beltworks.BlockEntitiesContent;
-import io.github._5thlayer.beltworks.ComponentContent;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
-import io.github._5thlayer.beltworks.blocks.BeltWedgeBlock;
-import io.github._5thlayer.beltworks.model.LineScan;
-import io.github._5thlayer.beltworks.model.Stretch;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 /**
- * The tile item (PlanetaryFactory #393). A plain click places one tile facing the look; a
- * sneak-click stores a start and the look, and the next plain click lays a {@link Stretch} to the
- * aimed spot's column over the ground (#421), climbing over any line across its path (#422). A sneak-click with a start stored adds a corner there,
- * and the stretch runs on from it; a sneak-use in the air forgets the start and its corners.
+ * The tile item (PlanetaryFactory #393). A click places one tile facing the look. It stretches too:
+ * Groundworks runs the stretch, from the sneak-clicks to the preview, and {@link BeltLegs} builds its
+ * legs (ADR 0011).
  */
 public class BeltTileItem extends TooltipBlockItem implements PlansPlacement {
 
@@ -51,78 +32,20 @@ public class BeltTileItem extends TooltipBlockItem implements PlansPlacement {
     }
 
     @Override
-    public InteractionResult use(Level level, Player player, InteractionHand hand) {
-        var stack = player.getItemInHand(hand);
-        if (player.isShiftKeyDown() && stack.has(ComponentContent.BELT_START.get())) {
-            if (!level.isClientSide()) {
-                clearStart(stack);
-                tell(player, Component.translatable("message.beltworks.stretch_cleared"));
-            }
-            return InteractionResult.SUCCESS;
-        }
-        return super.use(level, player, hand);
-    }
-
-    @Override
     public InteractionResult place(BlockPlaceContext context) {
-        var level = context.getLevel();
-        var player = context.getPlayer();
-        var stack = context.getItemInHand();
-        var plan = stretch(context);
-        if (player != null && player.isShiftKeyDown()) {
-            if (level.isClientSide()) return InteractionResult.SUCCESS;
-            if (plan == null) {
-                stack.set(ComponentContent.BELT_START.get(), aimedTile(context));
-                stack.set(ComponentContent.BELT_DIR.get(), context.getHorizontalDirection());
-                tell(player, Component.translatable("message.beltworks.stretch_started"));
-            } else if (plan.refused()) {
-                tell(player, plan.refusal().message());
-            } else {
-                addCorner(stack, context);
+        var single = single(context);
+        if (single != null && single.refused()) {
+            if (!context.getLevel().isClientSide() && context.getPlayer() instanceof ServerPlayer player) {
+                player.sendSystemMessage(Component.translatable(single.refusal().messageKey()), true);
             }
-            return InteractionResult.SUCCESS;
-        }
-
-
-        if (plan == null) {
-            var single = single(context);
-            if (single != null && single.refused()) {
-                if (!level.isClientSide() && player != null) tell(player, StretchPlan.Refusal.of(single.refusal()).message());
-                return InteractionResult.FAIL;
-            }
-            return super.place(context);
-        }
-        if (level.isClientSide()) return plan.refused() ? InteractionResult.FAIL : InteractionResult.SUCCESS;
-        if (plan.refused()) {
-            if (player != null) tell(player, plan.refusal().message());
             return InteractionResult.FAIL;
         }
-        execute(plan, level, stack, player);
-        return InteractionResult.SUCCESS;
+        return super.place(context);
     }
 
-    /**
-     * What the Groundworks library draws for a click here (ADR 0010). With a stored start, a
-     * click lays the stretch and a sneak-click adds a corner where it would end, so both are that
-     * stretch. Without one, a sneak-click stores a start, drawn as the tile there facing the look,
-     * and a click places a tile as vanilla would, with the wedges its reshape puts down.
-     */
+    /** What the Groundworks library draws for a click here (ADR 0010): a tile placed as vanilla would, with the wedges its reshape puts down. */
     @Override
     public @Nullable PlacementPlan plan(BlockPlaceContext context) {
-        var stretch = stretch(context);
-        if (stretch != null) {
-            if (stretch.tiles().isEmpty()) return null;
-            var blocks = stretch.tiles().stream().map(tile -> new PlacementPlan.Placed(tile.pos(), tile.state())).toList();
-            var replaces = stretch.tiles().stream()
-                             .filter(tile -> tile.action() == StretchPlan.Action.TURN || tile.action() == StretchPlan.Action.REPLACE)
-                             .map(StretchPlan.Tile::pos).toList();
-            return new PlacementPlan(blocks, replaces, stretch.refused() ? stretch.refusal().reason() : null);
-        }
-        var player = context.getPlayer();
-        if (player != null && player.isShiftKeyDown()) {
-            var start = getBlock().defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, context.getHorizontalDirection());
-            return PlacementPlan.accepted(aimedTile(context), start);
-        }
         var vanilla = Placements.vanillaPlan(this, context);
         var reshape = single(context);
         if (vanilla == null || vanilla.isRefused() || reshape == null) return vanilla;
@@ -141,221 +64,6 @@ public class BeltTileItem extends TooltipBlockItem implements PlansPlacement {
         var state = getBlock().getStateForPlacement(updated);
         if (state == null) return null;
         var travel = BeltTileBlock.travel(state.getValue(BlockStateProperties.HORIZONTAL_FACING));
-        return BeltTileBlock.reshape(context.getLevel(), Map.of(spot(updated.getClickedPos()), travel), getBlock());
-    }
-
-    /**
-     * What a click with a stored start lays, through its corners to the aimed spot, or null with no
-     * start stored. A sneak-click adds a corner only where this is not refused.
-     */
-    public @Nullable StretchPlan stretch(BlockPlaceContext context) {
-        var stack = context.getItemInHand();
-        var start = stack.get(ComponentContent.BELT_START.get());
-        var look = stack.get(ComponentContent.BELT_DIR.get());
-        if (start == null || look == null) return null;
-
-        var level = context.getLevel();
-        var player = context.getPlayer();
-        var corners = corners(stack);
-        var path = Stretch.path(spot(start), BeltTileBlock.travel(look), corners, spot(aimedTile(context)));
-        // Behind the look, the preview still shows the stretch up to its last corner, refused.
-        var behind = path.isEmpty();
-        if (behind) path = corners.isEmpty() ? Optional.of(List.of(new Stretch.Step(spot(start), BeltTileBlock.travel(look))))
-                             : Stretch.path(spot(start), BeltTileBlock.travel(look), corners.subList(0, corners.size() - 1), corners.getLast());
-
-        var sneaking = player != null && player.isShiftKeyDown();
-        var followed = Stretch.follow(path.get(), terrain(level), sneaking && !behind);
-        var travels = new HashMap<LineScan.Spot, LineScan.Travel>();
-        for (var step : followed.steps()) travels.put(step.spot(), step.travel());
-        var around = BeltTileBlock.around(level, travels);
-
-        var tiles = new ArrayList<StretchPlan.Tile>();
-        var returned = new ArrayList<ItemStack>();
-        var cost = 0;
-        StretchPlan.Refusal refusal = behind ? StretchPlan.Refusal.of(StretchPlan.Reason.BEHIND_LOOK) : null;
-        if (refusal == null && followed.stop() != null) refusal = switch (followed.stop()) {
-            case BLOCKED -> StretchPlan.Refusal.of(StretchPlan.Reason.BLOCKED);
-            case UNEVEN -> StretchPlan.Refusal.of(StretchPlan.Reason.UNEVEN, followed.column().x(), followed.column().z());
-            case SLOPE_TURNS -> StretchPlan.Refusal.of(StretchPlan.Reason.SLOPE_TURNS);
-            case NO_ROOM_TO_CROSS -> StretchPlan.Refusal.of(StretchPlan.Reason.NO_ROOM_TO_CROSS, followed.column().x(), followed.column().z());
-        };
-        for (var step : followed.steps()) {
-            var pos = pos(step.spot());
-            var facing = Direction.getApproximateNearest(step.travel().x(), 0, step.travel().z());
-            var state = BeltTileBlock.formed(getBlock().defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, facing),
-              step.spot(), around);
-
-            var there = level.getBlockState(pos);
-            if (refusal == null && !mayBuild(level, player, pos)) refusal = StretchPlan.Refusal.of(StretchPlan.Reason.BLOCKED);
-            // Every tier is one Replace Group, as Factorio's belts are; the fork cannot read the pack's groups (the Pack's ADR-0082).
-            if (there.getBlock() instanceof BeltTileBlock) {
-                if (there.is(getBlock())) {
-                    // Its shape follows its neighbours once they are down.
-                    if (there.getValue(BlockStateProperties.HORIZONTAL_FACING) == facing) continue;
-                    tiles.add(new StretchPlan.Tile(pos, state, StretchPlan.Action.TURN));
-                } else {
-                    tiles.add(new StretchPlan.Tile(pos, state, StretchPlan.Action.REPLACE));
-                    cost++;
-                    returned.add(new ItemStack(there.getBlock().asItem()));
-                }
-                continue;
-            }
-            tiles.add(new StretchPlan.Tile(pos, state, StretchPlan.Action.PLACE));
-            cost++;
-        }
-        var reshape = BeltTileBlock.reshape(level, travels, getBlock());
-        if (refusal == null && reshape.refused()) refusal = StretchPlan.Refusal.of(reshape.refusal());
-        reshape.wedges().forEach((pos, state) -> tiles.add(new StretchPlan.Tile(pos, state, StretchPlan.Action.WEDGE)));
-
-        var creative = player != null && player.hasInfiniteMaterials();
-        if (creative) {
-            cost = 0;
-            returned.clear();
-        }
-        if (refusal == null && player != null && !creative) {
-            var held = ContainerHelper.clearOrCountMatchingItems(player.getInventory(), this::isThisTile, 0, true);
-            if (held < cost) refusal = StretchPlan.Refusal.of(StretchPlan.Reason.NOT_ENOUGH_TILES, cost, held);
-            else if (!fits(player, cost, returned)) refusal = StretchPlan.Refusal.of(StretchPlan.Reason.NO_ROOM_TO_RETURN);
-        }
-        return new StretchPlan(tiles, cost, returned, refusal);
-    }
-
-    private void execute(StretchPlan plan, Level level, ItemStack stack, @Nullable Player player) {
-        clearStart(stack);
-        if (player != null && plan.cost() > 0) {
-            ContainerHelper.clearOrCountMatchingItems(player.getInventory(), this::isThisTile, plan.cost(), false);
-        }
-        for (var tile : plan.tiles()) {
-            // Its tile places it.
-            if (tile.action() == StretchPlan.Action.WEDGE) continue;
-            if (tile.action() == StretchPlan.Action.REPLACE) {
-                var carried = level.getBlockEntity(tile.pos(), BlockEntitiesContent.BELT_TILE.get())
-                                .map(old -> old.takeCarried()).orElse(List.of());
-                level.setBlock(tile.pos(), tile.state(), Block.UPDATE_ALL);
-                level.getBlockEntity(tile.pos(), BlockEntitiesContent.BELT_TILE.get()).ifPresent(placed -> placed.carry(carried));
-            } else {
-                level.setBlock(tile.pos(), tile.state(), Block.UPDATE_ALL);
-            }
-        }
-        if (player != null) {
-            for (var item : plan.returned()) {
-                var copy = item.copy();
-                if (!player.getInventory().add(copy) && !copy.isEmpty()) player.drop(copy, false);
-            }
-        }
-
-        if (plan.tiles().isEmpty()) return;
-        var first = plan.tiles().getFirst();
-        var sound = first.state().getSoundType();
-        level.playSound(null, first.pos(), sound.getPlaceSound(), SoundSource.BLOCKS, (sound.getVolume() + 1.0F) / 2.0F, sound.getPitch() * 0.8F);
-        level.gameEvent(GameEvent.BLOCK_PLACE, first.pos(), GameEvent.Context.of(player, first.state()));
-    }
-
-    /** Where a tile placed by this click would go, or the tile aimed at, so a stretch can start or end on one. */
-    public static BlockPos aimedTile(BlockPlaceContext context) {
-        var clicked = context.getClickedPos();
-        var aimed = context.replacingClickedOnBlock() ? clicked : clicked.relative(context.getClickedFace().getOpposite());
-        return context.getLevel().getBlockState(aimed).getBlock() instanceof BeltTileBlock ? aimed : clicked;
-    }
-
-    // No entity check: the player laying a belt usually stands on it.
-    private static boolean mayBuild(Level level, @Nullable Player player, BlockPos pos) {
-        return level.isInWorldBounds(pos) && (player == null || level.mayInteract(player, pos));
-    }
-
-    // A tile's top holds the level tile of a crossing over it (#420). A wedge belongs to the slope
-    // above it, so a stretch neither replaces it nor stands on it (ADR 0005).
-    private static Stretch.Terrain terrain(Level level) {
-        return new Stretch.Terrain() {
-            @Override
-            public Stretch.Ground at(LineScan.Spot spot) {
-                var pos = pos(spot);
-                var state = level.getBlockState(pos);
-                if (state.getBlock() instanceof BeltTileBlock) return Stretch.Ground.TILE;
-                if (state.getBlock() instanceof BeltWedgeBlock) return Stretch.Ground.OBSTACLE;
-                return switch (BeltTileBlock.occupant(level, pos)) {
-                    case REPLACEABLE -> Stretch.Ground.FREE;
-                    case SOLID -> Stretch.Ground.SOLID;
-                    case OCCUPIED -> Stretch.Ground.OBSTACLE;
-                };
-            }
-
-            @Override
-            public boolean across(LineScan.Spot spot, LineScan.Travel travel) {
-                var state = level.getBlockState(pos(spot));
-                if (!(state.getBlock() instanceof BeltTileBlock)) return false;
-                var its = BeltTileBlock.travel(state.getValue(BlockStateProperties.HORIZONTAL_FACING));
-                return its.x() * travel.x() + its.z() * travel.z() == 0;
-            }
-        };
-    }
-
-    /** Whether the inventory holds what the stretch hands back once its charge is taken, as {@code Inventory#add} places it. */
-    private boolean fits(Player player, int cost, List<ItemStack> returned) {
-        if (returned.isEmpty()) return true;
-        var slots = new ArrayList<ItemStack>();
-        for (var slot : player.getInventory().getNonEquipmentItems()) slots.add(slot.copy());
-        var toTake = cost;
-        for (var slot : slots) {
-            if (toTake == 0) break;
-            if (!isThisTile(slot)) continue;
-            var taken = Math.min(toTake, slot.getCount());
-            slot.shrink(taken);
-            toTake -= taken;
-        }
-        for (var item : returned) {
-            var rest = item.copy();
-            for (var slot : slots) {
-                if (!slot.isEmpty() && ItemStack.isSameItemSameComponents(slot, rest)) {
-                    var moved = Math.max(0, Math.min(rest.getCount(), slot.getMaxStackSize() - slot.getCount()));
-                    slot.grow(moved);
-                    rest.shrink(moved);
-                }
-            }
-            for (var i = 0; i < slots.size() && !rest.isEmpty(); i++) {
-                if (slots.get(i).isEmpty()) slots.set(i, rest.split(rest.getMaxStackSize()));
-            }
-            if (!rest.isEmpty()) return false;
-        }
-        return true;
-    }
-
-    private static void tell(Player player, Component message) {
-        if (player instanceof ServerPlayer server) server.sendSystemMessage(message, true);
-    }
-
-    private boolean isThisTile(ItemStack candidate) {
-        return candidate.is(this);
-    }
-
-    private static void clearStart(ItemStack stack) {
-        stack.remove(ComponentContent.BELT_START.get());
-        stack.remove(ComponentContent.BELT_DIR.get());
-        stack.remove(ComponentContent.STRETCH_CORNERS.get());
-    }
-
-    private static List<LineScan.Spot> corners(ItemStack stack) {
-        return stack.getOrDefault(ComponentContent.STRETCH_CORNERS.get(), List.<BlockPos>of()).stream().map(BeltTileItem::spot).toList();
-    }
-
-    // The corner is where the stretch to the aim ends, level with its start.
-    private static void addCorner(ItemStack stack, BlockPlaceContext context) {
-        var start = stack.get(ComponentContent.BELT_START.get());
-        var corners = corners(stack);
-        var end = Stretch.path(spot(start), BeltTileBlock.travel(stack.get(ComponentContent.BELT_DIR.get())), corners, spot(aimedTile(context)))
-                    .orElseThrow().getLast().spot();
-        if (end.equals(corners.isEmpty() ? spot(start) : corners.getLast())) return;
-        var stored = new ArrayList<>(stack.getOrDefault(ComponentContent.STRETCH_CORNERS.get(), List.<BlockPos>of()));
-        stored.add(pos(end));
-        stack.set(ComponentContent.STRETCH_CORNERS.get(), List.copyOf(stored));
-        if (context.getPlayer() != null) tell(context.getPlayer(), Component.translatable("message.beltworks.stretch_corner"));
-    }
-
-    private static LineScan.Spot spot(BlockPos pos) {
-        return new LineScan.Spot(pos.getX(), pos.getY(), pos.getZ());
-    }
-
-    private static BlockPos pos(LineScan.Spot spot) {
-        return new BlockPos(spot.x(), spot.y(), spot.z());
+        return BeltTileBlock.reshape(context.getLevel(), Map.of(BeltTileBlock.spot(updated.getClickedPos()), travel), getBlock());
     }
 }

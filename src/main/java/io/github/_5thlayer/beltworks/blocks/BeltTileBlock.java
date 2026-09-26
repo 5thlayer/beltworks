@@ -35,8 +35,8 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.groundworks.TurnsInPlace;
 import io.github._5thlayer.beltworks.BlockContent;
+import io.github._5thlayer.beltworks.items.BeltRefusal;
 import io.github._5thlayer.beltworks.items.SplitterItem;
-import io.github._5thlayer.beltworks.items.StretchPlan;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.LineScan;
 import io.github._5thlayer.beltworks.model.Pitch;
@@ -212,8 +212,9 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
     /**
      * The wedges placing {@code planned} tiles adds, the tiles' own and those of the tiles it
      * reshapes, or why it is refused: a wedge that would land on anything but air, a plant or snow
-     * (#420), or a corner the placement would turn into a slope, since a slope never turns (#419).
-     * A wedge a reshape removes is not named: its tile's upkeep removes it.
+     * (#420), refused where the wedge would go, or a corner the placement would turn into a slope,
+     * since a slope never turns (#419). A wedge a reshape removes is not named: its tile's upkeep
+     * removes it.
      */
     public static Reshape reshape(Level level, Map<LineScan.Spot, LineScan.Travel> planned, Block tile) {
         var around = around(level, planned);
@@ -233,14 +234,14 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
             var formed = formed(current, spot, around);
             var existing = !planned.containsKey(spot);
             if (existing && current.getValue(CORNER) != Shape.STRAIGHT && formed.getValue(PITCH) != PitchState.LEVEL) {
-                return new Reshape(Map.of(), StretchPlan.Reason.SLOPE_TURNS);
+                return new Reshape(Map.of(), BeltRefusal.SLOPE_TURNS, null);
             }
             if (existing && formed.getValue(PITCH) == current.getValue(PITCH)) continue;
             var under = pos.below();
             var below = planned.containsKey(spot(under)) ? Wedge.Below.OCCUPIED : occupant(level, under);
             switch (Wedge.under(formed.getValue(PITCH).model(), below)) {
                 case REFUSED -> {
-                    return new Reshape(Map.of(), StretchPlan.Reason.WEDGE_BLOCKED);
+                    return new Reshape(Map.of(), BeltRefusal.WEDGE_BLOCKED, under.immutable());
                 }
                 case PLACE -> {
                     var wedge = wedgeFor(formed);
@@ -250,11 +251,11 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
                 }
             }
         }
-        return new Reshape(placed, null);
+        return new Reshape(placed, null, null);
     }
 
-    /** The wedges a placement adds, by position, or why it is refused. */
-    public record Reshape(Map<BlockPos, BlockState> wedges, StretchPlan.@Nullable Reason refusal) {
+    /** The wedges a placement adds, by position, or why it is refused, and where when that is somewhere. */
+    public record Reshape(Map<BlockPos, BlockState> wedges, @Nullable BeltRefusal refusal, @Nullable BlockPos at) {
 
         public boolean refused() {
             return refusal != null;

@@ -32,7 +32,7 @@ import io.github._5thlayer.beltworks.BlockContent;
 import io.github._5thlayer.beltworks.ItemContent;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
-import io.github._5thlayer.beltworks.items.StretchPlan;
+import io.github._5thlayer.beltworks.items.BeltRefusal;
 import io.github._5thlayer.beltworks.model.BeltTier;
 
 /**
@@ -154,7 +154,7 @@ final class BeltWedgeTests {
 
         ItemStack stack = new ItemStack(ItemContent.tileFor(BeltTier.BELT));
         PlacementPlan plan = planOf(helper, player, stack, TOP);
-        if (plan == null || plan.refusal() != StretchPlan.Reason.WEDGE_BLOCKED) {
+        if (plan == null || plan.refusal() != BeltRefusal.WEDGE_BLOCKED) {
             helper.fail("a top over " + occupant + " is planned " + (plan == null ? "as nothing" : "with " + plan.refusal())
                     + ", expected refused for its wedge", TOP);
         }

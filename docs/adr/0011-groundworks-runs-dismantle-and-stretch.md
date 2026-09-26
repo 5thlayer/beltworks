@@ -13,7 +13,7 @@ The Mod and the Pack each had a **Dismantle**, one for belts and one for pipes, 
   - A pass may take up spans of several families, but one span never crosses from one family to another.
 - **Stretch.**
   - Groundworks owns the gesture, the stored **anchors**, the route seen from above, one held item charged per placed block, refuse-whole, the return fit and the anchor marker.
-  - The item owns only how one anchor is joined to the next.
+  - The item owns only how one anchor is joined to the next. Narrowed by Groundworks ADR 0004: the item builds only each **leg**, given its first anchor, its rise and its route seen from above.
   - Groundworks never changes height unless the player makes the height gesture. An obstacle on a leg gets a flat detour around it.
 
 ## Considered Options
