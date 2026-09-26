@@ -47,7 +47,7 @@ class BeltLegTest {
 
     @Test
     void aLevelLegIsATileInEachColumnAtItsAnchorsHeight() {
-        var leg = BeltLeg.shape(FROM, 0, east(3), new Field());
+        var leg = BeltLeg.shape(FROM, 0, east(3), null, true, new Field());
 
         assertEquals(List.of(tile(0, 64, 0, EAST), tile(1, 64, 0, EAST), tile(2, 64, 0, EAST), tile(3, 64, 0, EAST)), leg.tiles());
         assertNull(leg.stop());
@@ -55,7 +55,7 @@ class BeltLegTest {
 
     @Test
     void aRiseOfOneIsAFootAndATopRightAfterTheAnchorThenLevelOneUp() {
-        var leg = BeltLeg.shape(FROM, 1, east(4), new Field());
+        var leg = BeltLeg.shape(FROM, 1, east(4), null, true, new Field());
 
         assertEquals(List.of(tile(0, 64, 0, EAST), tile(1, 64, 0, EAST), tile(2, 65, 0, EAST), tile(3, 65, 0, EAST),
                 tile(4, 65, 0, EAST)), leg.tiles());
@@ -64,7 +64,7 @@ class BeltLegTest {
 
     @Test
     void aRiseOfTwoHasAMiddleBetweenItsFootAndItsTop() {
-        var leg = BeltLeg.shape(FROM, 2, east(4), new Field());
+        var leg = BeltLeg.shape(FROM, 2, east(4), null, true, new Field());
 
         assertEquals(List.of(64, 64, 65, 66, 66), leg.tiles().stream().map(step -> step.spot().y()).toList());
         assertNull(leg.stop());
@@ -72,24 +72,55 @@ class BeltLegTest {
 
     @Test
     void aFallStartsAtTheAnchorsHeightAndEndsBelowIt() {
-        var leg = BeltLeg.shape(FROM, -2, east(4), new Field());
+        var leg = BeltLeg.shape(FROM, -2, east(4), null, true, new Field());
 
         assertEquals(List.of(64, 64, 63, 62, 62), leg.tiles().stream().map(step -> step.spot().y()).toList());
         assertNull(leg.stop());
     }
 
-    // A top on the leg's last anchor would be a slope where the next leg may turn.
+    // Nothing follows the stretch's end, so the climb may finish on it.
     @Test
-    void aRiseWhoseTopReachesTheNextAnchorIsRefused() {
-        var leg = BeltLeg.shape(FROM, 1, east(2), new Field());
+    void aRiseMayEndOnTheStretchsEnd() {
+        var leg = BeltLeg.shape(FROM, 1, east(2), null, true, new Field());
+
+        assertNull(leg.stop());
+        assertEquals(List.of(tile(0, 64, 0, EAST), tile(1, 64, 0, EAST), tile(2, 65, 0, EAST)), leg.tiles());
+    }
+
+    @Test
+    void aFallMayEndOnTheStretchsEnd() {
+        var leg = BeltLeg.shape(FROM, -1, east(2), EAST, true, new Field());
+
+        assertNull(leg.stop());
+        assertEquals(List.of(64, 64, 63), leg.tiles().stream().map(step -> step.spot().y()).toList());
+    }
+
+    // The next leg may turn at an intermediate anchor, which would put a slope on a corner.
+    @Test
+    void aRiseWhoseTopReachesAnIntermediateAnchorIsRefused() {
+        var leg = BeltLeg.shape(FROM, 1, east(2), null, false, new Field());
 
         assertEquals(BeltLeg.Stop.RISE_DOES_NOT_FIT, leg.stop());
         assertNull(leg.at());
     }
 
+    // The end joining a line lays nothing there, so the climb must finish before it.
+    @Test
+    void aRiseEndsBeforeAnEndThatJoinsALine() {
+        var near = new Field();
+        near.ground.put(new LineScan.Spot(2, 65, 0), BeltLeg.Ground.ACROSS);
+        var far = new Field();
+        far.ground.put(new LineScan.Spot(3, 65, 0), BeltLeg.Ground.ACROSS);
+
+        assertEquals(BeltLeg.Stop.RISE_DOES_NOT_FIT, BeltLeg.shape(FROM, 1, east(2), null, true, near).stop());
+        var leg = BeltLeg.shape(FROM, 1, east(3), null, true, far);
+        assertNull(leg.stop());
+        assertEquals(3, leg.tiles().size());
+    }
+
     @Test
     void aRiseLongerThanTheLegIsRefusedAndStillDrawn() {
-        var leg = BeltLeg.shape(FROM, 3, east(2), new Field());
+        var leg = BeltLeg.shape(FROM, 3, east(2), null, true, new Field());
 
         assertEquals(BeltLeg.Stop.RISE_DOES_NOT_FIT, leg.stop());
         assertEquals(3, leg.tiles().size());
@@ -102,7 +133,7 @@ class BeltLegTest {
         route.add(new BeltLeg.Column(2, 1, SOUTH));
         route.add(new BeltLeg.Column(2, 2, SOUTH));
 
-        assertEquals(BeltLeg.Stop.RISE_DOES_NOT_FIT, BeltLeg.shape(FROM, 1, route, new Field()).stop());
+        assertEquals(BeltLeg.Stop.RISE_DOES_NOT_FIT, BeltLeg.shape(FROM, 1, route, null, true, new Field()).stop());
     }
 
     // The foot and the top run straight on from the anchor, and the corner comes after the top.
@@ -112,7 +143,7 @@ class BeltLegTest {
         route.add(new BeltLeg.Column(3, 0, SOUTH));
         route.add(new BeltLeg.Column(3, 1, SOUTH));
 
-        var leg = BeltLeg.shape(FROM, 1, route, new Field());
+        var leg = BeltLeg.shape(FROM, 1, route, null, true, new Field());
 
         assertNull(leg.stop());
         assertEquals(tile(3, 65, 0, SOUTH), leg.tiles().get(3));
@@ -123,7 +154,7 @@ class BeltLegTest {
         var field = new Field();
         field.ground.put(new LineScan.Spot(2, 64, 0), BeltLeg.Ground.OBSTACLE);
 
-        var leg = BeltLeg.shape(FROM, 0, east(4), field);
+        var leg = BeltLeg.shape(FROM, 0, east(4), null, true, field);
 
         assertEquals(BeltLeg.Stop.BLOCKED, leg.stop());
         assertEquals(new LineScan.Spot(2, 64, 0), leg.at());
@@ -136,7 +167,7 @@ class BeltLegTest {
         var field = new Field();
         field.ground.put(new LineScan.Spot(3, 64, 0), BeltLeg.Ground.OBSTACLE);
 
-        assertNull(BeltLeg.shape(FROM, 1, east(4), field).stop());
+        assertNull(BeltLeg.shape(FROM, 1, east(4), null, true, field).stop());
     }
 
     @Test
@@ -144,30 +175,58 @@ class BeltLegTest {
         var field = new Field();
         field.ground.put(new LineScan.Spot(2, 64, 0), BeltLeg.Ground.ACROSS);
 
-        var leg = BeltLeg.shape(FROM, 0, east(4), field);
+        var leg = BeltLeg.shape(FROM, 0, east(4), null, true, field);
 
         assertEquals(BeltLeg.Stop.CROSSES_A_LINE, leg.stop());
         assertEquals(new LineScan.Spot(2, 64, 0), leg.at());
     }
 
-    // The anchor that starts a leg on a line would turn one of its tiles and cut it.
+    // Turning a tile in the middle of a line would cut what runs past it.
     @Test
-    void aLegStartingAcrossALineIsRefusedAtItsAnchor() {
+    void aStretchStartingAcrossALineIsRefusedAtItsStart() {
         var field = new Field();
         field.ground.put(FROM, BeltLeg.Ground.ACROSS);
 
-        var leg = BeltLeg.shape(FROM, 0, east(3), field);
+        var leg = BeltLeg.shape(FROM, 0, east(3), null, true, field);
 
         assertEquals(BeltLeg.Stop.CROSSES_A_LINE, leg.stop());
         assertEquals(FROM, leg.at());
     }
 
+    // The line's last tile turns into the stretch, and the line flows on into it.
     @Test
-    void aLegEndingOnALineJoinsItsSideAndLaysNothingThere() {
+    void aStretchStartingOnALinesLastTileTakesItUp() {
+        var field = new Field();
+        field.ground.put(FROM, BeltLeg.Ground.LINE_END);
+
+        var leg = BeltLeg.shape(FROM, 0, east(2), null, true, field);
+
+        assertNull(leg.stop());
+        assertEquals(List.of(tile(0, 64, 0, EAST), tile(1, 64, 0, EAST), tile(2, 64, 0, EAST)), leg.tiles());
+    }
+
+    @Test
+    void anIntermediateAnchorOnALineIsRefusedThere() {
+        var field = new Field();
+        field.ground.put(FROM, BeltLeg.Ground.LINE_END);
+        field.ground.put(new LineScan.Spot(3, 64, 0), BeltLeg.Ground.ACROSS);
+
+        var starting = BeltLeg.shape(FROM, 0, east(3), EAST, true, field);
+        var ending = BeltLeg.shape(new LineScan.Spot(1, 64, 0), 0, List.of(new BeltLeg.Column(1, 0, EAST),
+                new BeltLeg.Column(2, 0, EAST), new BeltLeg.Column(3, 0, EAST)), null, false, field);
+
+        assertEquals(BeltLeg.Stop.CROSSES_A_LINE, starting.stop());
+        assertEquals(FROM, starting.at());
+        assertEquals(BeltLeg.Stop.CROSSES_A_LINE, ending.stop());
+        assertEquals(new LineScan.Spot(3, 64, 0), ending.at());
+    }
+
+    @Test
+    void aStretchEndingOnALineJoinsItsSideAndLaysNothingThere() {
         var field = new Field();
         field.ground.put(new LineScan.Spot(3, 64, 0), BeltLeg.Ground.ACROSS);
 
-        var leg = BeltLeg.shape(FROM, 0, east(3), field);
+        var leg = BeltLeg.shape(FROM, 0, east(3), null, true, field);
 
         assertNull(leg.stop());
         assertEquals(List.of(tile(0, 64, 0, EAST), tile(1, 64, 0, EAST), tile(2, 64, 0, EAST)), leg.tiles());
@@ -179,7 +238,7 @@ class BeltLegTest {
         field.ground.put(new LineScan.Spot(2, 64, 0), BeltLeg.Ground.ALONG);
         field.ground.put(FROM, BeltLeg.Ground.ALONG);
 
-        var leg = BeltLeg.shape(FROM, 0, east(3), field);
+        var leg = BeltLeg.shape(FROM, 0, east(3), null, true, field);
 
         assertNull(leg.stop());
         assertEquals(4, leg.tiles().size());
@@ -191,7 +250,7 @@ class BeltLegTest {
         field.ground.put(new LineScan.Spot(3, 64, 0), BeltLeg.Ground.OBSTACLE);
         field.ground.put(new LineScan.Spot(1, 64, 0), BeltLeg.Ground.ACROSS);
 
-        var leg = BeltLeg.shape(FROM, 0, east(4), field);
+        var leg = BeltLeg.shape(FROM, 0, east(4), null, true, field);
 
         assertEquals(BeltLeg.Stop.CROSSES_A_LINE, leg.stop());
         assertEquals(new LineScan.Spot(1, 64, 0), leg.at());
@@ -203,6 +262,6 @@ class BeltLegTest {
         var field = new Field();
         field.ground.put(new LineScan.Spot(1, 64, 0), BeltLeg.Ground.OBSTACLE);
 
-        assertEquals(BeltLeg.Stop.RISE_DOES_NOT_FIT, BeltLeg.shape(FROM, 2, east(3), field).stop());
+        assertEquals(BeltLeg.Stop.RISE_DOES_NOT_FIT, BeltLeg.shape(FROM, 2, east(2), null, true, field).stop());
     }
 }

@@ -49,3 +49,6 @@ With nothing but Beltworks installed. See **Stretch** in `CONTEXT.md`.
 - Lay a line across your path. Stretch at its height towards it and past: the preview goes round the line's end if it is short, and draws red if it runs wide. It never draws over the line.
 - Cross it: sneak-click a start, press `G`, sneak-click an anchor past the line, press `B`, and click further on. The line underneath still carries, and the new one runs over it.
 - Aim a stretch's end at a line's side: the stretch stops short of it and feeds its side.
+- Sneak-click an anchor, then aim to the side of it: the preview draws a corner at the anchor, as the click lays it.
+- From a start one block up, press `B` and aim at the column where the foot lands: the preview draws a top and a foot ending there, and the click lays them.
+- Sneak-click a start on the last tile of a line, looking across it, and stretch away: the tile turns into the stretch, and items on the line run on into it. Start on a tile in the middle of the line instead: the preview draws red and the click lays nothing.

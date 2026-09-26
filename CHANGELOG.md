@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- A stretch's climb may end on the stretch's end: Lower aimed at the column where the foot lands lays it.
+- A stretch's preview draws the corner at an anchor where the stretch turns, as it is laid.
+- A stretch started on a line's last tile takes it up, turning it into the stretch so the line flows on into it. Started anywhere else on a line crossing it, the stretch is still refused, since turning that tile would cut the line.
+
 ## 0.3.2
 
 - Groundworks 0.4.2 ships inside the jar in place of 0.4.1. After Rotate (`R`), a belt stretch's start runs the turned way again, and storing it uses the turn up.

@@ -14,8 +14,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import org.jetbrains.annotations.Nullable;
+import io.github._5thlayer.beltworks.blocks.BeltEndBlock;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.BeltWedgeBlock;
 import io.github._5thlayer.beltworks.model.BeltLeg;
@@ -48,7 +50,9 @@ public final class BeltLegs implements LegBuilder {
         var route = leg.route().stream()
                       .map(column -> new BeltLeg.Column(column.x(), column.z(), BeltTileBlock.travel(column.travel())))
                       .toList();
-        var shaped = BeltLeg.shape(BeltTileBlock.spot(leg.from()), leg.rise(), route, terrain(level));
+        var arrives = leg.arrives() == null ? null : BeltTileBlock.travel(leg.arrives());
+        var from = BeltTileBlock.spot(leg.from());
+        var shaped = BeltLeg.shape(from, leg.rise(), route, arrives, leg.endsStretch(), terrain(level));
 
         var travels = new LinkedHashMap<LineScan.Spot, LineScan.Travel>();
         for (var step : shaped.tiles()) {
@@ -57,7 +61,11 @@ public final class BeltLegs implements LegBuilder {
             if (there.is(tile) && BeltTileBlock.travel(there.getValue(BlockStateProperties.HORIZONTAL_FACING)).equals(step.travel())) continue;
             travels.put(step.spot(), step.travel());
         }
-        var around = BeltTileBlock.around(level, travels);
+        // The earlier leg's tile feeding the first anchor is no block of this leg, and still shapes it:
+        // an anchor where the stretch turns is a corner.
+        var shaping = new LinkedHashMap<>(travels);
+        if (arrives != null) shaping.putIfAbsent(from.step(arrives, -1), arrives);
+        var around = BeltTileBlock.around(level, shaping);
         var blocks = new ArrayList<PlacementPlan.Placed>();
         var replaces = new ArrayList<BlockPos>();
         travels.forEach((spot, travel) -> {
@@ -95,11 +103,19 @@ public final class BeltLegs implements LegBuilder {
             var state = level.getBlockState(pos);
             if (state.getBlock() instanceof BeltTileBlock) {
                 var its = BeltTileBlock.travel(state.getValue(BlockStateProperties.HORIZONTAL_FACING));
-                return its.x() * travel.x() + its.z() * travel.z() == 0 ? BeltLeg.Ground.ACROSS : BeltLeg.Ground.ALONG;
+                if (its.x() * travel.x() + its.z() * travel.z() != 0) return BeltLeg.Ground.ALONG;
+                return lineEnd(level, pos, state) ? BeltLeg.Ground.LINE_END : BeltLeg.Ground.ACROSS;
             }
             if (state.getBlock() instanceof BeltWedgeBlock || !level.isInWorldBounds(pos)) return BeltLeg.Ground.OBSTACLE;
             return BeltTileBlock.occupant(level, pos) == Wedge.Below.REPLACEABLE ? BeltLeg.Ground.FREE : BeltLeg.Ground.OBSTACLE;
         };
+    }
+
+    /** Whether the tile is a line's last, level with nothing of the belt's in front of it to feed. */
+    private static boolean lineEnd(Level level, BlockPos pos, BlockState tile) {
+        if (tile.getValue(BeltTileBlock.PITCH) != BeltTileBlock.PitchState.LEVEL) return false;
+        var front = level.getBlockState(pos.relative(tile.getValue(BlockStateProperties.HORIZONTAL_FACING))).getBlock();
+        return !(front instanceof BeltTileBlock || front instanceof BeltEndBlock);
     }
 
     private static BlockPos pos(LineScan.Spot spot) {

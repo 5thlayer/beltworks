@@ -72,7 +72,11 @@ final class StretchTests {
         tests.test("a_line_across_a_level_stretch_is_gone_round", 20, StretchTests::roundALine);
         tests.test("a_line_across_the_whole_band_refuses_the_stretch", 20, StretchTests::acrossTheBand);
         tests.test("a_rise_too_big_for_its_leg_changes_nothing", 20, helper -> refused(helper, player -> press(player, 2),
-                START.east(3), BeltRefusal.RISE_DOES_NOT_FIT, "message.beltworks.rise_does_not_fit"));
+                START.east(2), BeltRefusal.RISE_DOES_NOT_FIT, "message.beltworks.rise_does_not_fit"));
+        tests.test("a_fall_may_end_on_the_stretchs_end", 20, StretchTests::fallEndsOnTheEnd);
+        tests.test("an_anchor_where_the_stretch_turns_is_planned_as_the_corner_it_lays", 20, StretchTests::cornerAtAnAnchor);
+        tests.test("a_stretch_started_on_a_lines_last_tile_takes_it_up", 20, StretchTests::takesUpALinesEnd);
+        tests.test("a_stretch_started_in_the_middle_of_a_line_is_refused_there", 20, StretchTests::startsInALine);
         tests.test("a_slope_whose_wedge_has_no_room_changes_nothing", 20, StretchTests::wedgeOnALoader);
         tests.test("a_stretch_aimed_at_a_line_feeds_its_side", 20, StretchTests::joins);
         tests.test("a_stretch_on_from_an_anchor_on_a_line_is_refused_there", 20, StretchTests::onFromALine);
@@ -224,6 +228,71 @@ final class StretchTests {
         pitched(helper, START.east(3), BeltTileBlock.PitchState.FOOT_DOWN);
         pitched(helper, START.east(5), BeltTileBlock.PitchState.LEVEL);
         wedged(helper, start.east(1).below(), START.east(2));
+        helper.succeed();
+    }
+
+    // From a start one up on a block, Lower, aimed at the column where the foot lands: a top and a foot.
+    private static void fallEndsOnTheEnd(GameTestHelper helper) {
+        helper.setBlock(START, Blocks.STONE);
+        var player = started(helper, Direction.EAST, START.above());
+        press(player, -1);
+        if (accepted(helper, player, START.east(2), 3) == null) return;
+        pitched(helper, START.east(1).above(), BeltTileBlock.PitchState.TOP_DOWN);
+        pitched(helper, START.east(2), BeltTileBlock.PitchState.FOOT_DOWN);
+        wedged(helper, START.east(1));
+        helper.succeed();
+    }
+
+    // Looking east, an anchor three ahead, then an end two south of it: the second leg turns at the anchor.
+    private static void cornerAtAnAnchor(GameTestHelper helper) {
+        var player = started(helper, Direction.EAST);
+        var anchor = START.east(3);
+        click(helper, player, anchor, true);
+        var plan = accepted(helper, player, anchor.south(2), 6);
+        if (plan == null) return;
+        var planned = helper.getBlockState(anchor);
+        if (planned.getValue(BeltTileBlock.CORNER) == BeltTileBlock.Shape.STRAIGHT) {
+            helper.fail("the anchor where the stretch turns was planned " + planned + ", not a corner", anchor);
+            return;
+        }
+        helper.runAfterDelay(2, () -> {
+            if (!helper.getBlockState(anchor).equals(planned)) {
+                helper.fail("the anchor was planned " + planned + " and became " + helper.getBlockState(anchor), anchor);
+            }
+            helper.succeed();
+        });
+    }
+
+    // A line running south whose last tile is the start: it turns east into the stretch, and the line flows on.
+    private static void takesUpALinesEnd(GameTestHelper helper) {
+        lineSouthAcross(helper, START.north(), 1);
+        Map<BlockPos, BlockState> upstream = lineOf(helper, START.north(2), 0);
+        upstream.putAll(lineOf(helper, START.north(), 0));
+        var player = started(helper, Direction.EAST);
+        var plan = accepted(helper, player, START.east(3), 3);
+        if (plan == null) return;
+        if (!plan.replaces().equals(List.of(helper.absolutePos(START)))) {
+            helper.fail("the plan names " + plan.replaces() + " as replaced, not the line's last tile", START);
+        }
+        if (facing(helper, START) != Direction.EAST || helper.getBlockState(START).getValue(BeltTileBlock.CORNER) == BeltTileBlock.Shape.STRAIGHT) {
+            helper.fail("the line's last tile became " + helper.getBlockState(START) + ", not a corner east", START);
+        }
+        untouched(helper, upstream);
+        helper.succeed();
+    }
+
+    private static void startsInALine(GameTestHelper helper) {
+        lineSouthAcross(helper, START, 1);
+        Map<BlockPos, BlockState> line = lineOf(helper, START, 1);
+        var player = started(helper, Direction.EAST);
+        var plan = planOf(helper, player, START.east(3));
+        var expected = new Refusal.At(BeltRefusal.CROSSES_A_LINE, helper.absolutePos(START));
+        if (plan == null || !expected.equals(plan.refusal())) {
+            helper.fail("a stretch started in a line was planned as " + (plan == null ? "nothing" : plan.refusal()) + ", not " + expected, START);
+            return;
+        }
+        refusedClick(helper, player, START.east(3), "message.beltworks.stretch_crosses_a_line");
+        untouched(helper, line);
         helper.succeed();
     }
 

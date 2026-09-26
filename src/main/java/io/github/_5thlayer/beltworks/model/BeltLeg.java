@@ -15,11 +15,13 @@ import java.util.List;
  *
  * <p>A rise of k is k+1 slopes right after the first anchor, along the leg's first direction: a
  * foot at the anchor's height, its middles, and a top k up, the leg running level at the top's
- * height after it. The climb never turns and ends before the leg's last anchor, where the next leg
- * may turn, or it is refused. A tile of a line crossing the leg and anything a tile can't take the
- * place of are refused where they stand, so Groundworks can go round them; a stretch never cuts a
- * line. The one exception is a line across the leg's last anchor, which the leg joins by feeding its
- * side.
+ * height after it. The climb never turns, or it is refused. It ends before an intermediate anchor,
+ * where the next leg may turn, and may end on the stretch's end, which nothing follows.
+ *
+ * <p>A tile of a line crossing the leg and anything a tile can't take the place of are refused
+ * where they stand, so Groundworks can go round them; a stretch never cuts a line. It joins one
+ * only where that cuts nothing: its end feeds the side of a line across it, and its start takes up
+ * a line's last tile, which the line then flows on through.
  */
 public final class BeltLeg {
 
@@ -42,6 +44,8 @@ public final class BeltLeg {
         ALONG,
         /** A tile of a line crossing the leg's travel. */
         ACROSS,
+        /** The last tile of a line crossing the leg's travel, level and feeding nothing. */
+        LINE_END,
         /** Anything else, which a tile can't take the place of. */
         OBSTACLE
     }
@@ -75,24 +79,41 @@ public final class BeltLeg {
         }
     }
 
-    /** The tiles of the leg from {@code from} rising {@code rise} along {@code route}, which starts at {@code from}'s column. */
-    public static Shaped shape(LineScan.Spot from, int rise, List<Column> route, Terrain terrain) {
+    /**
+     * The tiles of the leg from {@code from} rising {@code rise} along {@code route}, which starts at
+     * {@code from}'s column. The stretch arrives at {@code from} travelling {@code arrives}, or
+     * starts there when it is null, and {@code ends} says whether the leg's last anchor is the
+     * stretch's end.
+     */
+    public static Shaped shape(LineScan.Spot from, int rise, List<Column> route, LineScan.@Nullable Travel arrives,
+                               boolean ends, Terrain terrain) {
         var last = route.size() - 1;
+        var joins = ends && last > 0 && isLine(terrain.at(spot(from, rise, route, last), route.getLast().travel()));
         var tiles = new ArrayList<Step>();
-        Stop stop = fits(rise, route) ? null : Stop.RISE_DOES_NOT_FIT;
+        Stop stop = fits(rise, route, ends ? (joins ? last - 1 : last) : last - 1) ? null : Stop.RISE_DOES_NOT_FIT;
         LineScan.Spot at = null;
         for (var i = 0; i <= last; i++) {
             var column = route.get(i);
-            var spot = new LineScan.Spot(column.x(), from.y() + height(i, rise), column.z());
+            var spot = spot(from, rise, route, i);
+            if (i == last && joins) break;
             var ground = terrain.at(spot, column.travel());
-            if (i == last && i > 0 && ground == Ground.ACROSS) break;
             tiles.add(new Step(spot, column.travel()));
             if (stop != null) continue;
-            if (ground == Ground.ACROSS) stop = Stop.CROSSES_A_LINE;
+            var takesItsEnd = i == 0 && arrives == null && ground == Ground.LINE_END;
+            if (isLine(ground) && !takesItsEnd) stop = Stop.CROSSES_A_LINE;
             else if (ground == Ground.OBSTACLE) stop = Stop.BLOCKED;
             if (stop != null) at = spot;
         }
         return new Shaped(tiles, stop, at);
+    }
+
+    private static boolean isLine(Ground ground) {
+        return ground == Ground.ACROSS || ground == Ground.LINE_END;
+    }
+
+    private static LineScan.Spot spot(LineScan.Spot from, int rise, List<Column> route, int index) {
+        var column = route.get(index);
+        return new LineScan.Spot(column.x(), from.y() + height(index, rise), column.z());
     }
 
     /** The height of the leg's {@code index}th column above its first anchor. */
@@ -103,12 +124,12 @@ public final class BeltLeg {
         return Integer.signum(rise) * (index - 1);
     }
 
-    // The anchor and the slopes run one way, the tile after the top stands before the last anchor.
-    private static boolean fits(int rise, List<Column> route) {
+    // The anchor and the slopes run one way, and the last slope stands at or before {@code lastSlope}.
+    private static boolean fits(int rise, List<Column> route, int lastSlope) {
         if (rise == 0) return true;
-        var afterTop = Math.abs(rise) + 2;
-        if (afterTop >= route.size()) return false;
-        for (var i = 1; i < afterTop; i++) {
+        var slopes = Math.abs(rise) + 1;
+        if (slopes > lastSlope) return false;
+        for (var i = 1; i <= slopes; i++) {
             if (!route.get(i).travel().equals(route.getFirst().travel())) return false;
         }
         return true;
