@@ -33,6 +33,7 @@ import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.PlannedSupports;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
+import io.github._5thlayer.beltworks.blocks.Supports;
 import io.github._5thlayer.beltworks.client.renderers.BeltEndRenderer;
 import io.github._5thlayer.beltworks.client.renderers.SupportRenderer;
 import io.github._5thlayer.beltworks.model.LineScan;
@@ -75,8 +76,9 @@ final class BeltPreviews {
             supportsOf = plan;
             supportsSetting = setting;
             var boxes = new LinkedHashMap<BlockPos, List<SupportRenderer.Box>>();
-            PlannedSupports.of(event.getLevel(), plan.blocks(), setting)
-              .forEach((pos, support) -> boxes.put(pos, SupportRenderer.plannedBoxes(support, pos)));
+            var world = PlannedSupports.world(event.getLevel(), plan.blocks());
+            PlannedSupports.of(event.getLevel(), plan.blocks(), setting).forEach((pos, support) ->
+              boxes.put(pos, SupportRenderer.plannedBoxes(support, pos, at -> Supports.at(world, at, setting))));
             supports = boxes;
         }
         if (supports.isEmpty()) return;

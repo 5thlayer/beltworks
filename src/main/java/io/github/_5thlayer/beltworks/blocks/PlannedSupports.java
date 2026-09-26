@@ -31,21 +31,20 @@ public final class PlannedSupports {
 
     /** Each planned piece's support, by its position, leaving out those that show none. */
     public static Map<BlockPos, Support> of(BlockGetter level, List<PlacementPlan.Placed> blocks, Support.Setting setting) {
-        var states = new HashMap<BlockPos, BlockState>();
-        for (var placed : blocks) states.put(placed.pos(), placed.state());
-        var world = new Planned(level, states);
+        var world = world(level, blocks);
         var supports = new LinkedHashMap<BlockPos, Support>();
         for (var placed : blocks) {
-            var support = support(world, placed.pos(), placed.state(), setting);
+            var support = Supports.of(world, placed.pos(), placed.state(), setting);
             if (support != null) supports.put(placed.pos(), support);
         }
         return supports;
     }
 
-    private static @Nullable Support support(BlockGetter level, BlockPos pos, BlockState state, Support.Setting setting) {
-        if (state.getBlock() instanceof BeltTileBlock) return BeltTileBlock.support(level, pos, state, setting);
-        if (state.getBlock() instanceof BeltEndBlock end) return end.support(level, pos, state, setting);
-        return null;
+    /** The world as it stands after the plan's click. */
+    public static BlockGetter world(BlockGetter level, List<PlacementPlan.Placed> blocks) {
+        var states = new HashMap<BlockPos, BlockState>();
+        for (var placed : blocks) states.put(placed.pos(), placed.state());
+        return new Planned(level, states);
     }
 
     /** The world as it stands after the click: the planned blocks in their places, and nothing stored in them yet. */

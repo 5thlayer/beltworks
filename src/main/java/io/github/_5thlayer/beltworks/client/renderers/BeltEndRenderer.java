@@ -90,8 +90,9 @@ public class BeltEndRenderer implements BlockEntityRenderer<BeltEndBlockEntity, 
         var pos = entity.getBlockPos();
         var blockState = entity.getBlockState();
         if (blockState.getBlock() instanceof BeltEndBlock end) {
-            var support = end.support(level, pos, blockState, BeltworksClientConfig.supports());
-            if (support != null) state.support = SupportRenderer.boxes(support, level, pos);
+            var setting = BeltworksClientConfig.supports();
+            var support = end.support(level, pos, blockState, setting);
+            if (support != null) state.support = SupportRenderer.boxes(support, level, pos, setting);
         }
         if (entity.isSplitter()) addHalfItems(entity, state, partialTicks);
 
