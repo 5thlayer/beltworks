@@ -72,7 +72,7 @@ A slope rising a whole block within its own block, between a foot and a top when
 The first tile at the upper height of a climb: rising six pixels from its block's floor, then level. A foot turned half round.
 
 **Wedge**:
-The block drawn under a middle or a top that stands over air, reading as the junction between two slopes. It is part of its tile: placed with it for nothing, and broken with it. It needs nothing under it, so a belt can climb through open air, and it takes a replaceable block's place but never a solid one's.
+The block drawn under a middle or a top that stands over air, reading as the junction between two slopes. It is part of its tile: placed with it for nothing, and broken with it. It needs nothing under it, so a belt can climb through open air, and it takes a replaceable block's place but never a solid one's. It follows the block under its tile: a block dug out from under a middle or top leaves a wedge in its place, and a block set in a wedge's place holds the tile up instead.
 _Avoid_: support (a raised line's, a different thing), pillar, scaffold
 
 **Support**:

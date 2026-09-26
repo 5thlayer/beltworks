@@ -74,12 +74,13 @@ public class BeltWedgeBlock extends HorizontalDirectionalBlock implements TurnsI
     }
 
     // Its own tile removes it only once the tile no longer needs it, so a wedge gone from under a
-    // tile that still does was removed by something else, and takes the tile with it (#420).
+    // tile that still does was removed by something else, and takes the tile with it (#420). A
+    // block set in its place holds the tile up instead (#51).
     @Override
     protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel level, BlockPos pos, boolean movedByPiston) {
         super.affectNeighborsAfterRemoval(state, level, pos, movedByPiston);
         var above = level.getBlockState(pos.above());
-        if (above.getBlock() instanceof BeltTileBlock && Wedge.needed(above.getValue(BeltTileBlock.PITCH).model())
+        if (above.getBlock() instanceof BeltTileBlock && BeltTileBlock.wedge(level, pos.above(), above) != Wedge.Verdict.NONE
               && !(level.getBlockState(pos).getBlock() instanceof BeltWedgeBlock)) {
             level.destroyBlock(pos.above(), true);
         }

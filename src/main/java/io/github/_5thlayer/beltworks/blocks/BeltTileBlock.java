@@ -145,10 +145,14 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
         return reshape.refused() ? TurnsInPlace.refused(reshape.refusal().messageKey()) : TurnsInPlace.turned(shaped(turned, level, pos));
     }
 
+    // A block dug out from under a slope, or set there, changes no shape or pitch, so the wedge it
+    // leaves wrong is kept on the next tick, when blocks can be set (#51).
     @Override
     protected BlockState updateShape(BlockState state, LevelReader level, ScheduledTickAccess ticks, BlockPos pos, Direction direction,
                                      BlockPos neighbourPos, BlockState neighbourState, RandomSource random) {
-        return shaped(state, level, pos);
+        var shaped = shaped(state, level, pos);
+        if (direction == Direction.DOWN && !keptBelow(level, pos, shaped).equals(neighbourState)) ticks.scheduleTick(pos, this, 1);
+        return shaped;
     }
 
     // A slope's other end is a block up or down, which no neighbour update reaches, so a placed,
@@ -169,6 +173,7 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         var shaped = shaped(state, level, pos);
         if (!shaped.equals(state)) level.setBlock(pos, shaped, Block.UPDATE_ALL);
+        else keepWedge(level, pos, state);
     }
 
     @Override
@@ -183,13 +188,21 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
     // Whatever sets a tile's state, a player, a stretch or a re-derivation, sets its wedge too (#420).
     private static void keepWedge(Level level, BlockPos pos, BlockState state) {
         var below = pos.below();
-        var there = level.getBlockState(below);
-        if (Wedge.under(state.getValue(PITCH).model(), occupant(level, below)) == Wedge.Verdict.PLACE) {
-            var wedge = wedgeFor(state);
-            if (!there.equals(wedge)) level.setBlock(below, wedge, Block.UPDATE_ALL);
-        } else if (there.getBlock() instanceof BeltWedgeBlock) {
-            level.setBlock(below, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
-        }
+        var kept = keptBelow(level, pos, state);
+        if (!level.getBlockState(below).equals(kept)) level.setBlock(below, kept, Block.UPDATE_ALL);
+    }
+
+    // What the tile keeps under it: its wedge where it needs one, air where a wedge it no longer
+    // needs stands, and otherwise whatever stands there.
+    private static BlockState keptBelow(BlockGetter level, BlockPos pos, BlockState state) {
+        if (wedge(level, pos, state) == Wedge.Verdict.PLACE) return wedgeFor(state);
+        var there = level.getBlockState(pos.below());
+        return there.getBlock() instanceof BeltWedgeBlock ? Blocks.AIR.defaultBlockState() : there;
+    }
+
+    /** Whether the tile {@code state} at {@code pos} needs a wedge over what stands under it now. */
+    public static Wedge.Verdict wedge(BlockGetter level, BlockPos pos, BlockState state) {
+        return Wedge.under(state.getValue(PITCH).model(), occupant(level, pos.below()));
     }
 
     /** What stands at {@code pos}, under a tile, as its wedge reads it. */

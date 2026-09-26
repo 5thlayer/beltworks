@@ -55,6 +55,7 @@ final class BeltWedgeTests {
             BeltTileBlock.PitchState.LEVEL, BeltTileBlock.PitchState.TOP_DOWN, BeltTileBlock.PitchState.MIDDLE_DOWN,
             BeltTileBlock.PitchState.MIDDLE_DOWN, BeltTileBlock.PitchState.FOOT_DOWN, BeltTileBlock.PitchState.LEVEL);
     private static final int[] ONE_BLOCK_CLIMB = {0, 0, 1, 1};
+    private static final int[] ONE_BLOCK_DESCENT = {1, 1, 0, 0};
     private static final BlockPos TOP = FIRST.east(2).above();
     private static final BlockPos TOP_WEDGE = TOP.below();
 
@@ -72,6 +73,8 @@ final class BeltWedgeTests {
             BeltTileBlock.PitchState.LEVEL);
     private static final BlockPos CROSSING_TARGET = CROSSING_FIRST.east(CROSSING.length + 1);
 
+    // A slope keeps its wedge on the tick after the block under it changes (#51).
+    private static final int WEDGE_UPKEEP_TICKS = 2;
     private static final int ITEMS = 64;
     private static final int DELIVERY_TICKS = 400;
     private static final int TIER_1_ITEMS_PER_SECOND = 15;
@@ -95,6 +98,15 @@ final class BeltWedgeTests {
         tests.test("a_slope_whose_wedge_would_stand_on_a_tile_is_refused", 40,
                 helper -> refused(helper, BeltTileTests.tile(BeltTier.BELT, Direction.SOUTH)));
         tests.test("a_slope_levelled_loses_its_wedge_and_stays_put", 40, BeltWedgeTests::levelledLosesItsWedge);
+        tests.test("a_climbs_middle_dug_out_from_under_stands_on_a_wedge", 40,
+                helper -> dugOut(helper, THREE_BLOCK_CLIMB, 2, BeltTileBlock.PitchState.MIDDLE_UP));
+        tests.test("a_climbs_top_dug_out_from_under_stands_on_a_wedge", 40,
+                helper -> dugOut(helper, ONE_BLOCK_CLIMB, 2, BeltTileBlock.PitchState.TOP_UP));
+        tests.test("a_descents_middle_dug_out_from_under_stands_on_a_wedge", 40,
+                helper -> dugOut(helper, THREE_BLOCK_DESCENT, 2, BeltTileBlock.PitchState.MIDDLE_DOWN));
+        tests.test("a_descents_top_dug_out_from_under_stands_on_a_wedge", 40,
+                helper -> dugOut(helper, ONE_BLOCK_DESCENT, 1, BeltTileBlock.PitchState.TOP_DOWN));
+        tests.test("a_block_set_under_a_slope_takes_its_wedges_place", 40, BeltWedgeTests::blockTakesTheWedgesPlace);
         tests.test("a_crossing_built_by_hand_delivers_both_lines_every_item", DELIVERY_TICKS + 20,
                 BeltWedgeTests::crossingDeliversEveryItem);
         tests.test("a_crossing_built_by_hand_carries_" + TIER_1_ITEMS_PER_SECOND + "_items_s_on_each_line",
@@ -174,6 +186,31 @@ final class BeltWedgeTests {
             helper.fail("a levelled top left " + helper.getBlockState(TOP_WEDGE) + " under it", TOP_WEDGE);
         }
         helper.succeed();
+    }
+
+    // The tile rests on a block, so it has no wedge until the block is dug out (#51).
+    private static void dugOut(GameTestHelper helper, int[] heights, int tile, BeltTileBlock.PitchState pitch) {
+        BlockPos at = FIRST.east(tile).above(heights[tile]);
+        helper.setBlock(at.below(), Blocks.STONE);
+        byHand(helper, player(helper), FIRST, Direction.EAST, heights);
+        expectPitch(helper, at, pitch, "resting on a block");
+        helper.destroyBlock(at.below());
+        helper.startSequence().thenIdle(WEDGE_UPKEEP_TICKS).thenExecute(() -> {
+            expectPitch(helper, at, pitch, "with the block under it dug out");
+            expectWedge(helper, at.below(), "where a block was dug out from under a " + pitch);
+        }).thenSucceed();
+    }
+
+    private static void blockTakesTheWedgesPlace(GameTestHelper helper) {
+        byHand(helper, player(helper), FIRST, Direction.EAST, ONE_BLOCK_CLIMB);
+        expectWedge(helper, TOP_WEDGE, "under a top over air");
+        helper.setBlock(TOP_WEDGE, Blocks.STONE);
+        helper.startSequence().thenIdle(WEDGE_UPKEEP_TICKS).thenExecute(() -> {
+            expectPitch(helper, TOP, BeltTileBlock.PitchState.TOP_UP, "with a block set in its wedge's place");
+            if (!helper.getBlockState(TOP_WEDGE).is(Blocks.STONE)) {
+                helper.fail("a block set under a top left " + helper.getBlockState(TOP_WEDGE) + " there", TOP_WEDGE);
+            }
+        }).thenSucceed();
     }
 
     /** The crossed line placed with commands, downstream first; the crossing by hand between its own loaders. */

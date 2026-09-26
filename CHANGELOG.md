@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A middle or top whose block under it is dug out stands on a wedge in the block's place, where before the slope's junction was left open. A block set in a wedge's place holds its slope up instead, rather than breaking it.
+
 ## 0.3.3
 
 - Groundworks 0.4.3 ships inside the jar in place of 0.4.2, telling each leg of a stretch where it stands in it.
