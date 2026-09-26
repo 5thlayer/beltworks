@@ -23,7 +23,7 @@ tasks.withType(Jar).configureEach {
 }
 
 repositories {
-    // Groundworks, until it is released (5thlayer/groundworks#2).
+    // Groundworks: its releases are published to the local maven repository only (5thlayer/groundworks#2).
     mavenLocal()
     maven { url = 'https://cursemaven.com' }
     maven { // EMI
