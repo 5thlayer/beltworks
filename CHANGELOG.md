@@ -3,6 +3,7 @@
 ## Unreleased
 
 - A middle or top whose block under it is dug out stands on a wedge in the block's place, where before the slope's junction was left open. A block set in a wedge's place holds its slope up instead, rather than breaking it.
+- A wedge no longer collides, so a player fits under a raised slope where there is room. It can still be aimed at and broken.
 
 ## 0.3.3
 

@@ -18,6 +18,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import io.github._5thlayer.groundworks.TurnsInPlace;
 import io.github._5thlayer.beltworks.model.Wedge;
@@ -48,6 +49,12 @@ public class BeltWedgeBlock extends HorizontalDirectionalBlock implements TurnsI
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
         return SHAPES.get(state.getValue(BlockStateProperties.HORIZONTAL_FACING));
+    }
+
+    // It holds up only its tile, so it is aimed at and broken but never stops what walks under it (#56).
+    @Override
+    protected VoxelShape getCollisionShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+        return Shapes.empty();
     }
 
     // The corner of its block under the slope's downhill end, square rather than triangular.

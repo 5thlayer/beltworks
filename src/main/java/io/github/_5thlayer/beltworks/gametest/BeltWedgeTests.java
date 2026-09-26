@@ -17,6 +17,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -25,6 +26,7 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
@@ -107,6 +109,7 @@ final class BeltWedgeTests {
         tests.test("a_descents_top_dug_out_from_under_stands_on_a_wedge", 40,
                 helper -> dugOut(helper, ONE_BLOCK_DESCENT, 1, BeltTileBlock.PitchState.TOP_DOWN));
         tests.test("a_block_set_under_a_slope_takes_its_wedges_place", 40, BeltWedgeTests::blockTakesTheWedgesPlace);
+        tests.test("a_player_fits_under_a_wedge", 40, BeltWedgeTests::fitsUnder);
         tests.test("a_crossing_built_by_hand_delivers_both_lines_every_item", DELIVERY_TICKS + 20,
                 BeltWedgeTests::crossingDeliversEveryItem);
         tests.test("a_crossing_built_by_hand_carries_" + TIER_1_ITEMS_PER_SECOND + "_items_s_on_each_line",
@@ -211,6 +214,21 @@ final class BeltWedgeTests {
                 helper.fail("a block set under a top left " + helper.getBlockState(TOP_WEDGE) + " there", TOP_WEDGE);
             }
         }).thenSucceed();
+    }
+
+    // A climb a block up from the floor leaves a block of air under its top's wedge, and a player
+    // standing there reaches into the wedge's block without meeting it (#56). The wedge is still
+    // there to aim at.
+    private static void fitsUnder(GameTestHelper helper) {
+        BlockPos wedge = TOP_WEDGE.above();
+        byHand(helper, player(helper), FIRST.above(), Direction.EAST, ONE_BLOCK_CLIMB);
+        expectWedge(helper, wedge, "under a raised top over air");
+        AABB standing = EntityType.PLAYER.getDimensions().makeBoundingBox(Vec3.atBottomCenterOf(helper.absolutePos(wedge.below())));
+        if (!helper.getLevel().noCollision(standing)) helper.fail("a player standing under a wedge collides with it", wedge);
+        if (helper.getBlockState(wedge).getShape(helper.getLevel(), helper.absolutePos(wedge)).isEmpty()) {
+            helper.fail("a wedge has no outline to aim at", wedge);
+        }
+        helper.succeed();
     }
 
     /** The crossed line placed with commands, downstream first; the crossing by hand between its own loaders. */
