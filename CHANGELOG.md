@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.2
+
 - Groundworks 0.4.2 ships inside the jar in place of 0.4.1. After Rotate (`R`), a belt stretch's start runs the turned way again, and storing it uses the turn up.
 
 ## 0.3.1
