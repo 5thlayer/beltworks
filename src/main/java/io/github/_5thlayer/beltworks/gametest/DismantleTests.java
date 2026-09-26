@@ -3,10 +3,12 @@
 
 package io.github._5thlayer.beltworks.gametest;
 
+import io.github._5thlayer.groundworks.DismantlePass;
 import io.github._5thlayer.groundworks.DismantleSpan;
 import io.github._5thlayer.groundworks.DismantleStart;
 import io.github._5thlayer.groundworks.Dismantles;
 import io.github._5thlayer.groundworks.Groundworks;
+import io.github._5thlayer.groundworks.QueuedSpan;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -56,6 +58,9 @@ final class DismantleTests {
     private static final BlockPos START = new BlockPos(2, 1, 3);
     private static final String OFF_LINE = "message.beltworks.dismantle_off_line";
     private static final String NOT_SAME_KIND = "message.groundworks.dismantle_not_same_kind";
+    private static final String QUEUED = "message.groundworks.dismantle_queued";
+    private static final String QUEUE_FULL = "message.groundworks.dismantle_queue_full";
+    private static final String START_GONE = "message.groundworks.dismantle_start_gone";
 
     private DismantleTests() {
     }
@@ -90,7 +95,14 @@ final class DismantleTests {
                 staleStart(helper, tile -> helper.destroyBlock(tile), "broke"));
         tests.test("a_sneak_click_after_the_start_tile_turned_is_a_new_start", 20, helper ->
                 staleStart(helper, tile -> helper.setBlock(tile, BeltTileTests.tile(BeltTier.BELT, Direction.SOUTH)), "turned"));
-        tests.test("a_sneak_click_with_a_start_stored_moves_the_start", 20, DismantleTests::movesStart);
+        tests.test("a_sneak_click_with_a_start_stored_queues_the_span", 20, DismantleTests::queuesSpan);
+        tests.test("a_click_confirms_a_queued_span_and_the_one_it_ends", 20, helper -> confirmsTwo(helper, true));
+        tests.test("a_click_with_no_start_confirms_the_queued_spans", 20, helper -> confirmsTwo(helper, false));
+        tests.test("a_queued_span_whose_start_is_gone_refuses_the_whole_pass", 20, DismantleTests::startGone);
+        tests.test("a_sneak_click_off_the_line_queues_nothing_and_keeps_the_start", 20, DismantleTests::queueOffLine);
+        tests.test("a_sneak_click_with_the_queue_full_stores_no_start", 20, DismantleTests::queueFull);
+        tests.test("a_sneak_use_in_the_air_clears_the_start_and_the_queue", 20, DismantleTests::clearsQueue);
+        tests.test("overlapping_spans_of_one_line_take_each_tile_once", 20, DismantleTests::overlapping);
         tests.test("a_click_with_no_start_stored_takes_up_nothing", 20, DismantleTests::noStart);
         tests.test("a_sneak_use_in_the_air_clears_the_dismantle_start", 20, DismantleTests::clears);
     }
@@ -275,21 +287,177 @@ final class DismantleTests {
         helper.succeed();
     }
 
-    private static void movesStart(GameTestHelper helper) {
+    private static void queuesSpan(GameTestHelper helper) {
         List<BlockPos> tiles = row(helper, 4);
         var player = started(helper, tiles.getFirst());
+        player.heard.clear();
         sneakClick(helper, player, tiles.get(2));
-        if (!helper.absolutePos(tiles.get(2)).equals(storedStart(player))) {
-            helper.fail("a sneak-click with a start stored left " + storedStart(player) + " as the start, not the clicked tile", tiles.get(2));
+        List<QueuedSpan> queue = Dismantles.queued(player.getMainHandItem());
+        if (queue.size() != 1 || !queue.getFirst().start().pos().equals(helper.absolutePos(tiles.getFirst()))
+                || !queue.getFirst().end().equals(helper.absolutePos(tiles.get(2)))) {
+            helper.fail("a sneak-click with a start stored queued " + queue + ", not the span to the clicked tile", tiles.get(2));
             return;
         }
-        for (BlockPos tile : tiles) {
-            if (!(helper.getLevel().getBlockEntity(helper.absolutePos(tile)) instanceof BeltTileBlockEntity)) {
-                helper.fail("a sneak-click with a start stored took up a tile", tile);
+        if (storedStart(player) != null || !player.heard.equals(List.of(QUEUED))) {
+            helper.fail("queuing left the start " + storedStart(player) + " and told " + player.heard, tiles.get(2));
+            return;
+        }
+        if (!allStand(helper, tiles, "queuing a span")) return;
+        helper.succeed();
+    }
+
+    /**
+     * Two spans of a six-tile row, the first to fifth tile's gap standing: the first two tiles queued,
+     * then the fourth and fifth, either queued too or ended by the confirming click.
+     */
+    private static void confirmsTwo(GameTestHelper helper, boolean inProgress) {
+        List<BlockPos> tiles = row(helper, 6);
+        helper.runAfterDelay(2, () -> {
+            var player = started(helper, tiles.get(0));
+            sneakClick(helper, player, tiles.get(1));
+            sneakClick(helper, player, tiles.get(3));
+            if (!inProgress) sneakClick(helper, player, tiles.get(4));
+            BlockPos aim = inProgress ? tiles.get(4) : tiles.get(5);
+            if (confirmed(helper, player, aim, 4) == null) return;
+            if (!allStand(helper, List.of(tiles.get(2), tiles.get(5)), "a pass of two spans")) return;
+            helper.succeed();
+        });
+    }
+
+    private static void startGone(GameTestHelper helper) {
+        List<BlockPos> tiles = row(helper, 6);
+        helper.runAfterDelay(2, () -> {
+            var player = started(helper, tiles.get(0));
+            sneakClick(helper, player, tiles.get(1));
+            sneakClick(helper, player, tiles.get(3));
+            helper.destroyBlock(tiles.get(0));
+            Map<BlockPos, BlockState> before = world(helper);
+            Map<Item, Integer> carried = inventory(player);
+            var stored = player.getMainHandItem().getComponents();
+            player.heard.clear();
+            click(helper, player, tiles.get(5));
+            Map<BlockPos, BlockState> after = world(helper);
+            List<BlockPos> changed = before.keySet().stream().filter(pos -> before.get(pos) != after.get(pos)).toList();
+            if (!changed.isEmpty()) {
+                helper.fail("a pass with a gone start changed " + changed.size() + " blocks, first at " + changed.getFirst(), tiles.get(5));
                 return;
             }
+            if (!carried.equals(inventory(player)) || !Objects.equals(stored, player.getMainHandItem().getComponents())) {
+                helper.fail("a pass with a gone start changed the player's inventory or what the tool stores", tiles.get(5));
+                return;
+            }
+            if (!player.heard.equals(List.of(START_GONE))) {
+                helper.fail("the player was told " + player.heard + ", not " + START_GONE, tiles.get(5));
+                return;
+            }
+            helper.succeed();
+        });
+    }
+
+    private static void queueOffLine(GameTestHelper helper) {
+        List<BlockPos> tiles = row(helper, 3);
+        for (int i = 0; i < 3; i++) helper.setBlock(START.south(2).east(i), BeltTileTests.tile(BeltTier.BELT, Direction.EAST));
+        var player = started(helper, tiles.getFirst());
+        player.heard.clear();
+        sneakClick(helper, player, START.south(2).east(1));
+        if (!player.heard.equals(List.of(OFF_LINE))) {
+            helper.fail("a sneak-click off the line was answered with " + player.heard + ", not " + OFF_LINE, START.south(2).east(1));
+            return;
+        }
+        if (!helper.absolutePos(tiles.getFirst()).equals(storedStart(player)) || !Dismantles.queued(player.getMainHandItem()).isEmpty()) {
+            helper.fail("a refused sneak-click moved the start to " + storedStart(player) + " or queued a span", tiles.getFirst());
+            return;
         }
         helper.succeed();
+    }
+
+    private static void queueFull(GameTestHelper helper) {
+        List<BlockPos> tiles = row(helper, 5);
+        var player = started(helper, tiles.get(0));
+        sneakClick(helper, player, tiles.get(1));
+        sneakClick(helper, player, tiles.get(2));
+        sneakClick(helper, player, tiles.get(3));
+        player.heard.clear();
+        sneakClick(helper, player, tiles.get(4));
+        if (!player.heard.equals(List.of(QUEUE_FULL))) {
+            helper.fail("a sneak-click with " + Dismantles.MAX_SPANS + " spans queued was answered with " + player.heard, tiles.get(4));
+            return;
+        }
+        if (storedStart(player) != null || Dismantles.queued(player.getMainHandItem()).size() != Dismantles.MAX_SPANS) {
+            helper.fail("a sneak-click with the queue full stored " + storedStart(player) + " or changed the queue", tiles.get(4));
+            return;
+        }
+        if (!allStand(helper, tiles, "a sneak-click with the queue full")) return;
+        helper.succeed();
+    }
+
+    private static void clearsQueue(GameTestHelper helper) {
+        List<BlockPos> tiles = row(helper, 4);
+        var player = started(helper, tiles.get(0));
+        sneakClick(helper, player, tiles.get(1));
+        sneakClick(helper, player, tiles.get(2));
+        player.setShiftKeyDown(true);
+        player.gameMode.useItem(player, helper.getLevel(), player.getMainHandItem(), InteractionHand.MAIN_HAND);
+        if (Dismantles.hasStored(player.getMainHandItem())) {
+            helper.fail("a sneak-use in the air left " + storedStart(player) + " and " + Dismantles.queued(player.getMainHandItem()), tiles.getFirst());
+            return;
+        }
+        helper.succeed();
+    }
+
+    // The first four tiles queued, then the third to the sixth: the third and fourth are taken once.
+    private static void overlapping(GameTestHelper helper) {
+        List<BlockPos> tiles = row(helper, 6);
+        helper.runAfterDelay(2, () -> {
+            var player = started(helper, tiles.get(0));
+            sneakClick(helper, player, tiles.get(3));
+            sneakClick(helper, player, tiles.get(2));
+            if (confirmed(helper, player, tiles.get(5), 6) != null) helper.succeed();
+        });
+    }
+
+    /**
+     * Asks the pass a click at {@code aim} would confirm, clicks, and holds the world to it: none of
+     * its {@code tiles} tiles standing, a tile item and an ingot for each handed over, and nothing
+     * left stored.
+     */
+    private static @Nullable DismantlePass confirmed(GameTestHelper helper, ListeningPlayer player, BlockPos aim, int tiles) {
+        var pass = Dismantles.passTo(helper.getLevel(), player.getMainHandItem(), helper.absolutePos(aim));
+        int taken = pass == null ? 0 : pass.takes().values().stream().mapToInt(List::size).sum();
+        if (pass == null || pass.isRefused() || taken != tiles) {
+            helper.fail("the pass at " + aim + " was planned as " + (pass == null ? "nothing"
+                    : pass.isRefused() ? pass.refused().span().refusal() : taken + " tiles"), aim);
+            return null;
+        }
+        click(helper, player, aim);
+        for (BlockPos pos : pass.draws()) {
+            if (!helper.getLevel().getBlockState(pos).isAir()) {
+                helper.fail("the pass drew " + pos + " and the click left " + helper.getLevel().getBlockState(pos), helper.relativePos(pos));
+                return null;
+            }
+        }
+        Map<Item, Integer> expected = Map.of(ItemContent.tileFor(BeltTier.BELT), tiles, Items.IRON_INGOT, tiles);
+        Map<Item, Integer> carried = inventory(player);
+        carried.remove(player.getMainHandItem().getItem());
+        if (!expected.equals(carried)) {
+            helper.fail("the pass handed over " + carried + ", not " + expected, aim);
+            return null;
+        }
+        if (Dismantles.hasStored(player.getMainHandItem())) {
+            helper.fail("a confirmed pass left a start or a queued span stored", aim);
+            return null;
+        }
+        return pass;
+    }
+
+    private static boolean allStand(GameTestHelper helper, List<BlockPos> tiles, String what) {
+        for (BlockPos tile : tiles) {
+            if (!(helper.getLevel().getBlockEntity(helper.absolutePos(tile)) instanceof BeltTileBlockEntity)) {
+                helper.fail(what + " took up a tile", tile);
+                return false;
+            }
+        }
+        return true;
     }
 
     private static void noStart(GameTestHelper helper) {
