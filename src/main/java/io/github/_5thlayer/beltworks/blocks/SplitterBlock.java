@@ -69,7 +69,7 @@ public class SplitterBlock extends BeltEndBlock implements TurnsInPlace {
                  && candidate.getValue(SIDE) != state.getValue(SIDE);
     }
 
-    // One half turned alone splits the splitter, until it turns whole (PlanetaryFactory #407).
+    // One half turned alone would split the splitter, and a splitter is never turned whole (#28).
     @Override
     public TurnsInPlace.Verdict<BlockState> turnInPlace(BlockState state, Level level, BlockPos pos, boolean reverse) {
         return TurnsInPlace.refused(NOT_TURNED);
