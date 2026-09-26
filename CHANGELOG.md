@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Groundworks 0.4.3 ships inside the jar in place of 0.4.2, telling each leg of a stretch where it stands in it.
 - A stretch's climb may end on the stretch's end: Lower aimed at the column where the foot lands lays it.
 - A stretch's preview draws the corner at an anchor where the stretch turns, as it is laid.
 - A stretch started on a line's last tile takes it up, turning it into the stretch so the line flows on into it. Started anywhere else on a line crossing it, the stretch is still refused, since turning that tile would cut the line.
