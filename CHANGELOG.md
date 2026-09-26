@@ -4,6 +4,7 @@
 
 - The belt family wears slate: a tile's sides and underside, a slope's, a wedge's, a splitter's and a support's now match the loader's housing, with tier colour the only accent. The splitter item no longer shows the posts the placed splitter never had.
 - Two neighbouring supports share the leg at their common corner, one leg on the blocks' boundary, where before two stood side by side.
+- A belt's underside is one flat slate, with no step where tiles meet, and a darker rib runs down each side of it, round a corner, under a slope and its wedge, and down both sides of each splitter half.
 
 ## 0.3.5
 

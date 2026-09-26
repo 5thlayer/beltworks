@@ -2,6 +2,18 @@
 
 What the unit and game tests cannot see: how a change looks and feels in a running client. Run `scripts/quicklaunch.sh`, which opens the latest save and refuses while a client is already open, try each check, and add the checks a change brings.
 
+## A belt's underside (#57)
+
+The belt family wears slate, with tier colour its only accent. See **Tier colour** in `CONTEXT.md`.
+
+- Look up at a floating line from below: its underside is one flat slate, with no step or shade where tiles meet, and a rib runs down each side of it in darker slate, one pixel wide and one pixel deep, unbroken from tile to tile.
+- Follow the ribs round a floating corner: the outer one steps round the curve with the outer wall, and the inner one is a single pixel at the turn's inner corner. Both line up with the ribs of the straight tiles either side.
+- Follow them along a climb through air, level tile to foot, middle, top and level again, and the same down a descent: they run under the slope's pitched underside and on under each wedge, and line up where each piece meets the next.
+- Look at a tile, a corner and a slope on the ground from the side: the ribs stand on the block below, the belt's surface is where it was, and a one-pixel slot shows between the ribs at a tile's open end.
+- A splitter shows a rib down both sides of each half, two side by side under its divider.
+- A floating tile's support: its frame's struts along the tile's sides meet the ribs flush, with no flicker. The struts across the tile's ends sit one pixel below the raised underside.
+- Check each tier: the ribs are the same slate on all four.
+
 ## Supports (ADR 0012)
 
 A raised line shows a **support** where a builder would hold it up. See **Support** in `CONTEXT.md`.

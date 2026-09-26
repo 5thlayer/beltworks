@@ -39,8 +39,14 @@ MOUTH = (0, 0, 0)
 # the block, line up with its band and with a level tile (#32). Opaque throughout, since a clear
 # pixel on a tile's side shows through the tile.
 SIDE = (SLATE_EDGE, SLATE_EDGE, SLATE_LIGHT, SLATE, SLATE, SLATE_EDGE, SLATE, SLATE_EDGE)
-# How far a tile's underside is lit above slate at its top row and shaded below it at its bottom.
-UNDERSIDE_SHADE = 6
+# A tile's rib: a band 1 px wide down each lateral edge, standing 1 px below the underside between
+# them, which rises that pixel so the ribs stand on the block's floor and the surface stays at 6 px
+# (#57). Measured upright, so on a slope the ribs keep the level tile's lines.
+RIB = 1
+# The side art's rows for a level tile's wall above the rib and for the rib.
+WALL_ROWS = (4, 16 - 2 * RIB)
+RIB_ROWS = (16 - 2 * RIB, 16)
+SIDE_ROWS = (WALL_ROWS[0], RIB_ROWS[1])
 
 
 def recolour(source: Path, hue: float) -> bytes:
@@ -97,14 +103,10 @@ def tile_side() -> bytes:
 
 
 def underside() -> bytes:
-    """Plain slate lit from its top row down, with no border: the tiles' undersides are cut into
-    one-pixel slices, where a border or a rivet would read as noise."""
-    image = Image.new("RGBA", (16, 16))
-    for y in range(16):
-        shade = round(UNDERSIDE_SHADE * (1 - 2 * y / 15))
-        for x in range(16):
-            image.putpixel((x, y), (*(c + shade for c in SLATE), 255))
-    return png(image)
+    """Plain slate, with no border and no gradient: the tiles' undersides are cut into one-pixel
+    slices, where a border or a rivet would read as noise, and a gradient restarts at every tile.
+    The ribs, darker, give it depth instead (#57)."""
+    return png(Image.new("RGBA", (16, 16), (*SLATE, 255)))
 
 
 def mouth() -> bytes:
@@ -168,62 +170,141 @@ def corner_strips(prefix, frames, step):
 
 MODELS = TEXTURES.parent / "models/block"
 SLICE = 1
+# The ribs' spans across the tile, left and right as items travel north.
+RIBS = ((0, RIB), (16 - RIB, 16))
+
+
+def wall(u0, u1, rows):
+    """Side art across u0 to u1, over the rows given."""
+    return {"uv": [u0, rows[0], u1, rows[1]], "texture": "#side"}
+
+
+def frame(x0, z0, x1, z1):
+    """The underside's slate, read off the face's own position."""
+    return {"uv": [x0, z0, x1, z1], "texture": "#frame"}
+
+
+def rib_bottom(x0, x1):
+    """A rib's bottom, in the dark slate of the side art's last row, as its walls are, so the ribs
+    read as two dark lines down a flat underside (#57)."""
+    return wall(x0, x1, RIB_ROWS)
+
+
+def element(box, faces):
+    """An element whose faces on the block's boundary name it, so the preview, which draws unculled
+    faces regardless, does not z-fight the ground or the next tile there (#410)."""
+    (x0, y0, z0), (x1, y1, z1) = box
+    bounds = {"down": y0 == 0, "north": z0 == 0, "south": z1 == 16, "west": x0 == 0, "east": x1 == 16}
+    for side, face in faces.items():
+        if bounds.get(side):
+            face["cullface"] = side
+    return {"from": box[0], "to": box[1], "faces": faces}
+
+
+def model(textures, elements) -> bytes:
+    return (json.dumps({"parent": "minecraft:block/block", "textures": textures, "elements": elements}, indent=2)
+            + "\n").encode()
+
+
+def level_elements(z0, z1, up, ends):
+    """A level tile's 6 px from z0 to z1, travelling north: its body over a rib down each side and,
+    between them, the underside a pixel up, each face on an element of its own so none runs on
+    over another's (#57). {ends} names the ends that are the block's, which take a wall."""
+    def closed(faces, x0, x1, rows):
+        for end in ends:
+            faces[end] = wall(16 - x1, 16 - x0, rows) if end == "north" else wall(x0, x1, rows)
+        return faces
+
+    elements = [
+        element(([0, RIB, z0], [16, 6, z1]),
+                closed({"up": up, "east": wall(z0, z1, WALL_ROWS), "west": wall(16 - z1, 16 - z0, WALL_ROWS)}, 0, 16, WALL_ROWS)),
+        element(([RIB, RIB, z0], [16 - RIB, RIB, z1]), {"down": frame(RIB, z0, 16 - RIB, z1)}),
+    ]
+    for x0, x1 in RIBS:
+        faces = {"down": rib_bottom(x0, x1), "east": wall(z0, z1, RIB_ROWS), "west": wall(16 - z1, 16 - z0, RIB_ROWS)}
+        elements.append(element(([x0, 0, z0], [x1, RIB, z1]), closed(faces, x0, x1, RIB_ROWS)))
+    return elements
+
+
+# The straight tile's top face: the belt frames turned 180 degrees.
+LEVEL_BELT = {"uv": [0, 0, 16, 16], "texture": "#belt", "rotation": 180}
+
+
+def level_tile_model(prefix) -> bytes:
+    """The level tile. Tiers past the first take its elements and change only the belt."""
+    belt = f"beltworks:block/{prefix}splitter_belt"
+    if prefix:
+        return (json.dumps({"parent": "beltworks:block/belt_tile", "textures": {"belt": belt, "particle": belt}},
+                           indent=2) + "\n").encode()
+    return model({"belt": belt, "frame": "beltworks:block/belt_underside", "particle": belt,
+                  "side": "beltworks:block/belt_tile_side"},
+                 level_elements(0, 16, LEVEL_BELT, ["south", "north"]))
+
+
+def splitter_half_model() -> bytes:
+    """A splitter half: a level tile, ribs down both its sides, under its tier's divider along the
+    splitter's midline. Each tier's splitter names the belt and the divider."""
+    divider = {"uv": [0, 0, 16, 2], "texture": "#divider"}
+    end = {"uv": [6.5, 0, 9.5, 2], "texture": "#divider"}
+    top = {"uv": [0, 6.5, 16, 9.5], "texture": "#divider"}
+    return model({"side": "beltworks:block/belt_tile_side", "frame": "beltworks:block/belt_underside"},
+                 level_elements(0, 16, LEVEL_BELT, ["south", "north"]) + [
+                     {"from": [0, 6, 6.5], "to": [16, 8, 9.5],
+                      "faces": {"north": divider, "south": dict(divider), "east": end, "west": dict(end),
+                                "up": top, "down": dict(top)}}])
 
 
 def corner_model(prefix, from_left: bool) -> bytes:
     """The corner as 1px slices, each as deep as the arc at its middle, so the outer wall steps
-    round the curve instead of standing square (#410)."""
-    def wall(u0, u1):
-        # u is read off the face's own position, so the side art's legs run on round the curve
-        # instead of every slice repeating its first column.
-        return {"uv": [u0, 4, u1, 16], "texture": "#side"}
-
-    def depth(start):
+    round the curve instead of standing square (#410). Its ribs follow the turn's edges (#57): the
+    outer one round the arc, stepping with the wall, and the inner one a pixel at the turn's vertex,
+    where the inner edge closes to a point. u is read off each face's own position."""
+    def reach(start, radius):
+        # How far from the exit edge the circle of {radius} about the vertex lies, at the slice's middle.
         middle = start + SLICE / 2
-        return round(math.sqrt(256 - middle * middle)) if start < 16 else 0
+        return round(math.sqrt(max(0, radius * radius - middle * middle))) if start < 16 else 0
 
-    outward = "east" if from_left else "west"
-    def culled(faces, box):
-        # A face on the block's boundary names it, so the preview, which draws unculled faces
-        # regardless, does not z-fight the ground or the next tile there (#410).
-        (x0, y0, z0), (x1, y1, z1) = box
-        bounds = {"down": y0 == 0, "north": z0 == 0, "south": z1 == 16, "west": x0 == 0, "east": x1 == 16}
-        for side, face in faces.items():
-            if bounds.get(side):
-                face["cullface"] = side
-        return faces
-
+    inward, outward = ("west", "east") if from_left else ("east", "west")
     elements = []
     for start in range(0, 16, SLICE):
         x0, x1 = (start, start + SLICE) if from_left else (16 - start - SLICE, 16 - start)
-        faces = {
-            "up": {"uv": [x0, 0, x1, depth(start)], "texture": "#belt"},
-            "down": {"uv": [x0, 0, x1, depth(start)], "texture": "#frame"},
-            "north": wall(16 - x1, 16 - x0),
-            "south": wall(x0, x1),
-        }
+        # How far each edge lies from the exit edge: the outer wall, the outer rib's inner side,
+        # and the inner rib's, which only the slice at the vertex has.
+        deep, outer_rib, inner_rib = reach(start, 16), reach(start, 16 - RIB), reach(start, RIB)
+        faces = {"up": {"uv": [x0, 0, x1, deep], "texture": "#belt"},
+                 "north": wall(16 - x1, 16 - x0, WALL_ROWS), "south": wall(x0, x1, WALL_ROWS)}
         if start == 0:
-            faces["west" if from_left else "east"] = wall(0, 16)
-        box = ([x0, 0, 0], [x1, 6, depth(start)])
-        elements.append({"from": box[0], "to": box[1], "faces": culled(faces, box)})
+            faces[inward] = wall(0, 16, WALL_ROWS)
+        elements.append(element(([x0, RIB, 0], [x1, 6, deep]), faces))
+        if outer_rib > inner_rib:
+            elements.append(element(([x0, RIB, inner_rib], [x1, RIB, outer_rib]), {"down": frame(x0, inner_rib, x1, outer_rib)}))
+        faces = {"down": rib_bottom(x0, x1),
+                 "north": wall(16 - x1, 16 - x0, RIB_ROWS), "south": wall(x0, x1, RIB_ROWS)}
+        if start == 0:
+            faces[inward] = wall(outer_rib, deep, RIB_ROWS)
+        elements.append(element(([x0, 0, outer_rib], [x1, RIB, deep]), faces))
+        # The outer rib steps out toward the vertex under the raised underside; outward, the wall's
+        # riser below covers its step.
+        edge = x0 if from_left else x1
+        last_rib = reach(start - SLICE, 16 - RIB) if start else outer_rib
+        if outer_rib < last_rib:
+            elements.append(element(([edge, 0, outer_rib], [edge, RIB, last_rib]), {inward: wall(outer_rib, last_rib, RIB_ROWS)}))
+        if inner_rib:
+            elements.append(element(([x0, 0, 0], [x1, RIB, inner_rib]), {
+                "down": rib_bottom(x0, x1),
+                "north": wall(16 - x1, 16 - x0, RIB_ROWS), "south": wall(x0, x1, RIB_ROWS),
+                inward: wall(0, inner_rib, RIB_ROWS), outward: wall(0, inner_rib, RIB_ROWS)}))
         # The step's riser is its own flat element, since a whole side face would run on inside
-        # the next slice, where the translucent placement preview shows it.
-        rise = depth(start + SLICE)
-        if rise < depth(start):
+        # the next slice, where the translucent placement preview shows it. It stands the wall's
+        # whole height, rib and all, as the outer rib always reaches as far as the next slice.
+        rise = reach(start + SLICE, 16)
+        if rise < deep:
             edge = x1 if from_left else x0
-            box = ([edge, 0, rise], [edge, 6, depth(start)])
-            elements.append({"from": box[0], "to": box[1], "faces": culled({outward: wall(16 - depth(start), 16 - rise) if from_left else wall(rise, depth(start))}, box)})
-    model = {
-        "parent": "minecraft:block/block",
-        "textures": {
-            "belt": f"beltworks:block/{prefix}belt_corner_{'left' if from_left else 'right'}",
-            "frame": "beltworks:block/belt_underside",
-            "particle": f"beltworks:block/{prefix}splitter_belt",
-            "side": "beltworks:block/belt_tile_side",
-        },
-        "elements": elements,
-    }
-    return (json.dumps(model, indent=2) + "\n").encode()
+            elements.append(element(([edge, 0, rise], [edge, 6, deep]),
+                                    {outward: wall(16 - deep, 16 - rise, SIDE_ROWS) if from_left else wall(rise, deep, SIDE_ROWS)}))
+    return model({"belt": f"beltworks:block/{prefix}belt_corner_{'left' if from_left else 'right'}",
+                  "frame": "beltworks:block/belt_underside", "particle": f"beltworks:block/{prefix}splitter_belt",
+                  "side": "beltworks:block/belt_tile_side"}, elements)
 
 
 # A slope's profile in its travel's 16 px, as runs (start, end, height at start, rise per px), level
@@ -243,6 +324,8 @@ RIM_INSET = 0.01
 SLICE_INSET = 0.02
 # A level tile's depth, which a slope keeps measured upright; half of it measured square to a 45-degree slope.
 BAND_DEPTH = 3
+# The ribs' spans across a slice, which stands inset from the block's sides.
+SLICE_RIBS = ((SLICE_INSET, RIB), (16 - RIB, 16 - SLICE_INSET))
 
 
 def side_wall(u0, u1, below, height):
@@ -258,7 +341,8 @@ def whole(n):
 def slope_model(prefix, pitch) -> bytes:
     """A slope as a plane along its surface over a band as deep as a level tile, its underside
     pitched with it and never below the block's floor, filled out by 1px slices where the band's
-    square ends stop short, with a thin rim along the plane's edge to close the slices' corners."""
+    square ends stop short, with a thin rim along the plane's edge to close the slices' corners.
+    Band and slices carry the level tile's ribs, measured upright, so they run on from it (#57)."""
     runs = PITCHES[pitch]
 
     def surface(d):
@@ -267,37 +351,38 @@ def slope_model(prefix, pitch) -> bytes:
                 return height + rise * (d - start)
         raise ValueError(d)
 
-    def underside(d):
-        return max(0, surface(d) - 6)
-
-    def wall(u0, u1, height):
-        # The side art is the level tile's 6 px; a taller wall stretches it (human check on delivery).
-        return {"uv": [u0, 4, u1, 4 + 2 * min(height, 6)], "texture": "#side"}
-
-    def culled(faces, box):
-        (x0, y0, z0), (x1, y1, z1) = box
-        bounds = {"down": y0 == 0, "north": z0 == 0, "south": z1 == 16, "west": x0 == 0, "east": x1 == 16}
-        for side, face in faces.items():
-            if bounds.get(side):
-                face["cullface"] = side
-        return faces
+    def underside(d, between=False):
+        # Where the ribs stand, or the underside between them a pixel up; neither below the floor.
+        return max(0, surface(d) - 6 + (RIB if between else 0))
 
     def belt(start, end):
         # The straight tile's top face turned 180 degrees, cut to this run's share of the travel.
         return {"uv": [0, start, 16, end], "texture": "#belt", "rotation": 180}
 
+    def heights(d):
+        # A slice's floor under its ribs and between them, each where its underside is highest, and
+        # its top, where the surface is lowest.
+        return (math.ceil(max(underside(d), underside(d + 1))), math.ceil(max(underside(d, True), underside(d + 1, True))),
+                math.floor(min(surface(d), surface(d + 1))))
+
     elements = []
     for start, end, height, rise in runs:
         z0, z1 = 16 - end, 16 - start
         if rise == 0:
-            faces = {"up": belt(start, end), "down": {"uv": [0, z0, 16, z1], "texture": "#frame"},
-                     "east": wall(z0, z1, height), "west": wall(16 - z1, 16 - z0, height)}
-            if start == 0:
-                faces["south"] = wall(0, 16, height)
-            if end == 16:
-                faces["north"] = wall(0, 16, height)
-            box = ([0, 0, z0], [16, height, z1])
-            elements.append({"from": box[0], "to": box[1], "faces": culled(faces, box)})
+            ends = (["south"] if start == 0 else []) + (["north"] if end == 16 else [])
+            elements += level_elements(z0, z1, belt(start, end), ends)
+            # Where the level run meets the slope inside the block, the slice beside it may stand a
+            # pixel higher, so its risers close the step under the ribs and between them.
+            for joint, beside, facing in ((end, end, "north"), (start, start - 1, "south")):
+                if joint in (0, 16):
+                    continue
+                ribs, floor, _ = heights(beside)
+                z = 16 - joint
+                if ribs > 0:
+                    for x0, x1 in RIBS:
+                        elements.append(element(([x0, 0, z], [x1, ribs, z]), {facing: wall(x0, x1, RIB_ROWS)}))
+                if floor > RIB:
+                    elements.append(element(([RIB, RIB, z], [16 - RIB, floor, z]), {facing: frame(RIB, RIB, 16 - RIB, floor)}))
             continue
         # The band: the level tile's 6 px of depth turned to the slope, its underside pitched too.
         # Its ends are square to the slope, so it stops where a corner would leave the block, and
@@ -309,26 +394,45 @@ def slope_model(prefix, pitch) -> bytes:
         if d1 > d0:
             top, z = surface(d0), 16 - d0
             length = round((d1 - d0) * math.sqrt(2), 4)
-            elements.append({
-                "from": [0, round(top - BAND_DEPTH * math.sqrt(2), 4), round(z - length, 4)], "to": [16, top, z],
-                "rotation": {"origin": [8, top, z], "axis": "x", "angle": 45 * rise},
-                "faces": {"east": {"uv": [0, 4, 16, 16], "texture": "#side"},
-                          "west": {"uv": [0, 4, 16, 16], "texture": "#side"},
-                          "down": {"uv": [0, 0, 16, 16], "texture": "#frame"}},
-            })
+            deep = BAND_DEPTH * math.sqrt(2)
+            # The rib's pixel upright, measured square to the slope.
+            rib = RIB / math.sqrt(2)
+            rotation = {"origin": [8, top, z], "axis": "x", "angle": 45 * rise}
+
+            def band(x0, x1, y0, y1, faces):
+                elements.append({"from": [x0, round(top - deep + y0, 4), round(z - length, 4)],
+                                 "to": [x1, round(top - deep + y1, 4), z], "rotation": rotation, "faces": faces})
+
+            def sides(rows):
+                return {side: wall(0, 16, rows) for side in ("east", "west")}
+
+            band(0, 16, rib, deep, sides(WALL_ROWS))
+            band(RIB, 16 - RIB, rib, rib, {"down": frame(RIB, 0, 16 - RIB, 16)})
+            for x0, x1 in RIBS:
+                band(x0, x1, 0, rib, sides(RIB_ROWS) | {"down": rib_bottom(x0, x1)})
         for d in range(start, end):
-            floor = math.ceil(max(underside(d), underside(d + 1)))
-            tall = math.floor(min(surface(d), surface(d + 1)))
-            if tall <= floor:
+            ribs, floor, tall = heights(d)
+            if tall <= ribs:
                 continue
             # Rows counted from the surface over the slice's middle, as the band's are.
             below = (surface(d) + surface(d + 1)) / 2 - tall
-            faces = {"down": {"uv": [0, 15 - d, 16, 16 - d], "texture": "#frame"},
-                     "east": side_wall(15 - d, 16 - d, below, tall - floor),
-                     "west": side_wall(d, d + 1, below, tall - floor),
-                     "north": side_wall(0, 16, below, tall - floor), "south": side_wall(0, 16, below, tall - floor)}
-            box = ([SLICE_INSET, floor, 15 - d], [16 - SLICE_INSET, tall, 16 - d])
-            elements.append({"from": box[0], "to": box[1], "faces": culled(faces, box)})
+
+            def walls(below, height):
+                return {"east": side_wall(15 - d, 16 - d, below, height), "west": side_wall(d, d + 1, below, height),
+                        "north": side_wall(0, 16, below, height), "south": side_wall(0, 16, below, height)}
+
+            def column(x0, x1, y0, y1, faces):
+                elements.append(element(([x0, y0, 15 - d], [x1, y1, 16 - d]), faces))
+
+            # Where the slope meets the floor its underside lies flat on it, ribs and all.
+            if floor == ribs:
+                column(SLICE_INSET, 16 - SLICE_INSET, ribs, tall, walls(below, tall - ribs) | {"down": frame(0, 15 - d, 16, 16 - d)})
+                continue
+            if tall > floor:
+                column(SLICE_INSET, 16 - SLICE_INSET, floor, tall, walls(below, tall - floor))
+            column(RIB, 16 - RIB, floor, floor, {"down": frame(RIB, 15 - d, 16 - RIB, 16 - d)})
+            for (x0, x1), (u0, u1) in zip(SLICE_RIBS, RIBS):
+                column(x0, x1, ribs, floor, walls(below + tall - floor, floor - ribs) | {"down": rib_bottom(u0, u1)})
         length = (end - start) * math.sqrt(2)
         angle = 45 if rise > 0 else -45
         origin = [8, height, z1]
@@ -343,56 +447,58 @@ def slope_model(prefix, pitch) -> bytes:
             "rotation": {"origin": origin, "axis": "x", "angle": angle},
             "faces": {"east": {"uv": [0, 4, 16, 6], "texture": "#side"}, "west": {"uv": [0, 4, 16, 6], "texture": "#side"}},
         })
-    model = {
-        "parent": "minecraft:block/block",
-        "textures": {
-            "belt": f"beltworks:block/{prefix}splitter_belt",
-            "frame": "beltworks:block/belt_underside",
-            "particle": f"beltworks:block/{prefix}splitter_belt",
-            "side": "beltworks:block/belt_slope_side",
-        },
-        "elements": elements,
-    }
-    return (json.dumps(model, indent=2) + "\n").encode()
+    return model({"belt": f"beltworks:block/{prefix}splitter_belt", "frame": "beltworks:block/belt_underside",
+                  "particle": f"beltworks:block/{prefix}splitter_belt", "side": "beltworks:block/belt_slope_side"},
+                 elements)
 
 
 def wedge_model() -> bytes:
     """The wedge under a middle or top over air (PlanetaryFactory #420): the part of the slope's band
     its own block's floor cuts off, a 6 px triangle at the top of the block below, on its downhill
-    edge, its underside continuing the band's. Drawn rising north as the slopes are, so the downhill
-    edge is z = 16."""
+    edge, its underside continuing the band's, ribs and all (#57). Drawn rising north as the slopes
+    are, so the downhill edge is z = 16. A slice's outer walls cull against the blocks beside it."""
     depth = 6
     elements = []
     for k in range(depth):
         z0, z1 = 16 - depth + k, 17 - depth + k
-        floor = 16 - k
-        if floor >= 16:
+        ribs = 16 - k
+        floor = min(16, ribs + RIB)
+        if ribs >= 16:
             continue
         # Sampled as a slope's slices under its band are, its rows counted from the slope's surface
         # over the slice's middle, a band's depth above its underside, so the wedge's wall continues
         # the slope's.
-        below = floor - 0.5 + BAND_DEPTH * 2 - 16
-        faces = {"east": side_wall(16 - z1, 16 - z0, below, 16 - floor),
-                 "west": side_wall(z0, z1, below, 16 - floor),
-                 "down": {"uv": [0, z0, 16, z1], "texture": "#frame"}}
-        if z1 == 16:
-            faces["south"] = {"uv": [0, 0, 16, 16 - floor], "texture": "#frame"}
-        for side in ("east", "west"):
-            faces[side]["cullface"] = side
-        elements.append({"from": [SLICE_INSET, floor, z0], "to": [16 - SLICE_INSET, 16, z1], "faces": faces})
-    length = round(depth * math.sqrt(2), 4)
-    elements.append({
-        "from": [0, 16 - depth, round(16 - length, 4)], "to": [16, 16 - depth, 16],
-        "rotation": {"origin": [8, 16 - depth, 16], "axis": "x", "angle": 45},
-        "faces": {"down": {"uv": [0, 0, 16, depth], "texture": "#frame"}},
-    })
-    model = {
-        "parent": "minecraft:block/block",
-        "textures": {"side": "beltworks:block/belt_slope_side", "frame": "beltworks:block/belt_underside",
-                     "particle": "beltworks:block/belt_underside"},
-        "elements": elements,
-    }
-    return (json.dumps(model, indent=2) + "\n").encode()
+        below = ribs - 0.5 + BAND_DEPTH * 2 - 16
+
+        def walls(below, height, outer):
+            faces = {"east": side_wall(16 - z1, 16 - z0, below, height), "west": side_wall(z0, z1, below, height)}
+            for side in outer:
+                faces[side]["cullface"] = side
+            return faces
+
+        if floor < 16:
+            faces = walls(below, 16 - floor, ("east", "west"))
+            if z1 == 16:
+                faces["south"] = frame(0, 0, 16, 16 - floor)
+            elements.append({"from": [SLICE_INSET, floor, z0], "to": [16 - SLICE_INSET, 16, z1], "faces": faces})
+            elements.append({"from": [RIB, floor, z0], "to": [16 - RIB, floor, z1], "faces": {"down": frame(RIB, z0, 16 - RIB, z1)}})
+        for (x0, x1), (u0, u1), outer in zip(SLICE_RIBS, RIBS, ("west", "east")):
+            faces = walls(below + 16 - floor, floor - ribs, (outer,)) | {"down": rib_bottom(u0, u1)}
+            if z1 == 16:
+                faces["south"] = wall(u0, u1, RIB_ROWS)
+            elements.append({"from": [x0, ribs, z0], "to": [x1, floor, z1], "faces": faces})
+    # The pitched underside under the slices' steps: the ribs' along the band's line, and between
+    # them a pixel up.
+    for x0, x1, lift in ((0, RIB, 0), (RIB, 16 - RIB, RIB), (16 - RIB, 16, 0)):
+        bottom = 16 - depth + lift
+        length = round((depth - lift) * math.sqrt(2), 4)
+        elements.append({
+            "from": [x0, bottom, round(16 - length, 4)], "to": [x1, bottom, 16],
+            "rotation": {"origin": [8, bottom, 16], "axis": "x", "angle": 45},
+            "faces": {"down": frame(x0, 0, x1, depth - lift) if lift else rib_bottom(x0, x1)},
+        })
+    return model({"side": "beltworks:block/belt_slope_side", "frame": "beltworks:block/belt_underside",
+                  "particle": "beltworks:block/belt_underside"}, elements)
 
 
 BLOCKSTATES = TEXTURES.parent / "blockstates"
@@ -428,6 +534,7 @@ def wedge_blockstate() -> bytes:
 
 def outputs():
     yield MODELS / "belt_wedge.json", wedge_model()
+    yield MODELS / "splitter_half.json", splitter_half_model()
     yield BLOCKSTATES / "belt_wedge.json", wedge_blockstate()
     yield TEXTURES / "block/loader_slate.png", slate()
     yield TEXTURES / "block/loader_mouth.png", mouth()
@@ -442,6 +549,7 @@ def outputs():
             yield TEXTURES / f"block/{prefix}conveyorbelt/{frame.name}", recolour(frame, hue)
         yield from splitter_belt(prefix, [recolour(frame, hue) for frame in frames], step)
         yield from corner_strips(prefix, [recolour(frame, hue) for frame in frames], step)
+        yield MODELS / f"{prefix}belt_tile.json", level_tile_model(prefix)
         for side in ("left", "right"):
             yield MODELS / f"{prefix}belt_tile_corner_{side}.json", corner_model(prefix, side == "left")
         for pitch in PITCHES:
