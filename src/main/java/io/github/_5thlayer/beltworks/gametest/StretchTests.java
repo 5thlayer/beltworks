@@ -510,7 +510,7 @@ final class StretchTests {
     }
 
     /** Raise, or Lower for a negative count, pressed that many times, as the key's payload presses it. */
-    private static void press(ListeningPlayer player, int presses) {
+    static void press(ListeningPlayer player, int presses) {
         for (int i = 0; i < Math.abs(presses); i++) Raise.press(player, presses < 0);
     }
 
@@ -519,7 +519,7 @@ final class StretchTests {
     }
 
     /** A survival player on the stretch's line holding tier-1 tiles, who has sneak-clicked a start at {@code start} looking {@code look}. */
-    private static ListeningPlayer started(GameTestHelper helper, Direction look, BlockPos start) {
+    static ListeningPlayer started(GameTestHelper helper, Direction look, BlockPos start) {
         var player = new ListeningPlayer(helper, new BlockPos(0, 1, start.getZ()));
         player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ItemContent.tileFor(BeltTier.BELT), TILES));
         player.setYRot(look.toYRot());
@@ -587,13 +587,13 @@ final class StretchTests {
         }
     }
 
-    private static @Nullable PlacementPlan planOf(GameTestHelper helper, ListeningPlayer player, BlockPos end) {
+    static @Nullable PlacementPlan planOf(GameTestHelper helper, ListeningPlayer player, BlockPos end) {
         return Placements.planFor(helper.getLevel(), player, InteractionHand.MAIN_HAND, player.getMainHandItem(),
                 hit(helper, end.below()));
     }
 
     /** A click on the top of the block under {@code at}, as the player's own goes through the game. */
-    private static void click(GameTestHelper helper, ListeningPlayer player, BlockPos at, boolean sneaking) {
+    static void click(GameTestHelper helper, ListeningPlayer player, BlockPos at, boolean sneaking) {
         player.setShiftKeyDown(sneaking);
         player.gameMode.useItemOn(player, helper.getLevel(), player.getMainHandItem(), InteractionHand.MAIN_HAND, hit(helper, at.below()));
         player.setShiftKeyDown(false);

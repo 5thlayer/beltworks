@@ -337,6 +337,11 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
         };
     }
 
+    /** The support the tile {@code state} at {@code pos} shows, or null where it shows none (ADR 0012). */
+    public static @Nullable Support support(BlockGetter level, BlockPos pos, BlockState state, Support.Setting setting) {
+        return support(level, pos, travel(state.getValue(BlockStateProperties.HORIZONTAL_FACING)), setting);
+    }
+
     /** The support the tile at {@code pos} travelling {@code travel} shows, or null where it shows none (ADR 0012). */
     public static @Nullable Support support(BlockGetter level, BlockPos pos, LineScan.Travel travel, Support.Setting setting) {
         return Support.at(spot(pos), travel, around(level, Map.of()), ground(level), setting);

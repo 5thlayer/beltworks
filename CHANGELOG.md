@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The Placement Preview draws the supports a click will leave, under a planned tile, a stretch's tiles or a splitter, in the plan's tint: red when it's refused.
+
 ## 0.3.4
 
 - A middle or top whose block under it is dug out stands on a wedge in the block's place, where before the slope's junction was left open. A block set in a wedge's place holds its slope up instead, rather than breaking it.

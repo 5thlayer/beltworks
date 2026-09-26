@@ -8,12 +8,14 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.BlockPos;
 import net.minecraft.data.AtlasIds;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.BlockAndLightGetter;
 import io.github._5thlayer.beltworks.Beltworks;
@@ -21,10 +23,13 @@ import io.github._5thlayer.beltworks.model.Support;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.ToIntFunction;
 
 /**
  * A tile's or a splitter's support drawn as boxes in its block's space (ADR 0012), so a placed
  * tile and a planned one draw it with the same code. It is only drawn: it has no collision.
+ * A planned one is drawn as the Placement Preview draws its plan: in the plan's tint, see-through
+ * and unlit.
  */
 public final class SupportRenderer {
 
@@ -55,6 +60,15 @@ public final class SupportRenderer {
      * Each piece is lit as the block it is in.
      */
     public static List<Box> boxes(Support support, BlockAndLightGetter level, BlockPos pos) {
+        return boxes(support, pos, at -> LevelRenderer.getLightCoords(level, at));
+    }
+
+    /** The boxes of a planned piece's support at {@code pos}, unlit as the plan's own blocks are drawn. */
+    public static List<Box> plannedBoxes(Support support, BlockPos pos) {
+        return boxes(support, pos, at -> LightCoordsUtil.FULL_BRIGHT);
+    }
+
+    private static List<Box> boxes(Support support, BlockPos pos, ToIntFunction<BlockPos> light) {
         var boxes = new ArrayList<Box>();
         var legs = support.legs();
         var centres = new float[legs.size()][];
@@ -71,7 +85,7 @@ public final class SupportRenderer {
                 var bottom = Math.max(leg.bottom(), block);
                 if (top - bottom < 1e-4) continue;
                 boxes.add(new Box(x0, (float) bottom, z0, x0 + LEG_WIDTH, (float) top, z0 + LEG_WIDTH, 0,
-                  LevelRenderer.getLightCoords(level, column.above(block))));
+                  light.applyAsInt(column.above(block))));
             }
         }
         if (!support.framed()) return boxes;
@@ -81,7 +95,7 @@ public final class SupportRenderer {
             var length = (float) Math.hypot(to[0] - from[0], to[1] - from[1]) - LEG_WIDTH;
             var midX = (from[0] + to[0]) / 2;
             var midZ = (from[1] + to[1]) / 2;
-            var under = LevelRenderer.getLightCoords(level, pos.offset(Mth.floor(midX), -1, Mth.floor(midZ)));
+            var under = light.applyAsInt(pos.offset(Mth.floor(midX), -1, Mth.floor(midZ)));
             boxes.add(new Box(midX - length / 2, -STRUT_HEIGHT, midZ - LEG_WIDTH / 2, midX + length / 2, 0, midZ + LEG_WIDTH / 2,
               (float) Math.atan2(to[1] - from[1], to[0] - from[0]), under));
         }
@@ -95,18 +109,27 @@ public final class SupportRenderer {
     }
 
     public static void submit(List<Box> boxes, PoseStack poseStack, SubmitNodeCollector collector) {
+        submit(boxes, poseStack, collector, RenderTypes.entityCutout(TextureAtlas.LOCATION_BLOCKS), 0xFFFFFFFF);
+    }
+
+    /** A planned piece's support, in the plan's {@code tint} as ARGB. */
+    public static void submitPlanned(List<Box> boxes, PoseStack poseStack, SubmitNodeCollector collector, int tint) {
+        submit(boxes, poseStack, collector, RenderTypes.entityTranslucent(TextureAtlas.LOCATION_BLOCKS), tint);
+    }
+
+    private static void submit(List<Box> boxes, PoseStack poseStack, SubmitNodeCollector collector, RenderType type, int color) {
         if (boxes.isEmpty()) return;
         var sprite = Minecraft.getInstance().getAtlasManager().getAtlasOrThrow(AtlasIds.BLOCKS).getSprite(Beltworks.id("block/conveyor_support"));
-        collector.submitCustomGeometry(poseStack, RenderTypes.entityCutout(TextureAtlas.LOCATION_BLOCKS), (pose, consumer) -> {
-            for (var box : boxes) box(box, sprite, pose, consumer);
+        collector.submitCustomGeometry(poseStack, type, (pose, consumer) -> {
+            for (var box : boxes) box(box, sprite, color, pose, consumer);
         });
     }
 
     // Each face is textured by where it lies in its block, as a block model's faces are, so the
     // pieces of a leg read as one post.
-    private static void box(Box box, TextureAtlasSprite sprite, PoseStack.Pose pose, VertexConsumer consumer) {
+    private static void box(Box box, TextureAtlasSprite sprite, int color, PoseStack.Pose pose, VertexConsumer consumer) {
         float x0 = box.x0, y0 = box.y0, z0 = box.z0, x1 = box.x1, y1 = box.y1, z1 = box.z1;
-        var face = new Face(sprite, pose, consumer, box, (float) Math.floor(y0), (float) Math.cos(box.yaw), (float) Math.sin(box.yaw));
+        var face = new Face(sprite, color, pose, consumer, box, (float) Math.floor(y0), (float) Math.cos(box.yaw), (float) Math.sin(box.yaw));
         face.quad(0, 1, 0, x0, y1, z0, x0, y1, z1, x1, y1, z1, x1, y1, z0);
         face.quad(0, -1, 0, x0, y0, z0, x1, y0, z0, x1, y0, z1, x0, y0, z1);
         face.quad(0, 0, -1, x0, y0, z0, x0, y1, z0, x1, y1, z0, x1, y0, z0);
@@ -115,7 +138,7 @@ public final class SupportRenderer {
         face.quad(1, 0, 0, x1, y0, z0, x1, y1, z0, x1, y1, z1, x1, y0, z1);
     }
 
-    private record Face(TextureAtlasSprite sprite, PoseStack.Pose pose, VertexConsumer consumer, Box box, float floor, float cos, float sin) {
+    private record Face(TextureAtlasSprite sprite, int color, PoseStack.Pose pose, VertexConsumer consumer, Box box, float floor, float cos, float sin) {
 
         // Four corners anticlockwise seen from outside, before the box is turned; u runs along x, or
         // z on a face turned east or west.
@@ -129,7 +152,7 @@ public final class SupportRenderer {
                 var dx = x - pivotX;
                 var dz = z - pivotZ;
                 consumer.addVertex(pose.pose(), pivotX + dx * cos - dz * sin, y, pivotZ + dx * sin + dz * cos)
-                  .setColor(0xFFFFFFFF)
+                  .setColor(color)
                   .setUv(sprite.getU(u), sprite.getV(v))
                   .setOverlay(OverlayTexture.NO_OVERLAY)
                   .setLight(box.light)

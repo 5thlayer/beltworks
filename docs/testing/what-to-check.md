@@ -22,6 +22,19 @@ A raised line shows a **support** where a builder would hold it up. See **Suppor
 - A floating splitter shows one support: a leg at each of the pair's four outer corners, and a frame under both halves. It still shows one when only one half is over air. Place a solid block against either outer side and it goes; one behind or ahead of a half doesn't count. Check a splitter facing each way.
 - A floating loader never shows a support.
 
+### In the Placement Preview
+
+Holding tiles or a splitter, before the click:
+
+- Aim a single tile out from the side of a pillar, over air: the preview draws its support, and the click leaves the same one. Aim it on the ground: none.
+- Sneak-click a start on the ground, press `G`, and aim a few blocks ahead and to the side, so the stretch turns in mid-air. The preview draws the supports the click leaves, see-through in the plan's white: at the top on its wedge, the corner, the last tile, and any straight tile the spacing falls on. Click: the laid supports stand where the preview drew them, and no more.
+- Aim the same stretch one block further: the last tile's support moves with the end, and the tile that was last loses its own, unless the spacing or a corner holds it.
+- Stretch a raised line out from the last tile of a raised line already laid: the laid tile's support stays drawn as it is until the click, and afterwards it goes if the tile is no longer its line's last. The preview draws only the planned pieces' supports, and the world's stay as they are.
+- Aim a stretch that gets refused, such as `G` twice aimed only three blocks ahead: its supports draw red with its tiles.
+- Aim a stretch over a block or a lower line a few blocks down: the preview's legs stop on it, as the laid ones do.
+- Aim a splitter in mid-air, and with one half over a solid block: its preview shows one support under both halves, as the click leaves it. Refused, it draws red.
+- Turn **Show supports** off: the preview draws none, with no restart and without moving the aim.
+
 ### Support settings
 
 In the Mods menu, Beltworks' config screen, or `config/beltworks-client.toml`, with a long straight floating line in view:

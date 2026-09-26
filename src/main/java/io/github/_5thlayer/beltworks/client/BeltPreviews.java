@@ -31,21 +31,29 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.neoforged.neoforge.common.NeoForge;
 import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
+import io.github._5thlayer.beltworks.blocks.PlannedSupports;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
 import io.github._5thlayer.beltworks.client.renderers.BeltEndRenderer;
+import io.github._5thlayer.beltworks.client.renderers.SupportRenderer;
 import io.github._5thlayer.beltworks.model.LineScan;
+import io.github._5thlayer.beltworks.model.Support;
 
 /**
  * The Mod's own drawing in the Groundworks library's Placement Preview (ADR 0010): a planned
- * splitter's belt surface, and the wedges a stretch's slopes put down, which are no blocks of its
- * plan since they cost nothing. Groundworks draws the Stretch's anchors and the Dismantle's span
- * itself (ADR 0011).
+ * splitter's belt surface, the wedges a stretch's slopes put down, which are no blocks of its
+ * plan since they cost nothing, and the supports the plan's pieces will show (ADR 0012).
+ * Groundworks draws the Stretch's anchors and the Dismantle's span itself (ADR 0011), and never
+ * hears of supports.
  */
 final class BeltPreviews {
 
     // The plan last asked about and its wedges: the preview draws one plan frame after frame.
     private static @Nullable PlacementPlan wedgesOf;
     private static Map<BlockPos, BlockState> wedges = Map.of();
+    // And the plan and setting last asked about for its supports, with each one's boxes.
+    private static @Nullable PlacementPlan supportsOf;
+    private static Support.@Nullable Setting supportsSetting;
+    private static Map<BlockPos, List<SupportRenderer.Box>> supports = Map.of();
 
     private BeltPreviews() {
     }
@@ -53,6 +61,34 @@ final class BeltPreviews {
     static void register() {
         NeoForge.EVENT_BUS.addListener(BeltPreviews::splitterBelts);
         NeoForge.EVENT_BUS.addListener(BeltPreviews::stretchWedges);
+        NeoForge.EVENT_BUS.addListener(BeltPreviews::plannedSupports);
+    }
+
+    /**
+     * The support each planned piece will show, drawn with a placed piece's code in the plan's
+     * tint, so a refused plan draws them in the refusal's.
+     */
+    private static void plannedSupports(PlacementPreviewEvent.Overlay event) {
+        var plan = event.getPlan();
+        var setting = BeltworksClientConfig.supports();
+        if (plan != supportsOf || !setting.equals(supportsSetting)) {
+            supportsOf = plan;
+            supportsSetting = setting;
+            var boxes = new LinkedHashMap<BlockPos, List<SupportRenderer.Box>>();
+            PlannedSupports.of(event.getLevel(), plan.blocks(), setting)
+              .forEach((pos, support) -> boxes.put(pos, SupportRenderer.plannedBoxes(support, pos)));
+            supports = boxes;
+        }
+        if (supports.isEmpty()) return;
+        var geometry = event.getGeometry();
+        var camera = geometry.getLevelRenderState().cameraRenderState.pos;
+        var poseStack = geometry.getPoseStack();
+        supports.forEach((pos, boxes) -> {
+            poseStack.pushPose();
+            poseStack.translate(pos.getX() - camera.x(), pos.getY() - camera.y(), pos.getZ() - camera.z());
+            SupportRenderer.submitPlanned(boxes, poseStack, geometry.getSubmitNodeCollector(), event.getTint());
+            poseStack.popPose();
+        });
     }
 
     /**

@@ -3,15 +3,24 @@
 
 package io.github._5thlayer.beltworks.gametest;
 
+import io.github._5thlayer.groundworks.PlacementPlan;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import org.jspecify.annotations.Nullable;
 import io.github._5thlayer.beltworks.BlockContent;
 import io.github._5thlayer.beltworks.blocks.BeltEndBlock;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
+import io.github._5thlayer.beltworks.blocks.PlannedSupports;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.Pitch;
@@ -21,7 +30,8 @@ import io.github._5thlayer.beltworks.model.Support;
  * A raised tile's support as the world gives it (ADR 0012): what a leg passes and stands on, what
  * holds a tile up or fixes it, and which belt ends show one. The rule itself is
  * {@code SupportTest}'s; these hold the world's blocks to it. A tile here stands alone, or ends
- * its short line, so it is its line's first or last.
+ * its short line, so it is its line's first or last. A planned piece shows the support its click
+ * leaves, worked out with the plan's blocks counted as placed.
  */
 final class SupportTests {
 
@@ -104,19 +114,84 @@ final class SupportTests {
             if (endSupport(helper, RAISED) != null) helper.fail("a splitter held up under both halves shows a support", RAISED);
             helper.succeed();
         });
+        tests.test("a_planned_raised_stretch_shows_the_supports_its_click_leaves", 20, SupportTests::plannedStretch);
+        tests.test("a_planned_tile_on_a_planned_tile_shows_no_support", 20, helper -> {
+            var above = RAISED.above();
+            var planned = List.of(planned(helper, RAISED, tileState(Direction.EAST)), planned(helper, above, tileState(Direction.NORTH)));
+            var supports = PlannedSupports.of(helper.getLevel(), planned, Support.Setting.DEFAULT);
+            if (supports.containsKey(helper.absolutePos(above))) helper.fail("a planned tile on a planned tile shows a support", above);
+            if (!supports.containsKey(helper.absolutePos(RAISED))) helper.fail("the planned tile under it, over air, shows none", RAISED);
+            helper.succeed();
+        });
+        tests.test("a_planned_splitter_shows_the_support_its_click_leaves", 20, helper -> {
+            helper.setBlock(RAISED.below(), Blocks.STONE);
+            var planned = new ArrayList<PlacementPlan.Placed>();
+            for (var side : SplitterBlock.Side.values()) {
+                planned.add(planned(helper, side == SplitterBlock.Side.LEFT ? RAISED : RAISED.south(), splitterState(side)));
+            }
+            var supports = PlannedSupports.of(helper.getLevel(), planned, Support.Setting.DEFAULT);
+            splitter(helper, RAISED);
+            var placed = endSupport(helper, RAISED);
+            if (placed == null) throw helper.assertionException(RAISED, "the placed splitter shows no support, so this proves little");
+            if (!supports.equals(Map.of(helper.absolutePos(RAISED), placed))) {
+                helper.fail("the plan shows " + supports + ", and the click leaves " + placed + " at its left half", RAISED);
+            }
+            helper.succeed();
+        });
+    }
+
+    // A raised stretch that turns: a slope's top on its wedge, level tiles over air, a corner and a
+    // last tile, planned and then laid.
+    private static void plannedStretch(GameTestHelper helper) {
+        var start = new BlockPos(2, 1, 3);
+        var end = start.east(5).south(3);
+        var player = StretchTests.started(helper, Direction.EAST, start);
+        StretchTests.press(player, 1);
+        var plan = StretchTests.planOf(helper, player, end);
+        if (plan == null || plan.isRefused()) {
+            throw helper.assertionException(end, "the stretch was planned as " + (plan == null ? "nothing" : plan.refusal()));
+        }
+        var supports = PlannedSupports.of(helper.getLevel(), plan.blocks(), Support.Setting.DEFAULT);
+        StretchTests.click(helper, player, end, false);
+        var corner = helper.absolutePos(start.east(5).above());
+        var last = helper.absolutePos(end.above());
+        if (!supports.containsKey(corner) || !supports.containsKey(last)) {
+            helper.fail("the plan shows supports at " + supports.keySet() + ", missing its corner or its last tile", end);
+        }
+        for (var placed : plan.blocks()) {
+            var pos = placed.pos();
+            var state = helper.getLevel().getBlockState(pos);
+            if (!(state.getBlock() instanceof BeltTileBlock)) continue;
+            var laid = BeltTileBlock.support(helper.getLevel(), pos, state, Support.Setting.DEFAULT);
+            if (!Objects.equals(supports.get(pos), laid)) {
+                helper.fail("the plan shows " + supports.get(pos) + " and the click leaves " + laid, helper.relativePos(pos));
+            }
+        }
+        helper.succeed();
+    }
+
+    private static PlacementPlan.Placed planned(GameTestHelper helper, BlockPos at, BlockState state) {
+        return new PlacementPlan.Placed(helper.absolutePos(at), state);
+    }
+
+    private static BlockState tileState(Direction facing) {
+        return BlockContent.BELT_TILE.get().defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, facing);
+    }
+
+    private static BlockState splitterState(SplitterBlock.Side side) {
+        return BlockContent.splitterFor(BeltTier.BELT).defaultBlockState()
+                 .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.EAST)
+                 .setValue(SplitterBlock.SIDE, side);
     }
 
     private static void tile(GameTestHelper helper, BlockPos at, Direction facing) {
-        helper.setBlock(at, BlockContent.BELT_TILE.get().defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, facing));
+        helper.setBlock(at, tileState(facing));
     }
 
     /** A splitter facing east, its left half at {@code left} and its right half south of it. */
     private static void splitter(GameTestHelper helper, BlockPos left) {
         for (var side : SplitterBlock.Side.values()) {
-            helper.setBlock(side == SplitterBlock.Side.LEFT ? left : left.south(),
-              BlockContent.splitterFor(BeltTier.BELT).defaultBlockState()
-                .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.EAST)
-                .setValue(SplitterBlock.SIDE, side));
+            helper.setBlock(side == SplitterBlock.Side.LEFT ? left : left.south(), splitterState(side));
         }
     }
 
