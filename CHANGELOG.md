@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A loader's tier-colour cheeks run straight on into the stripes of the belt it feeds, and its mouth is as wide as the belt between them.
+
 ## 0.3.6
 
 - The belt family wears slate: a tile's sides and underside, a slope's, a wedge's, a splitter's and a support's now match the loader's housing, with tier colour the only accent. The splitter item no longer shows the posts the placed splitter never had.
