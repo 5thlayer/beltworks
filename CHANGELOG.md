@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Nests Groundworks 0.4.5: a stretch is refused whole where the player may not build (5thlayer/groundworks#16).
+
 ## 0.3.7
 
 - A Dismantle queues spans: a sneak-click with a start stored queues the span to the clicked tile, and one click confirms up to two spans at once (Groundworks 0.4.4).
