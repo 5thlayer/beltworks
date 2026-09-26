@@ -72,7 +72,7 @@ final class StretchTests {
         tests.test("a_line_across_a_level_stretch_is_gone_round", 20, StretchTests::roundALine);
         tests.test("a_line_across_the_whole_band_refuses_the_stretch", 20, StretchTests::acrossTheBand);
         tests.test("a_rise_too_big_for_its_leg_changes_nothing", 20, helper -> refused(helper, player -> press(player, 2),
-                START.east(3), BeltRefusal.SLOPE_TURNS, "message.beltworks.slope_turns"));
+                START.east(3), BeltRefusal.RISE_DOES_NOT_FIT, "message.beltworks.rise_does_not_fit"));
         tests.test("a_slope_whose_wedge_has_no_room_changes_nothing", 20, StretchTests::wedgeOnALoader);
         tests.test("a_stretch_aimed_at_a_line_feeds_its_side", 20, StretchTests::joins);
         tests.test("a_stretch_on_from_an_anchor_on_a_line_is_refused_there", 20, StretchTests::onFromALine);

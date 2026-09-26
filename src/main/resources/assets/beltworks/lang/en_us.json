@@ -2,6 +2,7 @@
   "message.beltworks.stretch_blocked": "A block stands in the stretch's way.",
   "message.beltworks.stretch_crosses_a_line": "A line crosses the stretch here, and a stretch never cuts one. Raise it over the line and lower it past.",
   "message.beltworks.slope_turns": "A belt slope never turns, so this would not connect.",
+  "message.beltworks.rise_does_not_fit": "Not enough straight run for this climb before the next anchor or turn.",
   "message.beltworks.wedge_blocked": "A slope here needs a wedge under it, and only air, plants or snow can make way for one.",
   "message.beltworks.rotate_slope": "A belt on a slope cannot be turned: it would break the climb.",
   "message.beltworks.rotate_splitter": "A splitter cannot be turned in place.",

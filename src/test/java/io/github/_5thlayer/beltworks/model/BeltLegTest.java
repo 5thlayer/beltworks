@@ -83,7 +83,7 @@ class BeltLegTest {
     void aRiseWhoseTopReachesTheNextAnchorIsRefused() {
         var leg = BeltLeg.shape(FROM, 1, east(2), new Field());
 
-        assertEquals(BeltLeg.Stop.SLOPE_TURNS, leg.stop());
+        assertEquals(BeltLeg.Stop.RISE_DOES_NOT_FIT, leg.stop());
         assertNull(leg.at());
     }
 
@@ -91,7 +91,7 @@ class BeltLegTest {
     void aRiseLongerThanTheLegIsRefusedAndStillDrawn() {
         var leg = BeltLeg.shape(FROM, 3, east(2), new Field());
 
-        assertEquals(BeltLeg.Stop.SLOPE_TURNS, leg.stop());
+        assertEquals(BeltLeg.Stop.RISE_DOES_NOT_FIT, leg.stop());
         assertEquals(3, leg.tiles().size());
     }
 
@@ -102,7 +102,7 @@ class BeltLegTest {
         route.add(new BeltLeg.Column(2, 1, SOUTH));
         route.add(new BeltLeg.Column(2, 2, SOUTH));
 
-        assertEquals(BeltLeg.Stop.SLOPE_TURNS, BeltLeg.shape(FROM, 1, route, new Field()).stop());
+        assertEquals(BeltLeg.Stop.RISE_DOES_NOT_FIT, BeltLeg.shape(FROM, 1, route, new Field()).stop());
     }
 
     // The foot and the top run straight on from the anchor, and the corner comes after the top.
@@ -203,6 +203,6 @@ class BeltLegTest {
         var field = new Field();
         field.ground.put(new LineScan.Spot(1, 64, 0), BeltLeg.Ground.OBSTACLE);
 
-        assertEquals(BeltLeg.Stop.SLOPE_TURNS, BeltLeg.shape(FROM, 2, east(3), field).stop());
+        assertEquals(BeltLeg.Stop.RISE_DOES_NOT_FIT, BeltLeg.shape(FROM, 2, east(3), field).stop());
     }
 }

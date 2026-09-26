@@ -73,7 +73,7 @@ public final class BeltLegs implements LegBuilder {
     private static @Nullable Refusal refusal(Level level, BeltLeg.Shaped shaped, Map<LineScan.Spot, LineScan.Travel> travels, Block tile) {
         if (shaped.stop() != null) {
             return switch (shaped.stop()) {
-                case SLOPE_TURNS -> BeltRefusal.SLOPE_TURNS;
+                case RISE_DOES_NOT_FIT -> BeltRefusal.RISE_DOES_NOT_FIT;
                 case BLOCKED -> new Refusal.At(BeltRefusal.BLOCKED, pos(shaped.at()));
                 case CROSSES_A_LINE -> new Refusal.At(BeltRefusal.CROSSES_A_LINE, pos(shaped.at()));
             };

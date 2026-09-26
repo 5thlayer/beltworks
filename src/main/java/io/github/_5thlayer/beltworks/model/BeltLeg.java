@@ -55,8 +55,8 @@ public final class BeltLeg {
 
     /** Why a leg can't be laid. */
     public enum Stop {
-        /** The rise doesn't fit before the leg turns or reaches its last anchor, and a slope never turns. */
-        SLOPE_TURNS,
+        /** The rise doesn't fit before the leg turns or reaches its last anchor. */
+        RISE_DOES_NOT_FIT,
         /** Something a tile can't take the place of stands in the way. */
         BLOCKED,
         /** A line crosses the leg, which the leg would cut. */
@@ -79,7 +79,7 @@ public final class BeltLeg {
     public static Shaped shape(LineScan.Spot from, int rise, List<Column> route, Terrain terrain) {
         var last = route.size() - 1;
         var tiles = new ArrayList<Step>();
-        Stop stop = fits(rise, route) ? null : Stop.SLOPE_TURNS;
+        Stop stop = fits(rise, route) ? null : Stop.RISE_DOES_NOT_FIT;
         LineScan.Spot at = null;
         for (var i = 0; i <= last; i++) {
             var column = route.get(i);

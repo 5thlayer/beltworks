@@ -14,6 +14,7 @@ public enum BeltRefusal implements Refusal {
     BLOCKED("message.beltworks.stretch_blocked"),
     CROSSES_A_LINE("message.beltworks.stretch_crosses_a_line"),
     SLOPE_TURNS("message.beltworks.slope_turns"),
+    RISE_DOES_NOT_FIT("message.beltworks.rise_does_not_fit"),
     WEDGE_BLOCKED("message.beltworks.wedge_blocked");
 
     private final String messageKey;
