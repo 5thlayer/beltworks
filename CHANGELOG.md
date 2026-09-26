@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The belt family wears slate: a tile's sides and underside, a slope's, a wedge's, a splitter's and a support's now match the loader's housing, with tier colour the only accent. The splitter item no longer shows the posts the placed splitter never had.
+
 ## 0.3.5
 
 - The Placement Preview draws the supports a click will leave, under a planned tile, a stretch's tiles or a splitter, in the plan's tint: red when it's refused.

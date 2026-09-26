@@ -2,8 +2,8 @@
   "parent": "minecraft:block/block",
   "textures": {
     "side": "beltworks:block/belt_slope_side",
-    "frame": "beltworks:block/conveyor_support",
-    "particle": "beltworks:block/conveyor_support"
+    "frame": "beltworks:block/belt_underside",
+    "particle": "beltworks:block/belt_underside"
   },
   "elements": [
     {
@@ -21,9 +21,9 @@
         "east": {
           "uv": [
             4,
-            4,
+            13,
             5,
-            6
+            15
           ],
           "texture": "#side",
           "cullface": "east"
@@ -31,9 +31,9 @@
         "west": {
           "uv": [
             11,
-            4,
+            13,
             12,
-            6
+            15
           ],
           "texture": "#side",
           "cullface": "west"
@@ -64,9 +64,9 @@
         "east": {
           "uv": [
             3,
+            11,
             4,
-            4,
-            8
+            15
           ],
           "texture": "#side",
           "cullface": "east"
@@ -74,9 +74,9 @@
         "west": {
           "uv": [
             12,
-            4,
+            11,
             13,
-            8
+            15
           ],
           "texture": "#side",
           "cullface": "west"
@@ -107,9 +107,9 @@
         "east": {
           "uv": [
             2,
-            4,
+            9,
             3,
-            10
+            15
           ],
           "texture": "#side",
           "cullface": "east"
@@ -117,9 +117,9 @@
         "west": {
           "uv": [
             13,
-            4,
+            9,
             14,
-            10
+            15
           ],
           "texture": "#side",
           "cullface": "west"
@@ -150,9 +150,9 @@
         "east": {
           "uv": [
             1,
-            4,
+            7,
             2,
-            12
+            15
           ],
           "texture": "#side",
           "cullface": "east"
@@ -160,9 +160,9 @@
         "west": {
           "uv": [
             14,
-            4,
+            7,
             15,
-            12
+            15
           ],
           "texture": "#side",
           "cullface": "west"
@@ -193,9 +193,9 @@
         "east": {
           "uv": [
             0,
-            4,
+            5,
             1,
-            14
+            15
           ],
           "texture": "#side",
           "cullface": "east"
@@ -203,9 +203,9 @@
         "west": {
           "uv": [
             15,
-            4,
+            5,
             16,
-            14
+            15
           ],
           "texture": "#side",
           "cullface": "west"

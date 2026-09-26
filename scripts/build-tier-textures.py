@@ -2,8 +2,9 @@
 # dependencies = ["pillow"]
 # ///
 """Recolour the belt textures to Factorio's yellow, red, blue and green tiers, from Upstream's
-original art in `scripts/belt-art/`, draw the loader's housing and its tier band, and write the belt
-tiles' corner and slope models and their blockstates. Run with
+original art in `scripts/belt-art/`, draw the family's slate (the loader's housing, the tiles'
+sides and undersides) and the loader's tier band, and write the belt tiles' corner and slope models
+and their blockstates. Run with
 `uv run scripts/build-tier-textures.py`; `--check` fails on drift."""
 import colorsys
 import io
@@ -33,6 +34,13 @@ SLATE = (84, 90, 100)
 SLATE_EDGE = (56, 60, 68)
 SLATE_LIGHT = (112, 118, 128)
 MOUTH = (0, 0, 0)
+# A tile's side, row by row from the top: models draw rows 2 to 7, one pixel each, from the belt's
+# surface down. Rows only, no columns, so a slope's slices, which can only sample the art square to
+# the block, line up with its band and with a level tile (#32). Opaque throughout, since a clear
+# pixel on a tile's side shows through the tile.
+SIDE = (SLATE_EDGE, SLATE_EDGE, SLATE_LIGHT, SLATE, SLATE, SLATE_EDGE, SLATE, SLATE_EDGE)
+# How far a tile's underside is lit above slate at its top row and shaded below it at its bottom.
+UNDERSIDE_SHADE = 6
 
 
 def recolour(source: Path, hue: float) -> bytes:
@@ -77,6 +85,25 @@ def slate() -> bytes:
         image.putpixel((x, 1), (*SLATE_LIGHT, 255))
     for x, y in ((2, 3), (13, 3), (2, 13), (13, 13)):
         image.putpixel((x, y), (*SLATE_LIGHT, 255))
+    return png(image)
+
+
+def tile_side() -> bytes:
+    image = Image.new("RGBA", (16, len(SIDE)))
+    for y, colour in enumerate(SIDE):
+        for x in range(16):
+            image.putpixel((x, y), (*colour, 255))
+    return png(image)
+
+
+def underside() -> bytes:
+    """Plain slate lit from its top row down, with no border: the tiles' undersides are cut into
+    one-pixel slices, where a border or a rivet would read as noise."""
+    image = Image.new("RGBA", (16, 16))
+    for y in range(16):
+        shade = round(UNDERSIDE_SHADE * (1 - 2 * y / 15))
+        for x in range(16):
+            image.putpixel((x, y), (*(c + shade for c in SLATE), 255))
     return png(image)
 
 
@@ -190,7 +217,7 @@ def corner_model(prefix, from_left: bool) -> bytes:
         "parent": "minecraft:block/block",
         "textures": {
             "belt": f"beltworks:block/{prefix}belt_corner_{'left' if from_left else 'right'}",
-            "frame": "beltworks:block/conveyor_support",
+            "frame": "beltworks:block/belt_underside",
             "particle": f"beltworks:block/{prefix}splitter_belt",
             "side": "beltworks:block/belt_tile_side",
         },
@@ -216,6 +243,16 @@ RIM_INSET = 0.01
 SLICE_INSET = 0.02
 # A level tile's depth, which a slope keeps measured upright; half of it measured square to a 45-degree slope.
 BAND_DEPTH = 3
+
+
+def side_wall(u0, u1, below, height):
+    """A wall of side art whose top stands {below} px under the belt's surface, a pixel a row."""
+    top = 4 + 2 * below
+    return {"uv": [u0, whole(top), u1, whole(min(16, top + 2 * height))], "texture": "#side"}
+
+
+def whole(n):
+    return int(n) if n == int(n) else n
 
 
 def slope_model(prefix, pitch) -> bytes:
@@ -284,9 +321,12 @@ def slope_model(prefix, pitch) -> bytes:
             tall = math.floor(min(surface(d), surface(d + 1)))
             if tall <= floor:
                 continue
+            # Rows counted from the surface over the slice's middle, as the band's are.
+            below = (surface(d) + surface(d + 1)) / 2 - tall
             faces = {"down": {"uv": [0, 15 - d, 16, 16 - d], "texture": "#frame"},
-                     "east": wall(15 - d, 16 - d, tall - floor), "west": wall(d, d + 1, tall - floor),
-                     "north": wall(0, 16, tall - floor), "south": wall(0, 16, tall - floor)}
+                     "east": side_wall(15 - d, 16 - d, below, tall - floor),
+                     "west": side_wall(d, d + 1, below, tall - floor),
+                     "north": side_wall(0, 16, below, tall - floor), "south": side_wall(0, 16, below, tall - floor)}
             box = ([SLICE_INSET, floor, 15 - d], [16 - SLICE_INSET, tall, 16 - d])
             elements.append({"from": box[0], "to": box[1], "faces": culled(faces, box)})
         length = (end - start) * math.sqrt(2)
@@ -307,7 +347,7 @@ def slope_model(prefix, pitch) -> bytes:
         "parent": "minecraft:block/block",
         "textures": {
             "belt": f"beltworks:block/{prefix}splitter_belt",
-            "frame": "beltworks:block/conveyor_support",
+            "frame": "beltworks:block/belt_underside",
             "particle": f"beltworks:block/{prefix}splitter_belt",
             "side": "beltworks:block/belt_slope_side",
         },
@@ -328,9 +368,12 @@ def wedge_model() -> bytes:
         floor = 16 - k
         if floor >= 16:
             continue
-        # Sampled as a slope's slices under its band are, so the wedge's wall continues the slope's.
-        faces = {"east": {"uv": [16 - z1, 4, 16 - z0, 4 + 2 * (16 - floor)], "texture": "#side"},
-                 "west": {"uv": [z0, 4, z1, 4 + 2 * (16 - floor)], "texture": "#side"},
+        # Sampled as a slope's slices under its band are, its rows counted from the slope's surface
+        # over the slice's middle, a band's depth above its underside, so the wedge's wall continues
+        # the slope's.
+        below = floor - 0.5 + BAND_DEPTH * 2 - 16
+        faces = {"east": side_wall(16 - z1, 16 - z0, below, 16 - floor),
+                 "west": side_wall(z0, z1, below, 16 - floor),
                  "down": {"uv": [0, z0, 16, z1], "texture": "#frame"}}
         if z1 == 16:
             faces["south"] = {"uv": [0, 0, 16, 16 - floor], "texture": "#frame"}
@@ -345,8 +388,8 @@ def wedge_model() -> bytes:
     })
     model = {
         "parent": "minecraft:block/block",
-        "textures": {"side": "beltworks:block/belt_slope_side", "frame": "beltworks:block/conveyor_support",
-                     "particle": "beltworks:block/conveyor_support"},
+        "textures": {"side": "beltworks:block/belt_slope_side", "frame": "beltworks:block/belt_underside",
+                     "particle": "beltworks:block/belt_underside"},
         "elements": elements,
     }
     return (json.dumps(model, indent=2) + "\n").encode()
@@ -388,6 +431,9 @@ def outputs():
     yield BLOCKSTATES / "belt_wedge.json", wedge_blockstate()
     yield TEXTURES / "block/loader_slate.png", slate()
     yield TEXTURES / "block/loader_mouth.png", mouth()
+    yield TEXTURES / "block/belt_underside.png", underside()
+    yield TEXTURES / "block/belt_tile_side.png", tile_side()
+    yield TEXTURES / "block/belt_slope_side.png", tile_side()
     for step, (prefix, hue) in enumerate(TIERS.values(), start=1):
         frames = sorted(FRAMES.glob("frame_*.png"))
         colour = tier_colour(recolour(frames[0], hue))

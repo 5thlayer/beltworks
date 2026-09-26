@@ -38,7 +38,7 @@ SPDX-License-Identifier = "CC-BY-4.0 AND MIT"
 
 # Every asset is CC BY 4.0, whatever its origin (ADR 0001). This covers the
 # art the fork drew from scratch: the loader's band, loader_slate,
-# loader_mouth, belt_tile_side and belt_slope_side.
+# loader_mouth, belt_underside, belt_tile_side and belt_slope_side.
 [[annotations]]
 path = [
     "src/main/resources/assets/**",
@@ -72,12 +72,6 @@ path = [
     "scripts/belt-art/**",
 ]
 SPDX-FileCopyrightText = ["Rearth", "malcolmriley", "2026 5thlayer"]
-SPDX-License-Identifier = "CC-BY-4.0"
-
-# Upstream's texture, byte-identical since the fork point.
-[[annotations]]
-path = "src/main/resources/assets/beltworks/textures/block/conveyor_support.png"
-SPDX-FileCopyrightText = ["Rearth", "malcolmriley"]
 SPDX-License-Identifier = "CC-BY-4.0"
 
 # The Gradle wrapper is Gradle's.

@@ -38,9 +38,12 @@ public final class SupportRenderer {
     // Just outside the tile's edge, so a leg covers its tile's side rather than sharing its faces,
     // and no strut shares a plane with a wall beside it.
     private static final float OUTSET = 1 / 128f;
-    // The sprite is cut out along its right and bottom edges, so faces sample only its solid part.
-    private static final float SOLID_U = 11 / 16f;
-    private static final float SOLID_V = 10 / 16f;
+    // Every face samples one column of the loader's slate, inside its border and clear of its rivets,
+    // so a leg looks the same all round wherever it stands; down a face the rows run with height, a
+    // dark line and a lit one topping each block of it (#32). A cap takes a plain row.
+    private static final float COLUMN_U = 8.5f / 16;
+    private static final float ROWS_V = 10 / 16f;
+    private static final float CAP_V = 5.5f / 16;
 
     private SupportRenderer() {
     }
@@ -119,7 +122,7 @@ public final class SupportRenderer {
 
     private static void submit(List<Box> boxes, PoseStack poseStack, SubmitNodeCollector collector, RenderType type, int color) {
         if (boxes.isEmpty()) return;
-        var sprite = Minecraft.getInstance().getAtlasManager().getAtlasOrThrow(AtlasIds.BLOCKS).getSprite(Beltworks.id("block/conveyor_support"));
+        var sprite = Minecraft.getInstance().getAtlasManager().getAtlasOrThrow(AtlasIds.BLOCKS).getSprite(Beltworks.id("block/loader_slate"));
         collector.submitCustomGeometry(poseStack, type, (pose, consumer) -> {
             for (var box : boxes) box(box, sprite, color, pose, consumer);
         });
@@ -140,20 +143,18 @@ public final class SupportRenderer {
 
     private record Face(TextureAtlasSprite sprite, int color, PoseStack.Pose pose, VertexConsumer consumer, Box box, float floor, float cos, float sin) {
 
-        // Four corners anticlockwise seen from outside, before the box is turned; u runs along x, or
-        // z on a face turned east or west.
+        // Four corners anticlockwise seen from outside, before the box is turned.
         void quad(int nx, int ny, int nz, float... corners) {
             var pivotX = (box.x0 + box.x1) / 2;
             var pivotZ = (box.z0 + box.z1) / 2;
             for (var at = 0; at < 12; at += 3) {
                 float x = corners[at], y = corners[at + 1], z = corners[at + 2];
-                var u = SOLID_U * Math.clamp(nx != 0 ? z : x, 0, 1);
-                var v = SOLID_V * Math.clamp(ny != 0 ? z : 1 - (y - floor), 0, 1);
+                var v = ny != 0 ? CAP_V : ROWS_V * Math.clamp(1 - (y - floor), 0, 1);
                 var dx = x - pivotX;
                 var dz = z - pivotZ;
                 consumer.addVertex(pose.pose(), pivotX + dx * cos - dz * sin, y, pivotZ + dx * sin + dz * cos)
                   .setColor(color)
-                  .setUv(sprite.getU(u), sprite.getV(v))
+                  .setUv(sprite.getU(COLUMN_U), sprite.getV(v))
                   .setOverlay(OverlayTexture.NO_OVERLAY)
                   .setLight(box.light)
                   .setNormal(pose, nx * cos - nz * sin, ny, nx * sin + nz * cos);

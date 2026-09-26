@@ -2,7 +2,7 @@
   "parent": "minecraft:block/block",
   "textures": {
     "belt": "beltworks:block/improved_splitter_belt",
-    "frame": "beltworks:block/conveyor_support",
+    "frame": "beltworks:block/belt_underside",
     "particle": "beltworks:block/improved_splitter_belt",
     "side": "beltworks:block/belt_slope_side"
   },
@@ -81,36 +81,36 @@
         "east": {
           "uv": [
             15,
-            4,
+            5,
             16,
-            14
+            15
           ],
           "texture": "#side"
         },
         "west": {
           "uv": [
             0,
-            4,
+            5,
             1,
-            14
+            15
           ],
           "texture": "#side"
         },
         "north": {
           "uv": [
             0,
-            4,
+            5,
             16,
-            14
+            15
           ],
           "texture": "#side"
         },
         "south": {
           "uv": [
             0,
-            4,
+            5,
             16,
-            14
+            15
           ],
           "texture": "#side",
           "cullface": "south"
@@ -141,36 +141,36 @@
         "east": {
           "uv": [
             14,
-            4,
+            5,
             15,
-            14
+            15
           ],
           "texture": "#side"
         },
         "west": {
           "uv": [
             1,
-            4,
+            5,
             2,
-            14
+            15
           ],
           "texture": "#side"
         },
         "north": {
           "uv": [
             0,
-            4,
+            5,
             16,
-            14
+            15
           ],
           "texture": "#side"
         },
         "south": {
           "uv": [
             0,
-            4,
+            5,
             16,
-            14
+            15
           ],
           "texture": "#side"
         }
@@ -200,36 +200,36 @@
         "east": {
           "uv": [
             13,
-            4,
+            5,
             14,
-            14
+            15
           ],
           "texture": "#side"
         },
         "west": {
           "uv": [
             2,
-            4,
+            5,
             3,
-            14
+            15
           ],
           "texture": "#side"
         },
         "north": {
           "uv": [
             0,
-            4,
+            5,
             16,
-            14
+            15
           ],
           "texture": "#side"
         },
         "south": {
           "uv": [
             0,
-            4,
+            5,
             16,
-            14
+            15
           ],
           "texture": "#side"
         }
@@ -259,36 +259,36 @@
         "east": {
           "uv": [
             12,
-            4,
+            5,
             13,
-            14
+            15
           ],
           "texture": "#side"
         },
         "west": {
           "uv": [
             3,
+            5,
             4,
-            4,
-            14
+            15
           ],
           "texture": "#side"
         },
         "north": {
           "uv": [
             0,
-            4,
+            5,
             16,
-            14
+            15
           ],
           "texture": "#side"
         },
         "south": {
           "uv": [
             0,
-            4,
+            5,
             16,
-            14
+            15
           ],
           "texture": "#side"
         }
@@ -318,36 +318,36 @@
         "east": {
           "uv": [
             11,
-            4,
+            5,
             12,
-            14
+            15
           ],
           "texture": "#side"
         },
         "west": {
           "uv": [
             4,
-            4,
             5,
-            14
+            5,
+            15
           ],
           "texture": "#side"
         },
         "north": {
           "uv": [
             0,
-            4,
+            5,
             16,
-            14
+            15
           ],
           "texture": "#side"
         },
         "south": {
           "uv": [
             0,
-            4,
+            5,
             16,
-            14
+            15
           ],
           "texture": "#side"
         }
@@ -377,36 +377,36 @@
         "east": {
           "uv": [
             10,
-            4,
+            5,
             11,
-            14
+            15
           ],
           "texture": "#side"
         },
         "west": {
           "uv": [
             5,
-            4,
+            5,
             6,
-            14
+            15
           ],
           "texture": "#side"
         },
         "north": {
           "uv": [
             0,
-            4,
+            5,
             16,
-            14
+            15
           ],
           "texture": "#side"
         },
         "south": {
           "uv": [
             0,
-            4,
+            5,
             16,
-            14
+            15
           ],
           "texture": "#side"
         }
@@ -436,36 +436,36 @@
         "east": {
           "uv": [
             9,
-            4,
+            5,
             10,
-            14
+            15
           ],
           "texture": "#side"
         },
         "west": {
           "uv": [
             6,
-            4,
+            5,
             7,
-            14
+            15
           ],
           "texture": "#side"
         },
         "north": {
           "uv": [
             0,
-            4,
+            5,
             16,
-            14
+            15
           ],
           "texture": "#side"
         },
         "south": {
           "uv": [
             0,
-            4,
+            5,
             16,
-            14
+            15
           ],
           "texture": "#side"
         }
@@ -495,36 +495,36 @@
         "east": {
           "uv": [
             8,
-            4,
+            5,
             9,
-            14
+            15
           ],
           "texture": "#side"
         },
         "west": {
           "uv": [
             7,
-            4,
+            5,
             8,
-            14
+            15
           ],
           "texture": "#side"
         },
         "north": {
           "uv": [
             0,
-            4,
+            5,
             16,
-            14
+            15
           ],
           "texture": "#side"
         },
         "south": {
           "uv": [
             0,
-            4,
+            5,
             16,
-            14
+            15
           ],
           "texture": "#side"
         }
@@ -554,36 +554,36 @@
         "east": {
           "uv": [
             7,
-            4,
+            5,
             8,
-            14
+            15
           ],
           "texture": "#side"
         },
         "west": {
           "uv": [
             8,
-            4,
+            5,
             9,
-            14
+            15
           ],
           "texture": "#side"
         },
         "north": {
           "uv": [
             0,
-            4,
+            5,
             16,
-            14
+            15
           ],
           "texture": "#side"
         },
         "south": {
           "uv": [
             0,
-            4,
+            5,
             16,
-            14
+            15
           ],
           "texture": "#side"
         }
@@ -613,36 +613,36 @@
         "east": {
           "uv": [
             6,
-            4,
+            5,
             7,
-            14
+            15
           ],
           "texture": "#side"
         },
         "west": {
           "uv": [
             9,
-            4,
+            5,
             10,
-            14
+            15
           ],
           "texture": "#side"
         },
         "north": {
           "uv": [
             0,
-            4,
+            5,
             16,
-            14
+            15
           ],
           "texture": "#side"
         },
         "south": {
           "uv": [
             0,
-            4,
+            5,
             16,
-            14
+            15
           ],
           "texture": "#side"
         }

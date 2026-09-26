@@ -45,7 +45,7 @@ A tile or other belt piece feeding the side of a straight tile. It does not join
 _Avoid_: T-junction, merge belt
 
 **Tier colour**:
-The colour a belt tier is painted in, yellow, red, blue and green in tier order, as Factorio does. The belt shows it as the stripes along its edges, the loader as its band and the splitter as its divider. It is the family's only accent: everything else, from a tile's frame and sides to a loader's housing, is slate.
+The colour a belt tier is painted in, yellow, red, blue and green in tier order, as Factorio does. The belt shows it as the stripes along its edges, the loader as its band and the splitter as its divider. It is the family's only accent: everything else, from a tile's frame, sides and support to a loader's housing, is slate.
 _Avoid_: stripe colour, tier tint
 
 **Belt hand**:

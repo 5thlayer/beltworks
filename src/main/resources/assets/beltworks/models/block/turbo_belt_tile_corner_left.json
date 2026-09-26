@@ -2,7 +2,7 @@
   "parent": "minecraft:block/block",
   "textures": {
     "belt": "beltworks:block/turbo_belt_corner_left",
-    "frame": "beltworks:block/conveyor_support",
+    "frame": "beltworks:block/belt_underside",
     "particle": "beltworks:block/turbo_splitter_belt",
     "side": "beltworks:block/belt_tile_side"
   },

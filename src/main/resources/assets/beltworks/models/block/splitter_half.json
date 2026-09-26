@@ -2,7 +2,7 @@
   "parent": "minecraft:block/block",
   "textures": {
     "side": "beltworks:block/belt_tile_side",
-    "frame": "beltworks:block/conveyor_support"
+    "frame": "beltworks:block/belt_underside"
   },
   "elements": [
     {
