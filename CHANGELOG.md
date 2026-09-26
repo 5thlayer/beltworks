@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.7
+
 - A Dismantle queues spans: a sneak-click with a start stored queues the span to the clicked tile, and one click confirms up to two spans at once (Groundworks 0.4.4).
 - A loader's tier-colour cheeks run straight on into the stripes of the belt it feeds, and its mouth is as wide as the belt between them.
 
