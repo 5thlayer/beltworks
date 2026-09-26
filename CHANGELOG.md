@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.0
+
 - A belt stretch runs in Groundworks, with the same sneak-clicks. It no longer follows the ground or climbs a crossing line on its own: it climbs or descends only where you press Raise (`G`) or Lower (`B`), as a foot, middles and a top right after the leg's first anchor, and ends in mid-air if you like. A block or a crossing line in its way is gone round flat, or the stretch is refused; a stretch never cuts a line, so you cross one by raising, adding an anchor past it, and lowering. A stretch's start no longer takes the turn of Rotate the Plan.
 - A tile replaced by one of another tier keeps the items it carried, whatever replaced it.
 
