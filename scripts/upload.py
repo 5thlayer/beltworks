@@ -48,6 +48,10 @@ class Refused(Exception):
     pass
 
 
+class Published(Refused):
+    """The site already has the version, so there is nothing to retry."""
+
+
 def fail(message):
     sys.exit(f"upload: {message}")
 
@@ -186,7 +190,7 @@ class Release:
             return
         # A published version is final on Modrinth too: it is never replaced.
         if any(v.get("version_number") == self.version for v in send("GET", listing, headers)):
-            raise Refused(f"Modrinth already has {self.version} in {project}, and a published version never changes.")
+            raise Published(f"Modrinth already has {self.version} in {project}, and a published version never changes.")
         content_type, body = multipart([("data", None, "application/json", json.dumps(metadata).encode()),
                                         self.file_part()])
         created = send("POST", f"{api}/version", {**headers, "Content-Type": content_type}, body)
@@ -218,7 +222,7 @@ class Release:
             return
         # A published version is final on CurseForge too: it is never replaced.
         if {self.jar.name, self.name} & self.curseforge_files(files, api_headers):
-            raise Refused(f"CurseForge already has {self.version} in {project}, "
+            raise Published(f"CurseForge already has {self.version} in {project}, "
                           "and a published version never changes.")
         metadata["gameVersions"] = self.curseforge_game_versions(upload, upload_headers)
         content_type, body = multipart([("metadata", None, "application/json", json.dumps(metadata).encode()),
@@ -271,14 +275,16 @@ def main(args):
 
     release = Release(args[0], dry_run)
     through_op(sys.argv[1:], sites)
-    failed = []
+    failed, published = [], []
     for site in sites:
         name, upload = SITES[site]
         try:
             upload(release)
         except Refused as refused:
             print(f"upload: {name}: {refused}", file=sys.stderr)
-            failed.append(site)
+            (published if isinstance(refused, Published) else failed).append(site)
+    if published and not failed:
+        sys.exit(1)
     if failed:
         done = "" if len(failed) == len(sites) else "; the other site is done"
         fail(f"retry with {' and '.join('--site ' + site for site in failed)} once fixed{done}.")

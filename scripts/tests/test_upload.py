@@ -282,6 +282,7 @@ exec "$@"
         result = self.upload("--site", "modrinth", "0.3.9")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Modrinth already has 0.3.9", result.stderr)
+        self.assertNotIn("retry", result.stderr)
         self.assertEqual([r.method for r in self.site.requests], ["GET"])
 
     def test_a_modrinth_error_fails_the_site(self):
