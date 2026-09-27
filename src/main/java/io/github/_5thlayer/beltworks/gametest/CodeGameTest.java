@@ -44,6 +44,11 @@ final class CodeGameTest extends GameTestInstance {
         if (body == null) throw new IllegalStateException("no game test body for " + id);
     }
 
+    /** Forgets the bodies defined so far: the tests are registered again for each world a client loads. */
+    static void clear() {
+        BODIES.clear();
+    }
+
     static void define(Identifier id, Consumer<GameTestHelper> body) {
         if (BODIES.putIfAbsent(id, body) != null) throw new IllegalStateException("two game test bodies for " + id);
     }

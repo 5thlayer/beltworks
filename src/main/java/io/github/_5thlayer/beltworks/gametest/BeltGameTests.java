@@ -55,6 +55,7 @@ public final class BeltGameTests {
     }
 
     private static void registerTests(RegisterGameTestsEvent event) {
+        CodeGameTest.clear();
         // Registered rather than borrowed, since the event hands out no lookup for vanilla's.
         var environment = event.registerEnvironment(Beltworks.id("default"), new TestEnvironmentDefinition.AllOf(List.of()));
         var powered = event.registerEnvironment(Beltworks.id("loaders_need_power"), new LoaderPowerEnvironment(true));
