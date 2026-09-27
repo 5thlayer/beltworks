@@ -15,8 +15,9 @@ Each change players notice adds its line under `## Unreleased` in `CHANGELOG.md`
 1. sets `mod_version` and turns `## Unreleased` into `## <version>` under a fresh, empty Unreleased
 2. runs the build and the game tests, putting both files back if either fails
 3. commits `chore: release <version>`, runs `publishToMavenLocal`, and tags `beltworks-v<version>` with the jar's sha256
+4. uploads the jar to Modrinth and CurseForge with `scripts/upload.py` (below). A failed upload leaves the local release and the tag in place; the script names the site that failed, and `scripts/upload.py --site <site> <version>` retries it. Under `MAVEN_REPO_LOCAL`, a trial run, the upload is only a dry run.
 
-It pushes nothing, and ends by printing the push command. The published jar is the `jar` task's, with Groundworks nested under `META-INF/jarjar/`. The Pack loads the Groundworks that Beltworks bundles, so check that `META-INF/jarjar/metadata.json` names the Groundworks and the range you meant to ship.
+It pushes nothing to git, and ends by printing the push command. Export the environment the upload reads before releasing. The published jar is the `jar` task's, with Groundworks nested under `META-INF/jarjar/`. The Pack loads the Groundworks that Beltworks bundles, so check that `META-INF/jarjar/metadata.json` names the Groundworks and the range you meant to ship.
 
 A release that must reach another Library or the Pack follows the `release-train` skill.
 
@@ -31,7 +32,7 @@ It refuses, before contacting either site, a version missing from `~/.m2` or its
 
 ## A published version is final
 
-A version in `~/.m2` never changes. A fix, or a rebuild against another Groundworks, is the next patch version. `publishToMavenLocal` refuses a version that is already there (`build.gradle`), and nothing is deleted or overwritten by hand to get past it.
+A version in `~/.m2` never changes. A fix, or a rebuild against another Groundworks, is the next patch version. `publishToMavenLocal` refuses a version that is already there (`build.gradle`), and nothing is deleted or overwritten by hand to get past it. The same holds on Modrinth and CurseForge: `scripts/upload.py` refuses a version a site already has, and nothing there is deleted or replaced.
 
 ## Trying an unreleased Groundworks
 

@@ -1,5 +1,5 @@
-# Builds and tests every push. It never publishes: the Mod's jar reaches the Pack only through
-# ~/.m2 on a maintainer's machine (docs/agents/releases.md).
+# Builds and tests every push. It never publishes: the Mod's jar reaches the Pack through ~/.m2,
+# and Modrinth and CurseForge, only from a maintainer's machine (docs/agents/releases.md).
 name: CI
 
 on:
