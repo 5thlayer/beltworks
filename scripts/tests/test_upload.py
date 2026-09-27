@@ -148,6 +148,42 @@ class Upload(unittest.TestCase):
                 self.publish("0.3.9", licensed(**entry))
                 self.assertRefusedBeforeAnyRequest(self.upload("0.3.9"), lacking)
 
+    def test_a_missing_token_is_fetched_through_op_run(self):
+        # A stand-in for the 1Password CLI, first on PATH: it fills each op:// reference in the env
+        # file with a token, as `op run --env-file=<file> -- <command>` does, and runs the command.
+        bin = self.root / "bin"
+        bin.mkdir()
+        (bin / "op").write_text("""#!/bin/sh
+[ "$1" = run ] || exit 9
+file="${2#--env-file=}"; shift 3
+while IFS='=' read -r name value; do
+    case "$name" in \#*|"") continue ;; esac
+    export "$name=op-filled-${value##*/}"
+done < "$file"
+exec "$@"
+""")
+        (bin / "op").chmod(0o755)
+        (self.root / "publish").mkdir()
+        (self.root / "publish/upload.env").write_text("# references\nMODRINTH_TOKEN=op://Private/Beltworks Modrinth/modrinth-credential\n")
+        self.publish("0.3.9")
+        result = self.upload("--site", "modrinth", "0.3.9", MODRINTH_TOKEN=None,
+                             PATH=f"{bin}{os.pathsep}{os.environ['PATH']}")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.modrinth_post().headers["Authorization"], "op-filled-modrinth-credential")
+
+    def test_a_token_op_run_leaves_missing_fails_instead_of_looping(self):
+        bin = self.root / "bin"
+        bin.mkdir()
+        (bin / "op").write_text('#!/bin/sh\nshift 3\nexec "$@"\n')
+        (bin / "op").chmod(0o755)
+        (self.root / "publish").mkdir()
+        (self.root / "publish/upload.env").write_text("")
+        self.publish("0.3.9")
+        result = self.upload("--site", "modrinth", "0.3.9", MODRINTH_TOKEN=None,
+                             PATH=f"{bin}{os.pathsep}{os.environ['PATH']}")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("MODRINTH_TOKEN", result.stderr)
+
     def test_the_project_ids_default_to_beltworks_own(self):
         self.publish("0.3.9")
         result = self.upload("--dry-run", "0.3.9", MODRINTH_PROJECT_ID=None, CURSEFORGE_PROJECT_ID=None)

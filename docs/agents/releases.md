@@ -15,19 +15,15 @@ Each change players notice adds its line under `## Unreleased` in `CHANGELOG.md`
 1. sets `mod_version` and turns `## Unreleased` into `## <version>` under a fresh, empty Unreleased
 2. runs the build and the game tests, putting both files back if either fails
 3. commits `chore: release <version>`, runs `publishToMavenLocal`, and tags `beltworks-v<version>` with the jar's sha256
-4. uploads the jar to Modrinth and CurseForge with `scripts/upload.py` (below). A failed upload leaves the local release and the tag in place; the script names the site that failed, and `scripts/upload.py --site <site> <version>`, through `op run` too, retries it. Under `MAVEN_REPO_LOCAL`, a trial run, the upload is only a dry run.
+4. uploads the jar to Modrinth and CurseForge with `scripts/upload.py` (below). A failed upload leaves the local release and the tag in place; the script names the site that failed, and `scripts/upload.py --site <site> <version>` retries it. Under `MAVEN_REPO_LOCAL`, a trial run, the upload is only a dry run.
 
-It pushes nothing to git, and ends by printing the push command. Run it through `op run` (below), which gives the upload its tokens. The published jar is the `jar` task's, with Groundworks nested under `META-INF/jarjar/`. The Pack loads the Groundworks that Beltworks bundles, so check that `META-INF/jarjar/metadata.json` names the Groundworks and the range you meant to ship.
+It pushes nothing to git, and ends by printing the push command. The published jar is the `jar` task's, with Groundworks nested under `META-INF/jarjar/`. The Pack loads the Groundworks that Beltworks bundles, so check that `META-INF/jarjar/metadata.json` names the Groundworks and the range you meant to ship.
 
 A release that must reach another Library or the Pack follows the `release-train` skill.
 
 ## Uploading to Modrinth and CurseForge
 
-`scripts/upload.py <version>` uploads a version already in `~/.m2` to both sites: the jar there, byte for byte, with that version's changelog section as its notes, for Minecraft `minecraft_version` on NeoForge, as beta below 1.0. Groundworks is nested, so neither site lists it as a dependency. Each site's token comes from the environment and is never printed. The tokens live in 1Password, and `publish/upload.env` names them there, so a release or an upload runs through `op run`, which fills them in for that command only:
-
-```
-op run --env-file=publish/upload.env -- scripts/release.sh <version>
-```
+`scripts/upload.py <version>` uploads a version already in `~/.m2` to both sites: the jar there, byte for byte, with that version's changelog section as its notes, for Minecraft `minecraft_version` on NeoForge, as beta below 1.0. Groundworks is nested, so neither site lists it as a dependency. Each site's token comes from the environment and is never printed. The tokens live in 1Password, and `publish/upload.env` names them there, and when a token is missing the upload runs itself again through `op run --env-file=publish/upload.env`, which fills them in for that run only. So `scripts/release.sh <version>` and `scripts/upload.py <version>` need nothing exported; 1Password asks to be unlocked.
 
 
 - Modrinth: `MODRINTH_TOKEN`, the 1Password item "Beltworks Modrinth": a personal access token with the scopes Create versions, Read versions and Read projects.

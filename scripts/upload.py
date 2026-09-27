@@ -8,8 +8,9 @@
 #   scripts/upload.py [--dry-run] [--site modrinth|curseforge] <version>
 #
 # Each site is uploaded on its own: a failure on one leaves the other, and --site retries just one.
-# Each site's token comes from the environment, and is never printed; publish/upload.env names them
-# in 1Password, for `op run --env-file=publish/upload.env -- scripts/upload.py <version>`. The
+# Each site's token comes from the environment, and is never printed. When one is missing, the script
+# runs itself again through `op run --env-file=publish/upload.env`, which fills in the tokens that
+# file names in 1Password, for that run only. The
 # projects default to Beltworks' own, which the environment can override:
 #   Modrinth    $MODRINTH_TOKEN, $MODRINTH_PROJECT_ID
 #   CurseForge  $CURSEFORGE_TOKEN (an upload API token), $CURSEFORGE_PROJECT_ID
@@ -21,6 +22,7 @@ import io
 import json
 import os
 import re
+import shutil
 import sys
 import urllib.error
 import urllib.parse
@@ -118,8 +120,20 @@ def show(method, url, headers, **fields):
 
 def token(name):
     if not os.environ.get(name):
-        raise Refused(f"${name} is not set; run through op run --env-file=publish/upload.env -- ...")
+        raise Refused(f"${name} is not set, and publish/upload.env didn't fill it in through op run.")
     return os.environ[name]
+
+
+def through_op(args, sites):
+    """Runs the script again under `op run` when a token it needs is missing, once."""
+    needed = {"modrinth": "MODRINTH_TOKEN", "curseforge": "CURSEFORGE_TOKEN"}
+    env_file = ROOT / "publish/upload.env"
+    if (all(os.environ.get(needed[site]) for site in sites) or os.environ.get("UPLOAD_THROUGH_OP")
+            or not env_file.is_file() or not shutil.which("op")):
+        return
+    os.environ["UPLOAD_THROUGH_OP"] = "1"
+    sys.stdout.flush()
+    os.execvp("op", ["op", "run", f"--env-file={env_file}", "--", sys.executable, __file__, *args])
 
 
 class Release:
@@ -256,6 +270,7 @@ def main(args):
         fail(usage)
 
     release = Release(args[0], dry_run)
+    through_op(sys.argv[1:], sites)
     failed = []
     for site in sites:
         name, upload = SITES[site]
