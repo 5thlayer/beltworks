@@ -2,7 +2,7 @@
 
 A release reaches the Pack through the local maven repository (`~/.m2`) at a version of its own. The Pack pins that version and compares the jar's sha256. That only works if the jar published at a version is the one jar that version ever names.
 
-Nothing publishes anywhere else. CI builds and tests on every push but never publishes.
+A released version is then uploaded to Modrinth from the maintainer's machine (below). CI builds and tests on every push but never publishes.
 
 ## The changelog
 
@@ -19,6 +19,10 @@ Each change players notice adds its line under `## Unreleased` in `CHANGELOG.md`
 It pushes nothing, and ends by printing the push command. The published jar is the `jar` task's, with Groundworks nested under `META-INF/jarjar/`. The Pack loads the Groundworks that Beltworks bundles, so check that `META-INF/jarjar/metadata.json` names the Groundworks and the range you meant to ship.
 
 A release that must reach another Library or the Pack follows the `release-train` skill.
+
+## Uploading to Modrinth
+
+`scripts/upload-modrinth.py <version>` uploads a version already in `~/.m2`: the jar there, byte for byte, with that version's changelog section as its notes, for Minecraft `minecraft_version` on NeoForge, as beta below 1.0. It reads `MODRINTH_TOKEN` (a personal access token that can create versions) and `MODRINTH_PROJECT_ID` (`p4zxipln`) from the environment and never prints the token. It refuses, before contacting Modrinth, a version missing from `~/.m2` or its changelog, and a jar lacking the licensing `checkJarLicensing` requires; and it refuses a version Modrinth already has. `--dry-run` prints the requests and contacts nothing. `MODRINTH_API_URL` points it elsewhere, and its tests (`python3 -m unittest discover scripts/tests`) run it against a stand-in server on localhost.
 
 ## A published version is final
 

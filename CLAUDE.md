@@ -4,7 +4,7 @@ Conventional commits: `<type>(<optional scope>): <summary>`, with the summary in
 
 ## Testing
 
-`sh ./gradlew build` runs the JUnit tests, on a plain JVM with no Minecraft. `sh ./gradlew runGameTestServer` runs the game tests headless and names each one it ran; it fails if it ran none. CI (`.github/workflows/ci.yml`) runs both on every push, and REUSE lint, and never publishes.
+`sh ./gradlew build` runs the JUnit tests, on a plain JVM with no Minecraft. `sh ./gradlew runGameTestServer` runs the game tests headless and names each one it ran; it fails if it ran none. `python3 -m unittest discover scripts/tests` tests the upload step against a stand-in server on localhost. CI (`.github/workflows/ci.yml`) runs all three on every push, and REUSE lint, and never publishes.
 
 ## Agent skills
 

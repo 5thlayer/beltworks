@@ -52,6 +52,13 @@ jobs:
             run/gametest/logs/
           if-no-files-found: ignore
 
+  # The upload steps' tests, against a stand-in server on localhost. They contact no site.
+  scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: python3 -m unittest discover scripts/tests
+
   reuse:
     runs-on: ubuntu-latest
     steps:
