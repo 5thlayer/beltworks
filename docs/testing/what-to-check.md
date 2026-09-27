@@ -1,6 +1,6 @@
 # What to check in game
 
-What the unit and game tests cannot see: how a change looks and feels in a running client. Run `scripts/quicklaunch.sh`, which opens the latest save and refuses while a client is already open, try each check, and add the checks a change brings.
+What the unit and game tests cannot see: how a change looks and feels in a running client. Launch with the `skillworks:quicklaunch` skill, which opens the latest save and refuses while a client is already open, try each check, and add the checks a change brings.
 
 ## A belt's underside (#57)
 
