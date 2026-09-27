@@ -8,9 +8,11 @@
 #   scripts/upload.py [--dry-run] [--site modrinth|curseforge] <version>
 #
 # Each site is uploaded on its own: a failure on one leaves the other, and --site retries just one.
-# The environment names the accounts and projects, and no token or key is ever printed:
-#   Modrinth    $MODRINTH_TOKEN, $MODRINTH_PROJECT_ID
-#   CurseForge  $CURSEFORGE_TOKEN (upload API), $CURSEFORGE_PROJECT_ID
+# Each site's token comes from the environment or, when that sets none, from the macOS Keychain, and
+# is never printed. The projects default to Beltworks' own, which the environment can override:
+#   Modrinth    $MODRINTH_TOKEN or Keychain item beltworks-modrinth, $MODRINTH_PROJECT_ID
+#   CurseForge  $CURSEFORGE_TOKEN or Keychain item beltworks-curseforge (an upload API token),
+#               $CURSEFORGE_PROJECT_ID
 # $MAVEN_REPO_LOCAL reads somewhere other than ~/.m2/repository, and $MODRINTH_API_URL,
 # $CURSEFORGE_UPLOAD_URL and $CURSEFORGE_API_URL send somewhere other than the sites, to try the
 # script out. --dry-run prints the requests it would make and contacts nothing. The rules it keeps
@@ -19,6 +21,7 @@ import io
 import json
 import os
 import re
+import subprocess
 import sys
 import urllib.error
 import urllib.parse
@@ -29,6 +32,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MODRINTH_API = "https://api.modrinth.com/v2"
+MODRINTH_PROJECT = "p4zxipln"
+CURSEFORGE_PROJECT = "1714527"
 CURSEFORGE_UPLOAD = "https://minecraft.curseforge.com"
 # The upload API can't list a project's files, so the website's own listing, which needs no key, does.
 CURSEFORGE_API = "https://www.curseforge.com"
@@ -112,13 +117,19 @@ def show(method, url, headers, **fields):
         print(f"  {name}: {value}")
 
 
-def environment(*names):
-    missing = [name for name in names if not os.environ.get(name)]
-    if missing:
-        names = ", ".join("$" + name for name in missing)
-        raise Refused(f"{names} {'is' if len(missing) == 1 else 'are'} not set; export "
-                      f"{'it' if len(missing) == 1 else 'them'} where the release runs.")
-    return [os.environ[name] for name in names]
+def token(name, service):
+    """The token $<name> holds or, when it's unset, the Keychain's generic password <service>."""
+    if os.environ.get(name):
+        return os.environ[name]
+    try:
+        found = subprocess.run(["security", "find-generic-password", "-s", service, "-w"],
+                               capture_output=True, text=True)
+        if found.returncode == 0 and found.stdout.strip():
+            return found.stdout.strip()
+    except FileNotFoundError:
+        pass
+    raise Refused(f"${name} is not set and the Keychain has no {service}; add it with "
+                  f"security add-generic-password -a \"$USER\" -s {service} -w")
 
 
 class Release:
@@ -147,7 +158,8 @@ class Release:
         return f"{self.jar.name} ({len(self.data)} bytes) from {self.jar}"
 
     def modrinth(self):
-        token, project = environment("MODRINTH_TOKEN", "MODRINTH_PROJECT_ID")
+        secret = token("MODRINTH_TOKEN", "beltworks-modrinth")
+        project = os.environ.get("MODRINTH_PROJECT_ID") or MODRINTH_PROJECT
         api = os.environ.get("MODRINTH_API_URL", MODRINTH_API).rstrip("/")
         metadata = {
             "name": self.name,
@@ -162,7 +174,7 @@ class Release:
             "file_parts": ["file"],
             "primary_file": "file",
         }
-        headers = {"Authorization": token, "User-Agent": self.agent}
+        headers = {"Authorization": secret, "User-Agent": self.agent}
         listing = f"{api}/project/{project}/version"
         if self.dry_run:
             show("GET", listing, headers)
@@ -177,10 +189,11 @@ class Release:
         print(f"Uploaded {self.jar.name} to Modrinth as {self.version} ({created.get('id')})")
 
     def curseforge(self):
-        token, project = environment("CURSEFORGE_TOKEN", "CURSEFORGE_PROJECT_ID")
+        secret = token("CURSEFORGE_TOKEN", "beltworks-curseforge")
+        project = os.environ.get("CURSEFORGE_PROJECT_ID") or CURSEFORGE_PROJECT
         upload = os.environ.get("CURSEFORGE_UPLOAD_URL", CURSEFORGE_UPLOAD).rstrip("/")
         api = os.environ.get("CURSEFORGE_API_URL", CURSEFORGE_API).rstrip("/")
-        upload_headers = {"X-Api-Token": token, "User-Agent": self.agent}
+        upload_headers = {"X-Api-Token": secret, "User-Agent": self.agent}
         api_headers = {"User-Agent": self.agent, "Accept": "application/json"}
         files = f"{api}/api/v1/mods/{project}/files"
         metadata = {

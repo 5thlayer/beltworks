@@ -19,6 +19,15 @@ from standin import StandIn
 
 SCRIPT = Path(__file__).resolve().parents[1] / "upload.py"
 SECRETS = {"MODRINTH_TOKEN": "mrp_standin-secret-token", "CURSEFORGE_TOKEN": "cf-upload-secret-token"}
+# The tokens the stand-in Keychain holds, by service, for when the environment sets none.
+KEYCHAIN = {"beltworks-modrinth": "mrp_keychain-secret-token", "beltworks-curseforge": "cf-keychain-secret-token"}
+# A stand-in for macOS's security command, first on PATH, so no test reads the real Keychain. It
+# answers `security find-generic-password -s <service> -w` from files named after the services.
+SECURITY = """#!/bin/sh
+while [ $# -gt 0 ]; do [ "$1" = -s ] && service="$2"; shift; done
+[ -f "$(dirname "$0")/keychain/$service" ] || { echo "The specified item could not be found in the keychain." >&2; exit 44; }
+cat "$(dirname "$0")/keychain/$service"
+"""
 MODRINTH_PROJECT = "beltworks-standin"
 CF_PROJECT = "123456"
 NOTES = "- The jar carries its licensing.\n- It nests Groundworks 0.4.6."
@@ -78,7 +87,11 @@ class Upload(unittest.TestCase):
         (self.root / "CHANGELOG.md").write_text(CHANGELOG)
         (self.root / "gradle.properties").write_text(PROPERTIES)
         self.maven = self.root / "m2"
-        self.env = {"PATH": os.environ["PATH"], "MAVEN_REPO_LOCAL": str(self.maven), **SECRETS,
+        self.bin = self.root / "bin"
+        (self.bin / "keychain").mkdir(parents=True)
+        (self.bin / "security").write_text(SECURITY)
+        (self.bin / "security").chmod(0o755)
+        self.env = {"PATH": f"{self.bin}{os.pathsep}{os.environ['PATH']}", "MAVEN_REPO_LOCAL": str(self.maven), **SECRETS,
                     "MODRINTH_PROJECT_ID": MODRINTH_PROJECT, "MODRINTH_API_URL": self.site.url + "/modrinth",
                     "CURSEFORGE_PROJECT_ID": CF_PROJECT, "CURSEFORGE_UPLOAD_URL": self.site.url + "/cf-upload",
                     "CURSEFORGE_API_URL": self.site.url + "/cf-site"}
@@ -95,7 +108,7 @@ class Upload(unittest.TestCase):
         environment = {k: v for k, v in environment.items() if v is not None}
         result = subprocess.run([sys.executable, str(self.root / "scripts/upload.py"), *args],
                                 env=environment, capture_output=True, text=True)
-        for secret in SECRETS.values():
+        for secret in [*SECRETS.values(), *KEYCHAIN.values()]:
             self.assertNotIn(secret, result.stdout + result.stderr)
         return result
 
@@ -148,13 +161,36 @@ class Upload(unittest.TestCase):
                 self.publish("0.3.9", licensed(**entry))
                 self.assertRefusedBeforeAnyRequest(self.upload("0.3.9"), lacking)
 
-    def test_a_missing_token_or_project_id_fails_clearly_and_leaves_the_other_site(self):
+    def keychain(self, service):
+        (self.bin / "keychain" / service).write_text(KEYCHAIN[service] + "\n")
+
+    def test_a_token_the_environment_lacks_comes_from_the_keychain(self):
+        self.publish("0.3.9")
+        self.keychain("beltworks-modrinth")
+        self.keychain("beltworks-curseforge")
+        result = self.upload("0.3.9", MODRINTH_TOKEN=None, CURSEFORGE_TOKEN="")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.modrinth_post().headers["Authorization"], KEYCHAIN["beltworks-modrinth"])
+        self.assertEqual(self.curseforge_post().headers["X-Api-Token"], KEYCHAIN["beltworks-curseforge"])
+
+    def test_the_environment_wins_over_the_keychain(self):
+        self.publish("0.3.9")
+        self.keychain("beltworks-modrinth")
+        self.upload("--site", "modrinth", "0.3.9")
+        self.assertEqual(self.modrinth_post().headers["Authorization"], SECRETS["MODRINTH_TOKEN"])
+
+    def test_the_project_ids_default_to_beltworks_own(self):
+        self.publish("0.3.9")
+        result = self.upload("--dry-run", "0.3.9", MODRINTH_PROJECT_ID=None, CURSEFORGE_PROJECT_ID=None)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("/modrinth/project/p4zxipln/version", result.stdout)
+        self.assertIn("/cf-upload/api/projects/1714527/upload-file", result.stdout)
+
+    def test_a_missing_token_fails_clearly_and_leaves_the_other_site(self):
         self.publish("0.3.9")
         curseforge, modrinth = ("cf-site", "cf-upload"), ("modrinth",)
-        for name, skipped, other in [("MODRINTH_TOKEN", modrinth, "/cf-upload/"),
-                                     ("MODRINTH_PROJECT_ID", modrinth, "/cf-upload/"),
-                                     ("CURSEFORGE_TOKEN", curseforge, "/modrinth/"),
-                                     ("CURSEFORGE_PROJECT_ID", curseforge, "/modrinth/")]:
+        for name, service, skipped, other in [("MODRINTH_TOKEN", "beltworks-modrinth", modrinth, "/cf-upload/"),
+                                              ("CURSEFORGE_TOKEN", "beltworks-curseforge", curseforge, "/modrinth/")]:
             for unset in [None, ""]:
                 with self.subTest(name, unset=unset):
                     self.site.requests.clear()
@@ -163,6 +199,7 @@ class Upload(unittest.TestCase):
                     result = self.upload("0.3.9", **{name: unset})
                     self.assertNotEqual(result.returncode, 0)
                     self.assertIn(name, result.stderr)
+                    self.assertIn(service, result.stderr)
                     self.assertFalse({r.path.split("/")[1] for r in self.site.requests} & set(skipped))
                     self.assertEqual(len(self.site.sent("POST", other)), 1)
 
