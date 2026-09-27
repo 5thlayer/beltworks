@@ -58,6 +58,12 @@ path = [
     "src/main/resources/assets/beltworks/models/item/loader.json",
     "src/main/resources/data/beltworks/loot_table/blocks/loader.json",
     "src/main/resources/data/beltworks/recipe/loader_item.json",
+    # Git reads these as copies of Upstream's files, though they hold only
+    # Minecraft's boilerplate. Crediting Rearth errs on the safe side.
+    "src/main/resources/assets/beltworks/blockstates/belt_tile.json",
+    "src/main/resources/assets/beltworks/blockstates/belt_wedge.json",
+    "src/main/resources/assets/beltworks/items/*.json",
+    "src/main/resources/data/beltworks/loot_table/blocks/*.json",
 ]
 SPDX-FileCopyrightText = ["Rearth", "2026 5thlayer"]
 SPDX-License-Identifier = "CC-BY-4.0"
