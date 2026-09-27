@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.9
+
 - The jar carries its licensing: LICENSE, NOTICE crediting Rearth and malcolmriley, and the licence texts. It nests Groundworks 0.4.6, which carries its own.
 
 ## 0.3.8
