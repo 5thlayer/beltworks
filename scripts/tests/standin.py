@@ -3,7 +3,7 @@
 #
 # A local stand-in for the sites the upload step sends to. It listens on localhost only, records
 # every request it gets, and answers the way each site would. Modrinth's API is under /modrinth,
-# CurseForge's upload API under /cf-upload and its Core API under /cf-core.
+# CurseForge's upload API under /cf-upload and its website's file listing under /cf-site.
 import json
 import re
 import threading
@@ -87,14 +87,14 @@ class StandIn:
             return 200, {"id": "standin", "version_number": data["version_number"]}
 
         def cf_files(request, project):
-            # The Core API only knows a project once it has an approved file.
-            if project not in stand_in.curseforge:
-                return 404, {}
-            index = int(re.search(r"index=(\d+)", request.path).group(1)) if "index=" in request.path else 0
+            # A project with no files yet answers with an empty listing and no pagination.
+            if not stand_in.curseforge.get(project):
+                return 200, {"data": [], "pagination": {}}
+            match = re.search(r"pageIndex=(\d+)", request.path)
+            index = int(match.group(1)) if match else 0
             files = [{"fileName": f, "displayName": f} for f in stand_in.curseforge[project]]
-            page = files[index:index + 2]  # a small page, so the step must follow the pagination
-            return 200, {"data": page, "pagination": {"index": index, "pageSize": 2, "resultCount": len(page),
-                                                      "totalCount": len(files)}}
+            page = files[index * 2:index * 2 + 2]  # small pages, so the step must follow the pagination
+            return 200, {"data": page, "pagination": {"index": index, "pageSize": 2, "totalCount": len(files)}}
 
         def cf_upload(request, project):
             stand_in.curseforge.setdefault(project, []).append(request.parts()["file"][1])
@@ -106,7 +106,7 @@ class StandIn:
             (r"GET /cf-upload/api/game/version-types", lambda r: (200, VERSION_TYPES)),
             (r"GET /cf-upload/api/game/versions", lambda r: (200, GAME_VERSIONS)),
             (r"POST /cf-upload/api/projects/(\d+)/upload-file", cf_upload),
-            (r"GET /cf-core/v1/mods/(\d+)/files", cf_files),
+            (r"GET /cf-site/api/v1/mods/(\d+)/files", cf_files),
         ]
 
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)

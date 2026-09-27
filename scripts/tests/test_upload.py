@@ -18,8 +18,7 @@ from pathlib import Path
 from standin import StandIn
 
 SCRIPT = Path(__file__).resolve().parents[1] / "upload.py"
-SECRETS = {"MODRINTH_TOKEN": "mrp_standin-secret-token", "CURSEFORGE_TOKEN": "cf-upload-secret-token",
-           "CURSEFORGE_API_KEY": "cf-core-secret-key"}
+SECRETS = {"MODRINTH_TOKEN": "mrp_standin-secret-token", "CURSEFORGE_TOKEN": "cf-upload-secret-token"}
 MODRINTH_PROJECT = "beltworks-standin"
 CF_PROJECT = "123456"
 NOTES = "- The jar carries its licensing.\n- It nests Groundworks 0.4.6."
@@ -82,7 +81,7 @@ class Upload(unittest.TestCase):
         self.env = {"PATH": os.environ["PATH"], "MAVEN_REPO_LOCAL": str(self.maven), **SECRETS,
                     "MODRINTH_PROJECT_ID": MODRINTH_PROJECT, "MODRINTH_API_URL": self.site.url + "/modrinth",
                     "CURSEFORGE_PROJECT_ID": CF_PROJECT, "CURSEFORGE_UPLOAD_URL": self.site.url + "/cf-upload",
-                    "CURSEFORGE_API_URL": self.site.url + "/cf-core"}
+                    "CURSEFORGE_API_URL": self.site.url + "/cf-site"}
 
     def publish(self, version, data=None):
         folder = self.maven / "io/github/5thlayer/beltworks" / version
@@ -149,14 +148,13 @@ class Upload(unittest.TestCase):
                 self.publish("0.3.9", licensed(**entry))
                 self.assertRefusedBeforeAnyRequest(self.upload("0.3.9"), lacking)
 
-    def test_a_missing_token_key_or_project_id_fails_clearly_and_leaves_the_other_site(self):
+    def test_a_missing_token_or_project_id_fails_clearly_and_leaves_the_other_site(self):
         self.publish("0.3.9")
-        curseforge, modrinth = ("cf-core", "cf-upload"), ("modrinth",)
+        curseforge, modrinth = ("cf-site", "cf-upload"), ("modrinth",)
         for name, skipped, other in [("MODRINTH_TOKEN", modrinth, "/cf-upload/"),
                                      ("MODRINTH_PROJECT_ID", modrinth, "/cf-upload/"),
                                      ("CURSEFORGE_TOKEN", curseforge, "/modrinth/"),
-                                     ("CURSEFORGE_PROJECT_ID", curseforge, "/modrinth/"),
-                                     ("CURSEFORGE_API_KEY", curseforge, "/modrinth/")]:
+                                     ("CURSEFORGE_PROJECT_ID", curseforge, "/modrinth/")]:
             for unset in [None, ""]:
                 with self.subTest(name, unset=unset):
                     self.site.requests.clear()
@@ -202,8 +200,7 @@ class Upload(unittest.TestCase):
         for line in [f"GET {self.site.url}/modrinth/project/{MODRINTH_PROJECT}/version",
                      f"POST {self.site.url}/modrinth/version",
                      "Authorization: <redacted>",
-                     f"GET {self.site.url}/cf-core/v1/mods/{CF_PROJECT}/files",
-                     "x-api-key: <redacted>",
+                     f"GET {self.site.url}/cf-site/api/v1/mods/{CF_PROJECT}/files",
                      f"GET {self.site.url}/cf-upload/api/game/versions",
                      f"POST {self.site.url}/cf-upload/api/projects/{CF_PROJECT}/upload-file",
                      "X-Api-Token: <redacted>",
@@ -253,12 +250,14 @@ class Upload(unittest.TestCase):
 
     # CurseForge
 
-    def test_curseforge_authenticates_the_upload_with_the_token_and_the_listing_with_the_key(self):
+    def test_curseforge_authenticates_the_upload_with_the_token_and_lists_files_without_it(self):
         self.publish("0.3.9")
         self.upload("0.3.9")
         self.assertEqual(self.curseforge_post().headers["X-Api-Token"], SECRETS["CURSEFORGE_TOKEN"])
-        for listing in self.site.sent("GET", "/cf-core/"):
-            self.assertEqual(listing.headers["x-api-key"], SECRETS["CURSEFORGE_API_KEY"])
+        listings = self.site.sent("GET", "/cf-site/")
+        self.assertTrue(listings)
+        for listing in listings:
+            self.assertNotIn("X-Api-Token", listing.headers)
 
     def test_curseforge_gets_the_changelog_section_and_the_game(self):
         self.publish("0.3.9")

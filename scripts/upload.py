@@ -10,8 +10,7 @@
 # Each site is uploaded on its own: a failure on one leaves the other, and --site retries just one.
 # The environment names the accounts and projects, and no token or key is ever printed:
 #   Modrinth    $MODRINTH_TOKEN, $MODRINTH_PROJECT_ID
-#   CurseForge  $CURSEFORGE_TOKEN (upload API), $CURSEFORGE_API_KEY (Core API, to list the
-#               project's files), $CURSEFORGE_PROJECT_ID
+#   CurseForge  $CURSEFORGE_TOKEN (upload API), $CURSEFORGE_PROJECT_ID
 # $MAVEN_REPO_LOCAL reads somewhere other than ~/.m2/repository, and $MODRINTH_API_URL,
 # $CURSEFORGE_UPLOAD_URL and $CURSEFORGE_API_URL send somewhere other than the sites, to try the
 # script out. --dry-run prints the requests it would make and contacts nothing. The rules it keeps
@@ -31,11 +30,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MODRINTH_API = "https://api.modrinth.com/v2"
 CURSEFORGE_UPLOAD = "https://minecraft.curseforge.com"
-CURSEFORGE_API = "https://api.curseforge.com"
+# The upload API can't list a project's files, so the website's own listing, which needs no key, does.
+CURSEFORGE_API = "https://www.curseforge.com"
 # What checkJarLicensing in build.gradle requires of the jar.
 LICENSING = ["LICENSE", "NOTICE", "LICENSES/MIT.txt", "LICENSES/CC-BY-4.0.txt"]
 CREDITED = ["Rearth", "malcolmriley"]
-SECRET_HEADERS = {"Authorization", "X-Api-Token", "x-api-key"}
+SECRET_HEADERS = {"Authorization", "X-Api-Token"}
 
 
 class Refused(Exception):
@@ -177,12 +177,12 @@ class Release:
         print(f"Uploaded {self.jar.name} to Modrinth as {self.version} ({created.get('id')})")
 
     def curseforge(self):
-        token, key, project = environment("CURSEFORGE_TOKEN", "CURSEFORGE_API_KEY", "CURSEFORGE_PROJECT_ID")
+        token, project = environment("CURSEFORGE_TOKEN", "CURSEFORGE_PROJECT_ID")
         upload = os.environ.get("CURSEFORGE_UPLOAD_URL", CURSEFORGE_UPLOAD).rstrip("/")
         api = os.environ.get("CURSEFORGE_API_URL", CURSEFORGE_API).rstrip("/")
         upload_headers = {"X-Api-Token": token, "User-Agent": self.agent}
-        api_headers = {"x-api-key": key, "User-Agent": self.agent, "Accept": "application/json"}
-        files = f"{api}/v1/mods/{project}/files"
+        api_headers = {"User-Agent": self.agent, "Accept": "application/json"}
+        files = f"{api}/api/v1/mods/{project}/files"
         metadata = {
             "changelog": self.notes,
             "changelogType": "markdown",
@@ -211,21 +211,16 @@ class Release:
         print(f"Uploaded {self.jar.name} to CurseForge as {self.version} ({created.get('id')})")
 
     def curseforge_files(self, url, headers):
-        """The names of every file the project has, across the listing's pages. The Core API only
-        knows a project once a file of it is approved, so before that it has none."""
-        names, index = set(), 0
+        """The file and display names of every file the project has, across the listing's pages."""
+        names, page_index, seen = set(), 0, 0
         while True:
-            try:
-                page = send("GET", f"{url}?{urllib.parse.urlencode({'index': index, 'pageSize': 50})}", headers)
-            except Refused as refused:
-                if index == 0 and " failed with 404:" in str(refused):
-                    print("CurseForge lists no files for the project yet.")
-                    return names
-                raise
+            query = urllib.parse.urlencode({"pageIndex": page_index, "pageSize": 50})
+            page = send("GET", f"{url}?{query}", headers)
             names |= {f.get("fileName") for f in page["data"]} | {f.get("displayName") for f in page["data"]}
-            index += len(page["data"])
-            if not page["data"] or index >= page["pagination"]["totalCount"]:
+            seen += len(page["data"])
+            if not page["data"] or seen >= page["pagination"].get("totalCount", 0):
                 return names
+            page_index += 1
 
     def curseforge_game_versions(self, upload, headers):
         """The ids of the Minecraft version and of NeoForge, which the upload API names by id."""
