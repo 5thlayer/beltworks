@@ -115,7 +115,9 @@ def show(method, url, headers, **fields):
 def environment(*names):
     missing = [name for name in names if not os.environ.get(name)]
     if missing:
-        raise Refused(f"{' and '.join('$' + n for n in missing)} not set; export it where the release runs.")
+        names = ", ".join("$" + name for name in missing)
+        raise Refused(f"{names} {'is' if len(missing) == 1 else 'are'} not set; export "
+                      f"{'it' if len(missing) == 1 else 'them'} where the release runs.")
     return [os.environ[name] for name in names]
 
 
@@ -265,7 +267,8 @@ def main(args):
             print(f"upload: {name}: {refused}", file=sys.stderr)
             failed.append(site)
     if failed:
-        fail(f"retry with --site {' / --site '.join(failed)} once fixed; the other sites are done.")
+        done = "" if len(failed) == len(sites) else "; the other site is done"
+        fail(f"retry with {' and '.join('--site ' + site for site in failed)} once fixed{done}.")
 
 
 if __name__ == "__main__":
