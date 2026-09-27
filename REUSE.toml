@@ -87,3 +87,9 @@ path = ["gradlew", "gradlew.bat", "gradle/wrapper/**"]
 precedence = "override"
 SPDX-FileCopyrightText = "Gradle"
 SPDX-License-Identifier = "Apache-2.0"
+
+# Temporary cover and icon for mod pages. Their backdrop is the belt art.
+[[annotations]]
+path = ["publish/*.png"]
+SPDX-FileCopyrightText = ["Rearth", "malcolmriley", "2026 5thlayer"]
+SPDX-License-Identifier = "CC-BY-4.0"
