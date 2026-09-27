@@ -1,3 +1,11 @@
+## Commits
+
+Conventional commits: `<type>(<optional scope>): <summary>`, with the summary in the imperative and lower case. The types in use are `feat`, `fix`, `refactor`, `test`, `docs`, `build`, `ci` and `chore`. A breaking change marks its type with `!` (`feat!: ...`), and its release bumps the minor (libworks' ADR 0001). A commit that closes an issue ends its body with `Closes #<n>`.
+
+## Testing
+
+`sh ./gradlew build` runs the JUnit tests, on a plain JVM with no Minecraft. `sh ./gradlew runGameTestServer` runs the game tests headless and names each one it ran; it fails if it ran none. CI (`.github/workflows/ci.yml`) runs both on every push, and REUSE lint, and never publishes.
+
 ## Agent skills
 
 ### Issue tracker

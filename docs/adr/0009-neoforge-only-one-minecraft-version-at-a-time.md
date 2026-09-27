@@ -15,4 +15,4 @@ The Mod runs on NeoForge and nothing else. Fabric does not come back, and ADR 00
 - The rename also rewrites the Architectury call sites (registries, creative tab, block entity renderer, tick and interaction events, and `@ExpectPlatform` in `BeltSync` and `PlatformBlockEntityTypes`) and replaces the Gradle build.
 - `mods.toml` declares the exact Minecraft patch and drops the `architectury` dependency. The Pack drops Architectury API unless another mod needs it.
 - The readme's "both Fabric and NeoForge" claim and its Architectury and Fabric API dependencies go.
-- While the Mod is `0.x`, moving to a new Minecraft version bumps the minor version.
+- While the Mod is `0.x`, moving to a new Minecraft version bumps the minor version: a move breaks the saves and packs of the version left behind, a breaking change under libworks' ADR 0001 (<https://github.com/5thlayer/libworks/blob/main/docs/adr/0001-below-1-0-an-addition-bumps-the-patch.md>), which sets the Mod's version bumps.

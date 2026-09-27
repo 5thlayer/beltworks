@@ -17,7 +17,8 @@ tasks.withType(JavaCompile).configureEach {
     options.release = 25
 }
 
-// The Minecraft version goes in the jar's name and not in the Mod's version: beltworks-26.1.2-0.1.0.jar.
+// The Minecraft version goes in the jar's name and not in the Mod's version:
+// beltworks-26.1.2-0.3.8.jar.
 tasks.withType(Jar).configureEach {
     archiveVersion = "$minecraft_version-$mod_version"
 }
@@ -68,8 +69,12 @@ neoForge {
 
 // The server says only how many tests passed, so the report is read back to name them: a green
 // run that didn't run a test is no evidence for it.
+// The server writes the report but not its folder, which a clean checkout has yet to make.
 tasks.named('runGameTestServer') {
-    doFirst { gameTestReport.delete() }
+    doFirst {
+        gameTestReport.delete()
+        gameTestReport.parentFile.mkdirs()
+    }
     doLast {
         if (!gameTestReport.exists()) throw new GradleException("The game test server wrote no report at $gameTestReport")
         def cases = new groovy.xml.XmlSlurper().parse(gameTestReport).'**'.findAll { it.name() == 'testcase' }
@@ -137,14 +142,22 @@ test {
     useJUnitPlatform()
 }
 
+// neoforge.mods.toml names nothing of its own but its credits: it is filled from gradle.properties,
+// and its Groundworks range from the one the Mod nests.
+def modProperties = [
+        mod_id: mod_id, mod_name: mod_name, mod_description: mod_description, version: mod_version,
+        minecraft_version: minecraft_version, neoforge_version: neoforge_version,
+        groundworksRange: groundworksRange,
+]
 processResources {
-    inputs.property 'version', version
-    inputs.property 'groundworksRange', groundworksRange
+    inputs.properties modProperties
     filesMatching('META-INF/neoforge.mods.toml') {
-        expand version: version, groundworksRange: groundworksRange
+        expand modProperties
     }
 }
 
+// Maven local only, which is where the Pack's pin reads the Mod's jar (release-train). Nothing here
+// publishes anywhere else.
 publishing {
     publications {
         mavenJava(MavenPublication) {
@@ -162,8 +175,8 @@ tasks.withType(PublishToMavenLocal).configureEach {
     doFirst {
         // A released Beltworks never nests an unreleased Groundworks (docs/agents/releases.md).
         if (gradle.ext.has('groundworksCheckout')) throw new GradleException(
-                "Beltworks is built against the Groundworks checkout under -PsiblingBuilds, and nothing publishes under it")
+                "$mod_name is built against the Groundworks checkout under -PsiblingBuilds, and nothing publishes under it")
         if (published.exists()) throw new GradleException(
-                "Beltworks $mod_version is already in $published, and a published version never changes: bump mod_version")
+                "$mod_name $mod_version is already in $published, and a published version never changes: bump mod_version")
     }
 }

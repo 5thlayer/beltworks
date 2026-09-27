@@ -1,34 +1,36 @@
 modLoader = "javafml"
 loaderVersion = "[4,)"
-issueTrackerURL = "https://github.com/5thlayer/beltworks/issues"
+issueTrackerURL = "https://github.com/5thlayer/${mod_id}/issues"
 license = "MIT AND CC-BY-4.0"
 
+# processResources fills each dollar-brace value from gradle.properties, so this file names
+# nothing of the Mod's own but its credits and its Groundworks.
 [[mods]]
-modId = "beltworks"
+modId = "${mod_id}"
 version = "${version}"
-displayName = "Beltworks"
+displayName = "${mod_name}"
 authors = "5thlayer"
 credits = "Builds on Simple Conveyor Belts by Rearth and on malcolmriley's unused-textures, both CC BY 4.0. See NOTICE."
 description = '''
-Factorio-style belts laid on the block grid, which work with any tech mod.
+${mod_description}
 '''
 #logoFile = ""
 
-[[dependencies.beltworks]]
+[[dependencies.${mod_id}]]
 modId = "neoforge"
 type = "required"
-versionRange = "[26.1.2.77,)"
+versionRange = "[${neoforge_version},)"
 ordering = "NONE"
 side = "BOTH"
 
-[[dependencies.beltworks]]
+[[dependencies.${mod_id}]]
 modId = "minecraft"
 type = "required"
-versionRange = "[26.1.2]"
+versionRange = "[${minecraft_version}]"
 ordering = "NONE"
 side = "BOTH"
 
-[[dependencies.beltworks]]
+[[dependencies.${mod_id}]]
 modId = "groundworks"
 type = "required"
 versionRange = "${groundworksRange}"

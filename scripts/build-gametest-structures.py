@@ -13,7 +13,19 @@ import os
 import struct
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-STRUCTURES = os.path.join(ROOT, "src", "main", "resources", "data", "beltworks", "structure", "gametest")
+
+
+def _mod_id():
+    # The structures live under the mod's own namespace, which gradle.properties names.
+    with open(os.path.join(ROOT, "gradle.properties"), encoding="utf-8") as handle:
+        for line in handle:
+            key, _, value = line.partition("=")
+            if key.strip() == "mod_id":
+                return value.strip()
+    raise SystemExit("gradle.properties names no mod_id")
+
+
+STRUCTURES = os.path.join(ROOT, "src", "main", "resources", "data", _mod_id(), "structure", "gametest")
 
 DATA_VERSION = 4790  # 26.1.2
 # The Pack's platform, which the belt tests were written on: room for two lines side by side, a

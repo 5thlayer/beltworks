@@ -5,6 +5,7 @@ package io.github._5thlayer.beltworks.gametest;
 
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import io.github._5thlayer.beltworks.Beltworks;
 import net.minecraft.core.Holder;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.gametest.framework.GameTestInstance;
@@ -59,6 +60,6 @@ final class CodeGameTest extends GameTestInstance {
 
     @Override
     protected MutableComponent typeDescription() {
-        return Component.literal("beltworks code");
+        return Component.literal(Beltworks.MOD_ID + " code");
     }
 }

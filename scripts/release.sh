@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Release Beltworks <version> from HEAD: the changelog's Unreleased entries become <version>'s, the
-# build and game tests pass, and the jar is published to the local maven repository and tagged.
+# SPDX-FileCopyrightText: 2026 5thlayer
+# SPDX-License-Identifier: MIT
+#
+# Release the Library at <version> from HEAD: the changelog's Unreleased entries become <version>'s,
+# the build and game tests pass, and the jar is published to the local maven repository and tagged.
 #
 #   scripts/release.sh <version>
 #
@@ -11,11 +14,19 @@ cd "$(dirname "$0")/.."
 
 fail() { echo "release: $*" >&2; exit 1; }
 
+# The Library's names come from gradle.properties, as the build's do.
+property() { sed -n "s/^$1 *= *//p" gradle.properties; }
+name="$(property mod_name)"
+group="$(property maven_group)"
+artifact="$(property archives_name)"
+[[ -n "$name" && -n "$group" && -n "$artifact" ]] || fail "gradle.properties must name mod_name, maven_group and archives_name."
+
 version="${1:-}"
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "usage: scripts/release.sh <major.minor.patch>"
-tag="beltworks-v$version"
+# Prefixed, because this repo still carries Upstream's bare v<version> tags (docs/agents/releases.md).
+tag="$artifact-v$version"
 repo="${MAVEN_REPO_LOCAL:-$HOME/.m2/repository}"
-published="$repo/io/github/5thlayer/beltworks/$version"
+published="$repo/${group//.//}/$artifact/$version"
 
 [[ -z "$(git status --porcelain)" ]] || fail "the working tree has changes; commit or stash them first."
 ! git rev-parse -q --verify "refs/tags/$tag" > /dev/null || fail "$tag already exists."
@@ -38,12 +49,12 @@ awk -v v="$version" '{print} $0 == "## Unreleased" {print ""; print "## " v}' CH
 mv CHANGELOG.md.new CHANGELOG.md
 
 sh ./gradlew build runGameTestServer
-git commit -q -m "Beltworks $version" -- gradle.properties CHANGELOG.md
+git commit -q -m "chore: release $version" -- gradle.properties CHANGELOG.md
 trap - EXIT
 
 sh ./gradlew "-Dmaven.repo.local=$repo" publishToMavenLocal
-sha="$(shasum -a 256 "$published/beltworks-$version.jar" | cut -d' ' -f1)"
-git tag -a "$tag" -m "Beltworks $version" -m "jar sha256 $sha"
+sha="$(shasum -a 256 "$published/$artifact-$version.jar" | cut -d' ' -f1)"
+git tag -a "$tag" -m "$name $version" -m "jar sha256 $sha"
 
 echo "Published $published"
 echo "jar sha256 $sha"

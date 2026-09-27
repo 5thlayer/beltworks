@@ -18,6 +18,7 @@ path = [
     "scripts/*.sh",
     "**/*.md",
     "NOTICE",
+    ".github/**",
 ]
 SPDX-FileCopyrightText = "2026 5thlayer"
 SPDX-License-Identifier = "MIT"
