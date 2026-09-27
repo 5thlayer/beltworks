@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The jar carries its licensing: LICENSE, NOTICE crediting Rearth and malcolmriley, and the licence texts. It nests Groundworks 0.4.6, which carries its own.
+
 ## 0.3.8
 
 - Nests Groundworks 0.4.5: a stretch is refused whole where the player may not build (5thlayer/groundworks#16).

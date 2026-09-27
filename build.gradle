@@ -123,7 +123,7 @@ dependencies {
     jarJar(implementation('io.github.5thlayer:groundworks')) {
         version {
             strictly groundworksRange
-            prefer '0.4.5'
+            prefer '0.4.6'
         }
     }
 
@@ -141,6 +141,38 @@ dependencies {
 test {
     useJUnitPlatform()
 }
+
+// The jar is what players are handed, so it carries what CC BY and the bundled Groundworks require:
+// the licences, and NOTICE crediting the works the Mod builds on.
+tasks.named('jar', Jar) {
+    from(rootDir) { include 'LICENSE', 'NOTICE', 'LICENSES/**' }
+}
+
+// Fails the build when the jar, or a jar it nests, lost its licensing.
+def checkJarLicensing = tasks.register('checkJarLicensing') {
+    def jarFile = tasks.named('jar', Jar).flatMap { it.archiveFile }
+    inputs.file jarFile
+    doLast {
+        def entries = { InputStream stream ->
+            def found = [:]
+            new java.util.zip.ZipInputStream(stream).withCloseable { zip ->
+                for (def e = zip.nextEntry; e != null; e = zip.nextEntry) {
+                    found[e.name] = e.name == 'NOTICE' || e.name.endsWith('.jar') ? zip.readAllBytes() : null
+                }
+            }
+            found
+        }
+        def outer = jarFile.get().asFile.withInputStream(entries)
+        def missing = ['LICENSE', 'NOTICE', 'LICENSES/MIT.txt', 'LICENSES/CC-BY-4.0.txt'].findAll { !outer.containsKey(it) }
+        def notice = outer['NOTICE'] ? new String(outer['NOTICE'], 'UTF-8') : ''
+        missing += ['Rearth', 'malcolmriley'].findAll { !notice.contains(it) }.collect { "NOTICE crediting $it" }
+        outer.findAll { it.key.startsWith('META-INF/jarjar/') && it.key.endsWith('.jar') }.each { name, bytes ->
+            if (!entries(new ByteArrayInputStream(bytes)).containsKey('LICENSE')) missing << "LICENSE in $name"
+        }
+        if (missing) throw new GradleException("${jarFile.get().asFile.name} lacks its licensing: ${missing.join(', ')}")
+    }
+}
+tasks.named('check') { dependsOn checkJarLicensing }
 
 // neoforge.mods.toml names nothing of its own but its credits: it is filled from gradle.properties,
 // and its Groundworks range from the one the Mod nests.
