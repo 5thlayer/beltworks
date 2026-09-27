@@ -6,7 +6,9 @@
 # the build and game tests pass, and the jar is published to the local maven repository, tagged,
 # and uploaded to Modrinth and CurseForge by scripts/upload.py.
 #
-#   scripts/release.sh <version>
+#   scripts/release.sh [--no-upload] <version>
+#
+# --no-upload stops after the tag, for a release train that uploads once the user says to push.
 #
 # It commits and tags but pushes nothing to git. The rules it keeps are in docs/agents/releases.md.
 # $MAVEN_REPO_LOCAL publishes somewhere other than ~/.m2/repository, to try the script out, and
@@ -23,8 +25,10 @@ group="$(property maven_group)"
 artifact="$(property archives_name)"
 [[ -n "$name" && -n "$group" && -n "$artifact" ]] || fail "gradle.properties must name mod_name, maven_group and archives_name."
 
+upload_now=1
+if [[ "${1:-}" == --no-upload ]]; then upload_now=; shift; fi
 version="${1:-}"
-[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "usage: scripts/release.sh <major.minor.patch>"
+[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "usage: scripts/release.sh [--no-upload] <major.minor.patch>"
 # Prefixed, because this repo still carries Upstream's bare v<version> tags (docs/agents/releases.md).
 tag="$artifact-v$version"
 repo="${MAVEN_REPO_LOCAL:-$HOME/.m2/repository}"
@@ -65,7 +69,9 @@ echo "jar sha256 $sha"
 # A trial against another maven repository only shows what it would upload.
 upload=(scripts/upload.py)
 [[ -z "${MAVEN_REPO_LOCAL:-}" ]] || upload+=(--dry-run)
-if ! "${upload[@]}" "$version"; then
+if [[ -z "$upload_now" ]]; then
+    echo "Upload with: scripts/upload.py $version"
+elif ! "${upload[@]}" "$version"; then
     echo "release: $version is released and tagged, but an upload failed; retry it with" >&2
     echo "release:   scripts/upload.py --site <site> $version" >&2
     echo "release: for each site named above." >&2

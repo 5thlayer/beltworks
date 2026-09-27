@@ -15,7 +15,7 @@ Each change players notice adds its line under `## Unreleased` in `CHANGELOG.md`
 1. sets `mod_version` and turns `## Unreleased` into `## <version>` under a fresh, empty Unreleased
 2. runs the build and the game tests, putting both files back if either fails
 3. commits `chore: release <version>`, runs `publishToMavenLocal`, and tags `beltworks-v<version>` with the jar's sha256
-4. uploads the jar to Modrinth and CurseForge with `scripts/upload.py` (below). A failed upload leaves the local release and the tag in place; the script names the site that failed, and `scripts/upload.py --site <site> <version>` retries it. Under `MAVEN_REPO_LOCAL`, a trial run, the upload is only a dry run.
+4. uploads the jar to Modrinth and CurseForge with `scripts/upload.py` (below). A failed upload leaves the local release and the tag in place; the script names the site that failed, and `scripts/upload.py --site <site> <version>` retries it. `--no-upload` stops before this step and prints the upload command, for the release train, which uploads only once the user says to push. Under `MAVEN_REPO_LOCAL`, a trial run, the upload is only a dry run.
 
 It pushes nothing to git, and ends by printing the push command. The published jar is the `jar` task's, with Groundworks nested under `META-INF/jarjar/`. The Pack loads the Groundworks that Beltworks bundles, so check that `META-INF/jarjar/metadata.json` names the Groundworks and the range you meant to ship.
 
