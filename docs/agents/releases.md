@@ -2,7 +2,7 @@
 
 A release reaches the Pack through the local maven repository (`~/.m2`) at a version of its own. The Pack pins that version and compares the jar's sha256. That only works if the jar published at a version is the one jar that version ever names.
 
-A released version is then uploaded to Modrinth from the maintainer's machine (below). CI builds and tests on every push but never publishes.
+A released version is then uploaded to Modrinth and CurseForge from the maintainer's machine (below). CI builds and tests on every push but never publishes.
 
 ## The changelog
 
@@ -20,9 +20,14 @@ It pushes nothing, and ends by printing the push command. The published jar is t
 
 A release that must reach another Library or the Pack follows the `release-train` skill.
 
-## Uploading to Modrinth
+## Uploading to Modrinth and CurseForge
 
-`scripts/upload-modrinth.py <version>` uploads a version already in `~/.m2`: the jar there, byte for byte, with that version's changelog section as its notes, for Minecraft `minecraft_version` on NeoForge, as beta below 1.0. It reads `MODRINTH_TOKEN` (a personal access token that can create versions) and `MODRINTH_PROJECT_ID` (`p4zxipln`) from the environment and never prints the token. It refuses, before contacting Modrinth, a version missing from `~/.m2` or its changelog, and a jar lacking the licensing `checkJarLicensing` requires; and it refuses a version Modrinth already has. `--dry-run` prints the requests and contacts nothing. `MODRINTH_API_URL` points it elsewhere, and its tests (`python3 -m unittest discover scripts/tests`) run it against a stand-in server on localhost.
+`scripts/upload.py <version>` uploads a version already in `~/.m2` to both sites: the jar there, byte for byte, with that version's changelog section as its notes, for Minecraft `minecraft_version` on NeoForge, as beta below 1.0. Groundworks is nested, so neither site lists it as a dependency. It reads from the environment, and never prints a token or key:
+
+- Modrinth: `MODRINTH_TOKEN` (a personal access token that can create versions) and `MODRINTH_PROJECT_ID` (`p4zxipln`).
+- CurseForge: `CURSEFORGE_TOKEN` (an upload API token), `CURSEFORGE_PROJECT_ID`, and `CURSEFORGE_API_KEY` (a Core API key from console.curseforge.com), because the upload API can't list a project's files. The Core API lists only approved files, and knows a project only once it has one, so a file still awaiting approval isn't seen: don't upload the same version again while one waits.
+
+It refuses, before contacting either site, a version missing from `~/.m2` or its changelog, and a jar lacking the licensing `checkJarLicensing` requires. Each site then goes on its own: a site that already has the version, or whose upload fails, is refused without touching the other, and `--site modrinth` or `--site curseforge` retries just that one. `--dry-run` prints the requests and contacts nothing. `MODRINTH_API_URL`, `CURSEFORGE_UPLOAD_URL` and `CURSEFORGE_API_URL` point it elsewhere, and its tests (`python3 -m unittest discover scripts/tests`) run it against a stand-in server on localhost.
 
 ## A published version is final
 
