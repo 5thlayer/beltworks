@@ -18,6 +18,7 @@ path = [
     "scripts/*.sh",
     "**/*.md",
     "NOTICE",
+    "publish/summary.txt",
     ".github/**",
 ]
 SPDX-FileCopyrightText = "2026 5thlayer"
