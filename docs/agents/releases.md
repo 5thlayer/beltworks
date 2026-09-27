@@ -15,20 +15,25 @@ Each change players notice adds its line under `## Unreleased` in `CHANGELOG.md`
 1. sets `mod_version` and turns `## Unreleased` into `## <version>` under a fresh, empty Unreleased
 2. runs the build and the game tests, putting both files back if either fails
 3. commits `chore: release <version>`, runs `publishToMavenLocal`, and tags `beltworks-v<version>` with the jar's sha256
-4. uploads the jar to Modrinth and CurseForge with `scripts/upload.py` (below). A failed upload leaves the local release and the tag in place; the script names the site that failed, and `scripts/upload.py --site <site> <version>` retries it. Under `MAVEN_REPO_LOCAL`, a trial run, the upload is only a dry run.
+4. uploads the jar to Modrinth and CurseForge with `scripts/upload.py` (below). A failed upload leaves the local release and the tag in place; the script names the site that failed, and `scripts/upload.py --site <site> <version>`, through `op run` too, retries it. Under `MAVEN_REPO_LOCAL`, a trial run, the upload is only a dry run.
 
-It pushes nothing to git, and ends by printing the push command. Store the tokens the upload reads (below) before releasing. The published jar is the `jar` task's, with Groundworks nested under `META-INF/jarjar/`. The Pack loads the Groundworks that Beltworks bundles, so check that `META-INF/jarjar/metadata.json` names the Groundworks and the range you meant to ship.
+It pushes nothing to git, and ends by printing the push command. Run it through `op run` (below), which gives the upload its tokens. The published jar is the `jar` task's, with Groundworks nested under `META-INF/jarjar/`. The Pack loads the Groundworks that Beltworks bundles, so check that `META-INF/jarjar/metadata.json` names the Groundworks and the range you meant to ship.
 
 A release that must reach another Library or the Pack follows the `release-train` skill.
 
 ## Uploading to Modrinth and CurseForge
 
-`scripts/upload.py <version>` uploads a version already in `~/.m2` to both sites: the jar there, byte for byte, with that version's changelog section as its notes, for Minecraft `minecraft_version` on NeoForge, as beta below 1.0. Groundworks is nested, so neither site lists it as a dependency. Each site's token comes from the environment or, when that sets none, from the macOS Keychain, and is never printed:
+`scripts/upload.py <version>` uploads a version already in `~/.m2` to both sites: the jar there, byte for byte, with that version's changelog section as its notes, for Minecraft `minecraft_version` on NeoForge, as beta below 1.0. Groundworks is nested, so neither site lists it as a dependency. Each site's token comes from the environment and is never printed. The tokens live in 1Password, and `publish/upload.env` names them there, so a release or an upload runs through `op run`, which fills them in for that command only:
 
-- Modrinth: `MODRINTH_TOKEN`, or the Keychain item `beltworks-modrinth`: a personal access token with the scopes Create versions, Read versions and Read projects.
-- CurseForge: `CURSEFORGE_TOKEN`, or the Keychain item `beltworks-curseforge`: an upload API token. The upload API can't list a project's files, so the check for a version CurseForge already has reads the website's own listing (`www.curseforge.com/api/v1/mods/<id>/files`), which needs no key but is undocumented: if it changes, that check fails and the upload stops. It doesn't show a file still under CurseForge's review, so a version is never uploaded again while one waits: 0.3.9 was uploaded by hand on 2026-09-27, and `--site modrinth` is the way to upload it elsewhere.
+```
+op run --env-file=publish/upload.env -- scripts/release.sh <version>
+```
 
-`security add-generic-password -a "$USER" -s beltworks-modrinth -w` stores a token, asking for it so it stays out of the shell's history. The projects default to Beltworks' own, Modrinth `p4zxipln` and CurseForge `1714527`, and `MODRINTH_PROJECT_ID` and `CURSEFORGE_PROJECT_ID` override them.
+
+- Modrinth: `MODRINTH_TOKEN`, the 1Password item "Beltworks Modrinth": a personal access token with the scopes Create versions, Read versions and Read projects.
+- CurseForge: `CURSEFORGE_TOKEN`, the 1Password item "Beltworks CurseForge": an upload API token. The upload API can't list a project's files, so the check for a version CurseForge already has reads the website's own listing (`www.curseforge.com/api/v1/mods/<id>/files`), which needs no key but is undocumented: if it changes, that check fails and the upload stops. It doesn't show a file still under CurseForge's review, so a version is never uploaded again while one waits: 0.3.9 was uploaded by hand on 2026-09-27, and `--site modrinth` is the way to upload it elsewhere.
+
+The projects default to Beltworks' own, Modrinth `p4zxipln` and CurseForge `1714527`, and `MODRINTH_PROJECT_ID` and `CURSEFORGE_PROJECT_ID` override them.
 
 It refuses, before contacting either site, a version missing from `~/.m2` or its changelog, and a jar lacking the licensing `checkJarLicensing` requires. Each site then goes on its own: a site that already has the version, or whose upload fails, is refused without touching the other, and `--site modrinth` or `--site curseforge` retries just that one. `--dry-run` prints the requests and contacts nothing. `MODRINTH_API_URL`, `CURSEFORGE_UPLOAD_URL` and `CURSEFORGE_API_URL` (the listing's site) point it elsewhere, and its tests (`python3 -m unittest discover scripts/tests`) run it against a stand-in server on localhost.
 

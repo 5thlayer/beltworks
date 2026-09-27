@@ -8,11 +8,11 @@
 #   scripts/upload.py [--dry-run] [--site modrinth|curseforge] <version>
 #
 # Each site is uploaded on its own: a failure on one leaves the other, and --site retries just one.
-# Each site's token comes from the environment or, when that sets none, from the macOS Keychain, and
-# is never printed. The projects default to Beltworks' own, which the environment can override:
-#   Modrinth    $MODRINTH_TOKEN or Keychain item beltworks-modrinth, $MODRINTH_PROJECT_ID
-#   CurseForge  $CURSEFORGE_TOKEN or Keychain item beltworks-curseforge (an upload API token),
-#               $CURSEFORGE_PROJECT_ID
+# Each site's token comes from the environment, and is never printed; publish/upload.env names them
+# in 1Password, for `op run --env-file=publish/upload.env -- scripts/upload.py <version>`. The
+# projects default to Beltworks' own, which the environment can override:
+#   Modrinth    $MODRINTH_TOKEN, $MODRINTH_PROJECT_ID
+#   CurseForge  $CURSEFORGE_TOKEN (an upload API token), $CURSEFORGE_PROJECT_ID
 # $MAVEN_REPO_LOCAL reads somewhere other than ~/.m2/repository, and $MODRINTH_API_URL,
 # $CURSEFORGE_UPLOAD_URL and $CURSEFORGE_API_URL send somewhere other than the sites, to try the
 # script out. --dry-run prints the requests it would make and contacts nothing. The rules it keeps
@@ -21,7 +21,6 @@ import io
 import json
 import os
 import re
-import subprocess
 import sys
 import urllib.error
 import urllib.parse
@@ -117,19 +116,10 @@ def show(method, url, headers, **fields):
         print(f"  {name}: {value}")
 
 
-def token(name, service):
-    """The token $<name> holds or, when it's unset, the Keychain's generic password <service>."""
-    if os.environ.get(name):
-        return os.environ[name]
-    try:
-        found = subprocess.run(["security", "find-generic-password", "-s", service, "-w"],
-                               capture_output=True, text=True)
-        if found.returncode == 0 and found.stdout.strip():
-            return found.stdout.strip()
-    except FileNotFoundError:
-        pass
-    raise Refused(f"${name} is not set and the Keychain has no {service}; add it with "
-                  f"security add-generic-password -a \"$USER\" -s {service} -w")
+def token(name):
+    if not os.environ.get(name):
+        raise Refused(f"${name} is not set; run through op run --env-file=publish/upload.env -- ...")
+    return os.environ[name]
 
 
 class Release:
@@ -158,7 +148,7 @@ class Release:
         return f"{self.jar.name} ({len(self.data)} bytes) from {self.jar}"
 
     def modrinth(self):
-        secret = token("MODRINTH_TOKEN", "beltworks-modrinth")
+        secret = token("MODRINTH_TOKEN")
         project = os.environ.get("MODRINTH_PROJECT_ID") or MODRINTH_PROJECT
         api = os.environ.get("MODRINTH_API_URL", MODRINTH_API).rstrip("/")
         metadata = {
@@ -189,7 +179,7 @@ class Release:
         print(f"Uploaded {self.jar.name} to Modrinth as {self.version} ({created.get('id')})")
 
     def curseforge(self):
-        secret = token("CURSEFORGE_TOKEN", "beltworks-curseforge")
+        secret = token("CURSEFORGE_TOKEN")
         project = os.environ.get("CURSEFORGE_PROJECT_ID") or CURSEFORGE_PROJECT
         upload = os.environ.get("CURSEFORGE_UPLOAD_URL", CURSEFORGE_UPLOAD).rstrip("/")
         api = os.environ.get("CURSEFORGE_API_URL", CURSEFORGE_API).rstrip("/")

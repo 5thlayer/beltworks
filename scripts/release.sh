@@ -67,7 +67,7 @@ upload=(scripts/upload.py)
 [[ -z "${MAVEN_REPO_LOCAL:-}" ]] || upload+=(--dry-run)
 if ! "${upload[@]}" "$version"; then
     echo "release: $version is released and tagged, but an upload failed; retry it with" >&2
-    echo "release:   scripts/upload.py --site <site> $version" >&2
+    echo "release:   op run --env-file=publish/upload.env -- scripts/upload.py --site <site> $version" >&2
     echo "release: for each site named above." >&2
 fi
 echo "Push with: git push origin HEAD $tag"
