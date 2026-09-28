@@ -10,6 +10,7 @@
 - The Mod's own two keys, Head Reach (`H`) and Tail Reach (`J`), lengthen a feeder's arm a block per press, from one to three and back to one. Aimed at a placed feeder, a press changes that arm and says its new reach; on a held feeder, it sets the reach every feeder placed from the stack takes, and the Placement Preview draws the arms at it (5thlayer/beltworks#71).
 - A feeder needs power only when loaders do: with `loadersNeedPower` off, the default, every feeder moves items for free, and with it on, every tier pays its `feederJoulesPerItem` for each item, tier 1 included (5thlayer/beltworks#80).
 - A feeder is drawn as a flat slate base at belt height with a column at its centre, holding its two arms in its tier colour at their reach: the head ends in a sweeper nozzle, which sucks in each item it takes, and the tail in a spout. Its filter is shown on the column's sides, and it collides only with its base and column (5thlayer/beltworks#73).
+- Rotate turns a placed feeder's tail, straight, right, left and back, as it turns a tile's way out; its head stays where it reaches (5thlayer/beltworks#66).
 
 ## 0.3.9
 

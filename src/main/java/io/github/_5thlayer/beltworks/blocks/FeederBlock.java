@@ -6,6 +6,7 @@ package io.github._5thlayer.beltworks.blocks;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
@@ -22,6 +23,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
@@ -29,7 +31,10 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.beltworks.model.BeltTier;
+import io.github._5thlayer.beltworks.model.FeederArms;
+import io.github._5thlayer.groundworks.TurnsInPlace;
 
+import java.util.Locale;
 import java.util.Objects;
 
 /**
@@ -37,8 +42,11 @@ import java.util.Objects;
  * one to three blocks ({@link io.github._5thlayer.beltworks.model.FeederArms}), as far as the held
  * stack's {@linkplain FeederReach reach} when placed. It is placed as a loader is, so against a
  * block's side its head is at that block, and it takes a loader's filter the way a loader does.
+ * Rotate turns only its tail, as it turns a tile's way out, and leaves its head where it reaches.
  */
-public class FeederBlock extends HorizontalDirectionalBlock implements EntityBlock {
+public class FeederBlock extends HorizontalDirectionalBlock implements EntityBlock, TurnsInPlace {
+
+    public static final EnumProperty<TailTurn> TAIL_TURN = EnumProperty.create("tail_turn", TailTurn.class);
 
     // Its slate base at belt height and the column at its centre with the hub its arms hang from;
     // the arms themselves collide with nothing (CONTEXT.md, Arm).
@@ -50,7 +58,7 @@ public class FeederBlock extends HorizontalDirectionalBlock implements EntityBlo
     public FeederBlock(BlockBehaviour.Properties settings, BeltTier tier) {
         super(settings);
         this.tier = tier;
-        registerDefaultState(defaultBlockState().setValue(FACING, Direction.NORTH));
+        registerDefaultState(defaultBlockState().setValue(FACING, Direction.NORTH).setValue(TAIL_TURN, TailTurn.STRAIGHT));
     }
 
     public BeltTier tier() {
@@ -59,7 +67,7 @@ public class FeederBlock extends HorizontalDirectionalBlock implements EntityBlo
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING);
+        builder.add(FACING, TAIL_TURN);
     }
 
     @Override
@@ -73,6 +81,12 @@ public class FeederBlock extends HorizontalDirectionalBlock implements EntityBlo
         var facing = ctx.getClickedFace();
         if (facing.getAxis().isVertical()) facing = ctx.getHorizontalDirection().getOpposite();
         return Objects.requireNonNull(super.getStateForPlacement(ctx)).setValue(FACING, facing);
+    }
+
+    // The tail turns straight, right, left and back, and the facing, so the head, stays (#66, story 6).
+    @Override
+    public TurnsInPlace.Verdict<BlockState> turnInPlace(BlockState state, Level level, BlockPos pos, boolean reverse) {
+        return TurnsInPlace.turned(state.setValue(TAIL_TURN, TailTurn.of(state.getValue(TAIL_TURN).turn().turned(reverse))));
     }
 
     // The held stack's reach, set by Head Reach and Tail Reach before placing (ADR 0013).
@@ -119,5 +133,31 @@ public class FeederBlock extends HorizontalDirectionalBlock implements EntityBlo
         return (tickLevel, pos, tickState, blockEntity) -> {
             if (blockEntity instanceof FeederBlockEntity feeder) feeder.tick(tickLevel, pos, tickState);
         };
+    }
+
+    /** A {@link FeederArms.Turn} as a block state property names it. */
+    public enum TailTurn implements StringRepresentable {
+        STRAIGHT(FeederArms.Turn.STRAIGHT),
+        LEFT(FeederArms.Turn.LEFT),
+        RIGHT(FeederArms.Turn.RIGHT);
+
+        private final FeederArms.Turn turn;
+
+        TailTurn(FeederArms.Turn turn) {
+            this.turn = turn;
+        }
+
+        public FeederArms.Turn turn() {
+            return turn;
+        }
+
+        public static TailTurn of(FeederArms.Turn turn) {
+            return valueOf(turn.name());
+        }
+
+        @Override
+        public String getSerializedName() {
+            return name().toLowerCase(Locale.ROOT);
+        }
     }
 }
