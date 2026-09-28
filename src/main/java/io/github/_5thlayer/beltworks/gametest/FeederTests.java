@@ -116,7 +116,7 @@ final class FeederTests {
         loadersUnpowered.test("feeder_with_a_left_turned_tail_drops_to_its_left", 120, FeederTests::turnsItsTail);
     }
 
-    // A window passes its rate's whole items, give or take the one a fraction carries over its edge.
+    // A window passes exactly its rate's items: every tier's rate is a whole number over these ten seconds.
     private static void movesAtRate(GameTestHelper helper, BeltTier tier) {
         int expected = (int) Math.round(tier.feederItemsPerSecond() * WINDOW_TICKS / 20);
         LoaderPower.feed(helper);
@@ -128,7 +128,7 @@ final class FeederTests {
                 .thenIdle(WINDOW_TICKS)
                 .thenExecute(() -> {
                     int delivered = count(chest(helper, TAIL)) - before[0];
-                    if (Math.abs(delivered - expected) > 1) {
+                    if (delivered != expected) {
                         helper.fail("a fed tier-" + tier.number() + " feeder delivered " + delivered + " items in "
                                 + WINDOW_TICKS + " ticks, expected " + expected, TAIL);
                     }
