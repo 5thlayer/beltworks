@@ -10,14 +10,15 @@ import java.util.Map;
 /**
  * A loader's FE buffer, kept in joules so a fractional FE per item is charged exactly. A loader
  * with no charge for an item moves nothing. Tier 1 is unpowered and always moves, and so is every
- * tier when the server config says loaders need no power (ADR 0002). A feeder's buffer pays every
- * item at every tier, whatever the config says of loaders, and never drains.
+ * tier when the server config says loaders need no power (ADR 0002). A feeder follows the same
+ * switch: with loaders unpowered it moves for free, and with them powered it pays every item at every
+ * tier, tier 1 included, and never drains (ADR 0014).
  */
 public final class LoaderEnergy {
 
     /**
-     * The server config's say on loader power, and on what each tier's feeder pays an item: a feeder
-     * pays whatever loaders need, so its cost is its own to set.
+     * The server config's say on loader power, and on what each tier's feeder pays an item when
+     * loaders need power: its cost is its own to set, apart from a loader's.
      */
     public record Setting(boolean loadersNeedPower, long joulesPerFe, Map<BeltTier, Long> feederJoulesPerItem) {
 
@@ -65,7 +66,7 @@ public final class LoaderEnergy {
     }
 
     public static LoaderEnergy feeder(BeltTier tier, Setting setting) {
-        return new LoaderEnergy(setting.feederJoules(tier), 0, tier.feederItemsPerTick(), setting.joulesPerFe());
+        return new LoaderEnergy(setting.loadersNeedPower() ? setting.feederJoules(tier) : 0, 0, tier.feederItemsPerTick(), setting.joulesPerFe());
     }
 
     private LoaderEnergy(long joulesPerItem, long drainPerTick, double itemsPerTick, long joulesPerFe) {

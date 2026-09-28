@@ -9,7 +9,7 @@ package io.github._5thlayer.beltworks.model;
  * second at {@link BeltContents#SPACING}. A tier's loader moves the same items a second as its belt,
  * and so does each side of its splitter.
  * A loader pays per item and drains what the inserter its recipe is built from does (ADR 0007).
- * A feeder moves a tenth of its tier's loader and always pays per item, with no drain.
+ * A feeder moves a tenth of its tier's loader and, when loaders need power, pays per item at every tier, with no drain.
  */
 public enum BeltTier {
     // Tier 1's burner inserter burns fuel the loader has no slot for, so it runs unpowered.

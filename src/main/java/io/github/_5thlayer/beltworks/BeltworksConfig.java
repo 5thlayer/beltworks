@@ -17,14 +17,14 @@ public final class BeltworksConfig {
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
     public static final ModConfigSpec.BooleanValue LOADERS_NEED_POWER = BUILDER
-      .comment("Whether loaders of tiers 2 to 4 need FE for each item they move. Off, every loader moves items as tier 1 does.")
+      .comment("Whether loaders of tiers 2 to 4, and feeders of every tier, need FE for each item they move. Off, every loader moves items as tier 1 does, and every feeder moves them for free.")
       .define("loadersNeedPower", LoaderEnergy.Setting.DEFAULT.loadersNeedPower());
 
     public static final ModConfigSpec.LongValue JOULES_PER_FE = BUILDER
       .comment("How many joules of a loader's Factorio energy cost one FE pays for.")
       .defineInRange("joulesPerFe", LoaderEnergy.Setting.DEFAULT.joulesPerFe(), 1, Long.MAX_VALUE);
 
-    /** What a feeder of each tier pays for an item, in the same joules, whatever LOADERS_NEED_POWER says. */
+    /** What a feeder of each tier pays for an item, in the same joules, when LOADERS_NEED_POWER is on. */
     public static final Map<BeltTier, ModConfigSpec.LongValue> FEEDER_JOULES_PER_ITEM = feederJoulesPerItem();
 
     public static final ModConfigSpec SPEC = BUILDER.build();
@@ -34,7 +34,7 @@ public final class BeltworksConfig {
 
     private static Map<BeltTier, ModConfigSpec.LongValue> feederJoulesPerItem() {
         var values = new EnumMap<BeltTier, ModConfigSpec.LongValue>(BeltTier.class);
-        BUILDER.comment("What a feeder pays in joules for each item it moves, by tier. A feeder always pays, whatever loadersNeedPower says.")
+        BUILDER.comment("What a feeder pays in joules for each item it moves, by tier. A feeder pays only when loadersNeedPower is on, and then at every tier.")
           .translation("beltworks.configuration.feederJoulesPerItem")
           .push("feederJoulesPerItem");
         for (var tier : BeltTier.values()) {

@@ -36,8 +36,8 @@ import java.util.List;
 
 /**
  * A feeder of every tier moves one item at a time from the chest its head reaches to the one its
- * tail reaches, at a tenth of its tier's loader, paying FE for each item even with loader power
- * switched off, and takes only what its filter matches. Either
+ * tail reaches, at a tenth of its tier's loader, for free while loaders need no power and paying FE
+ * for each item at every tier while they do, and takes only what its filter matches. Either
  * end may be a level tile anywhere along a line, straight or corner, or a splitter half, and never a
  * slope or a loader. Tiles are placed downstream first, as in {@link BeltCornerTests}.
  */
@@ -91,14 +91,17 @@ final class FeederTests {
 
     static void register(BeltGameTests.Registrar tests) {
         var loadersUnpowered = tests.withLoaderPower(false);
+        var loadersPowered = tests.withLoaderPower(true);
         for (var tier : BeltTier.values()) {
-            loadersUnpowered.test("fed_tier_" + tier.number() + "_feeder_moves_chest_to_chest_at_a_tenth_of_its_loaders_rate",
-                    WARMUP_TICKS + WINDOW_TICKS + 20, helper -> movesAtRate(helper, tier));
-            loadersUnpowered.test("fed_tier_" + tier.number() + "_feeder_draws_its_own_fe_per_item",
+            loadersUnpowered.test("unfed_tier_" + tier.number() + "_feeder_moves_at_a_tenth_of_its_loaders_rate_when_loaders_need_no_power",
+                    WARMUP_TICKS + WINDOW_TICKS + 20, helper -> movesAtRate(helper, tier, false));
+            loadersPowered.test("fed_tier_" + tier.number() + "_feeder_moves_chest_to_chest_at_a_tenth_of_its_loaders_rate",
+                    WARMUP_TICKS + WINDOW_TICKS + 20, helper -> movesAtRate(helper, tier, true));
+            loadersPowered.test("fed_tier_" + tier.number() + "_feeder_draws_its_own_fe_per_item",
                     WARMUP_TICKS + WINDOW_TICKS + 20, helper -> drawsPerItem(helper, tier));
+            loadersPowered.test("unfed_tier_" + tier.number() + "_feeder_moves_nothing_when_loaders_need_power", 80,
+                    helper -> stallsUnfed(helper, tier));
         }
-        loadersUnpowered.test("unfed_tier_1_feeder_moves_nothing_when_loaders_need_no_power", 80,
-                FeederTests::stallsUnfed);
         loadersUnpowered.test("a_feeders_filter_limits_what_it_moves", WARMUP_TICKS + WINDOW_TICKS + 20,
                 FeederTests::filterLimitsWhatMoves);
         loadersUnpowered.test("feeder_takes_from_a_mid_line_tile_and_the_line_runs_on", DRAIN_TICKS + 20,
@@ -124,9 +127,9 @@ final class FeederTests {
     }
 
     // A window passes exactly its rate's items: every tier's rate is a whole number over these ten seconds.
-    private static void movesAtRate(GameTestHelper helper, BeltTier tier) {
+    private static void movesAtRate(GameTestHelper helper, BeltTier tier, boolean fed) {
         int expected = (int) Math.round(tier.feederItemsPerSecond() * WINDOW_TICKS / 20);
-        LoaderPower.feed(helper);
+        if (fed) LoaderPower.feed(helper);
         place(helper, tier);
         int[] before = new int[1];
         helper.startSequence()
@@ -136,15 +139,15 @@ final class FeederTests {
                 .thenExecute(() -> {
                     int delivered = count(chest(helper, TAIL)) - before[0];
                     if (delivered != expected) {
-                        helper.fail("a fed tier-" + tier.number() + " feeder delivered " + delivered + " items in "
+                        helper.fail("a " + (fed ? "fed" : "unfed") + " tier-" + tier.number() + " feeder delivered " + delivered + " items in "
                                 + WINDOW_TICKS + " ticks, expected " + expected, TAIL);
                     }
                 })
                 .thenSucceed();
     }
 
-    private static void stallsUnfed(GameTestHelper helper) {
-        place(helper, BeltTier.BELT);
+    private static void stallsUnfed(GameTestHelper helper, BeltTier tier) {
+        place(helper, tier);
         helper.startSequence().thenIdle(60).thenExecute(() -> {
             if (face(helper) == null) helper.fail("a feeder has no energy face", FEEDER);
             if (count(chest(helper, TAIL)) != 0) {

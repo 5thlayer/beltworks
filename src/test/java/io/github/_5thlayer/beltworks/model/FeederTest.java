@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class FeederTest {
 
     private static final LoaderEnergy.Setting LOADERS_UNPOWERED = new LoaderEnergy.Setting(false, 100);
+    private static final LoaderEnergy.Setting LOADERS_POWERED = new LoaderEnergy.Setting(true, 100);
     private static final double SPACING = BeltContents.SPACING;
 
     @ParameterizedTest
@@ -45,14 +46,25 @@ class FeederTest {
 
     @ParameterizedTest
     @EnumSource(BeltTier.class)
-    void everyTiersFeederPaysEveryItemWhateverLoadersNeed(BeltTier tier) {
-        assertTrue(LoaderEnergy.feeder(tier, LOADERS_UNPOWERED).powered());
-        assertTrue(LoaderEnergy.feeder(tier, new LoaderEnergy.Setting(true, 100)).powered());
+    void everyTiersFeederPaysOnlyWhenLoadersNeedPower(BeltTier tier) {
+        assertTrue(LoaderEnergy.feeder(tier, LOADERS_POWERED).powered());
+        assertFalse(LoaderEnergy.feeder(tier, LOADERS_UNPOWERED).powered());
+    }
+
+    @ParameterizedTest
+    @EnumSource(BeltTier.class)
+    void anUnfedFeederMovesForFreeWhenLoadersNeedNoPower(BeltTier tier) {
+        var energy = LoaderEnergy.feeder(tier, LOADERS_UNPOWERED);
+
+        assertTrue(energy.canMove());
+        energy.move();
+        assertTrue(energy.canMove());
+        assertEquals(0, energy.capacityFe());
     }
 
     @Test
-    void aTierOneFeederPaysEveryItemWhenLoadersNeedNoPower() {
-        var energy = LoaderEnergy.feeder(BeltTier.BELT, LOADERS_UNPOWERED);
+    void aTierOneFeederPaysEveryItemWhenLoadersNeedPower() {
+        var energy = LoaderEnergy.feeder(BeltTier.BELT, LOADERS_POWERED);
 
         assertTrue(energy.powered());
         assertFalse(energy.canMove());
@@ -65,7 +77,7 @@ class FeederTest {
 
     @Test
     void aFeederHasNoIdleDrain() {
-        var energy = LoaderEnergy.feeder(BeltTier.BELT, LOADERS_UNPOWERED);
+        var energy = LoaderEnergy.feeder(BeltTier.BELT, LOADERS_POWERED);
         energy.insertFe(Long.MAX_VALUE);
         var before = energy.joules();
 
@@ -165,7 +177,7 @@ class FeederTest {
 
     @Test
     void aTiersFeederPaysWhatTheSettingSaysAndTheDefaultForTheRest() {
-        var setting = new LoaderEnergy.Setting(false, 100, Map.of(BeltTier.TURBO, 500L));
+        var setting = new LoaderEnergy.Setting(true, 100, Map.of(BeltTier.TURBO, 500L));
 
         assertEquals(500, setting.feederJoules(BeltTier.TURBO));
         assertEquals(BeltTier.BELT.feederJoulesPerItem(), setting.feederJoules(BeltTier.BELT));
@@ -194,7 +206,7 @@ class FeederTest {
     @EnumSource(BeltTier.class)
     void aFeederPayingTheMostStillFillsAndMoves(BeltTier tier) {
         var most = LoaderEnergy.Setting.MAX_FEEDER_JOULES_PER_ITEM;
-        var energy = LoaderEnergy.feeder(tier, new LoaderEnergy.Setting(false, 1, Map.of(tier, most)));
+        var energy = LoaderEnergy.feeder(tier, new LoaderEnergy.Setting(true, 1, Map.of(tier, most)));
 
         assertTrue(energy.capacityFe() > 0);
         energy.insertFe(Long.MAX_VALUE);

@@ -123,8 +123,9 @@ public final class Beltworks {
         event.registerBlockEntity(Capabilities.Energy.BLOCK, BlockEntitiesContent.BELT_END.get(),
           (loader, side) -> loader.getEnergy().powered()
             ? ENERGY_FACES.computeIfAbsent(loader, owner -> new LoaderEnergyHandler(owner, loader.getEnergy())) : null);
-        // A feeder always draws power (CONTEXT.md).
+        // A feeder draws power only when loaders need it, and then at every tier (ADR 0014).
         event.registerBlockEntity(Capabilities.Energy.BLOCK, BlockEntitiesContent.FEEDER.get(),
-          (feeder, side) -> ENERGY_FACES.computeIfAbsent(feeder, owner -> new LoaderEnergyHandler(owner, feeder.getEnergy())));
+          (feeder, side) -> feeder.getEnergy().powered()
+            ? ENERGY_FACES.computeIfAbsent(feeder, owner -> new LoaderEnergyHandler(owner, feeder.getEnergy())) : null);
     }
 }
