@@ -103,12 +103,6 @@ public class FeederBlock extends HorizontalDirectionalBlock implements EntityBlo
         return InteractionResult.SUCCESS;
     }
 
-    // A move's block event, which tells the watchers what the head took (FeederBlockEntity.SUCKED).
-    @Override
-    protected boolean triggerEvent(BlockState state, Level level, BlockPos pos, int event, int param) {
-        return level.getBlockEntity(pos) instanceof FeederBlockEntity feeder && feeder.receiveEvent(event, param);
-    }
-
     @Override
     protected MapCodec<? extends HorizontalDirectionalBlock> codec() {
         return simpleCodec(settings -> new FeederBlock(settings, tier));

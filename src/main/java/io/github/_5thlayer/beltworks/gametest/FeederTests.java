@@ -3,9 +3,11 @@
 
 package io.github._5thlayer.beltworks.gametest;
 
+import io.netty.buffer.Unpooled;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
@@ -33,6 +35,7 @@ import io.github._5thlayer.beltworks.blocks.SplitterBlock;
 import io.github._5thlayer.beltworks.model.BeltContents;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.FeederArms;
+import io.github._5thlayer.beltworks.neoforge.FeederSuckedPayload;
 
 import java.util.List;
 
@@ -122,6 +125,7 @@ final class FeederTests {
         tests.test("a_held_feeders_reach_is_what_each_placement_takes_until_its_last_item", 20,
                 FeederTests::heldReachPlaces);
         tests.test("a_feeders_filter_and_arms_reach_the_client_in_its_update_tag", 20, FeederTests::updateTagCarriesFilterAndArms);
+        tests.test("the_item_a_feeders_head_takes_reaches_the_client_whole", 20, FeederTests::suckedItemArrivesWhole);
         loadersUnpowered.test("two_feeders_on_one_tile_both_take", WARMUP_TICKS + WINDOW_TICKS + 20,
                 FeederTests::twoFeedersShareATile);
         loadersUnpowered.test("feeder_reaching_3_over_stone_moves_at_1_5_items_per_second",
@@ -528,6 +532,17 @@ final class FeederTests {
         placed.resetFilterItem(player);
         client.loadWithComponents(TagValueInput.create(ProblemReporter.DISCARDING, registries, placed.getUpdateTag(registries)));
         if (!client.filteredItem().isEmpty()) helper.fail("the update tag kept a cleared filter " + client.filteredItem(), FEEDER);
+        helper.succeed();
+    }
+
+    // Obsidian's id does not fit the byte a block event's parameter is, which drew another item going in.
+    private static void suckedItemArrivesWhole(GameTestHelper helper) {
+        if (Item.getId(Items.OBSIDIAN) < 256) helper.fail("obsidian's id fits a byte, so this proves nothing", FEEDER);
+        var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), helper.getLevel().registryAccess());
+        FeederSuckedPayload.STREAM_CODEC.encode(buffer, new FeederSuckedPayload(helper.absolutePos(FEEDER), new ItemStack(Items.OBSIDIAN)));
+        var received = FeederSuckedPayload.STREAM_CODEC.decode(buffer);
+        if (!received.item().is(Items.OBSIDIAN)) helper.fail("obsidian arrived as " + received.item(), FEEDER);
+        if (!received.pos().equals(helper.absolutePos(FEEDER))) helper.fail("it arrived for " + received.pos(), FEEDER);
         helper.succeed();
     }
 

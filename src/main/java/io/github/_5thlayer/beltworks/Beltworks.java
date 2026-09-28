@@ -25,6 +25,7 @@ import io.github._5thlayer.beltworks.items.BeltLegs;
 import io.github._5thlayer.beltworks.neoforge.BeltChangesPayload;
 import io.github._5thlayer.beltworks.neoforge.BeltHandPayload;
 import io.github._5thlayer.beltworks.neoforge.FeederReachPayload;
+import io.github._5thlayer.beltworks.neoforge.FeederSuckedPayload;
 import io.github._5thlayer.beltworks.neoforge.BeltLinePayload;
 import io.github._5thlayer.beltworks.neoforge.LoaderEnergyHandler;
 import io.github._5thlayer.beltworks.neoforge.NeoforgeItemApiImpl;
@@ -96,7 +97,8 @@ public final class Beltworks {
           .playToServer(BeltHandPayload.TYPE, BeltHandPayload.STREAM_CODEC, BeltHandPayload::handle)
           .playToServer(FeederReachPayload.TYPE, FeederReachPayload.STREAM_CODEC, FeederReachPayload::handle)
           .playToClient(BeltChangesPayload.TYPE, BeltChangesPayload.STREAM_CODEC, BeltChangesPayload::handle)
-          .playToClient(BeltLinePayload.TYPE, BeltLinePayload.STREAM_CODEC, BeltLinePayload::handle);
+          .playToClient(BeltLinePayload.TYPE, BeltLinePayload.STREAM_CODEC, BeltLinePayload::handle)
+          .playToClient(FeederSuckedPayload.TYPE, FeederSuckedPayload.STREAM_CODEC, FeederSuckedPayload::handle);
     }
 
     // Posted after the chunk is saved and before any of its block entities is removed (#395).
