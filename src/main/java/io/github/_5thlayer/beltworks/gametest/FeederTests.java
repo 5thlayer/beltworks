@@ -333,6 +333,7 @@ final class FeederTests {
         helper.setBlock(headLoader.west(), Blocks.CHEST);
         fill(helper, headLoader.west(), Items.COBBLESTONE, DROPPED);
         helper.setBlock(headLoader, BeltTileTests.loader(BeltTier.BELT, Direction.EAST));
+        helper.spawnItem(Items.DIRT, headLoader.getX() + 0.5f, headLoader.getY(), headLoader.getZ() + 0.5f);
         feeder(helper, headLoader.east(), Direction.EAST);
         helper.setBlock(headLoader.east(2), Blocks.CHEST);
 
@@ -344,6 +345,7 @@ final class FeederTests {
         helper.setBlock(tailLoader.east(), Blocks.CHEST);
         helper.startSequence().thenIdle(80).thenExecute(() -> {
             int fromLoader = count(chest(helper, headLoader.east(2)));
+            if (dropped(helper) == 0) helper.fail("the head took an item lying on a loader", headLoader);
             int intoLoader = count(chest(helper, tailLoader.east()));
             if (fromLoader != 0 || intoLoader != 0) {
                 helper.fail("a feeder took " + fromLoader + " through a loader and put " + intoLoader + " into one",
