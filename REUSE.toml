@@ -20,6 +20,7 @@ path = [
     "NOTICE",
     "publish/summary.txt",
     ".github/**",
+    ".claude/settings.json",
 ]
 SPDX-FileCopyrightText = "2026 5thlayer"
 SPDX-License-Identifier = "MIT"
