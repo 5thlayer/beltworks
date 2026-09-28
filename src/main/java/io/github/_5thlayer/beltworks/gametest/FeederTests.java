@@ -107,6 +107,8 @@ final class FeederTests {
         loadersUnpowered.test("feeder_takes_from_a_splitter_half", DRAIN_TICKS + 20, FeederTests::takesFromAHalf);
         loadersUnpowered.test("feeder_with_a_slope_at_an_end_moves_nothing", SLOPE_TICKS + 20, FeederTests::slopeIsNoEnd);
         loadersUnpowered.test("feeder_with_a_loader_at_an_end_moves_nothing", 100, FeederTests::loaderIsNoEnd);
+        loadersUnpowered.test("feeder_head_takes_a_dropped_item_and_delivers_it", 80, FeederTests::takesLoose);
+        loadersUnpowered.test("feeder_tail_aimed_at_air_waits_and_spawns_nothing", 80, FeederTests::tailWaitsInAir);
         loadersUnpowered.test("two_feeders_on_one_tile_both_take", WARMUP_TICKS + WINDOW_TICKS + 20,
                 FeederTests::twoFeedersShareATile);
         loadersUnpowered.test("feeder_reaching_3_over_stone_moves_at_1_5_items_per_second",
@@ -346,6 +348,32 @@ final class FeederTests {
             if (fromLoader != 0 || intoLoader != 0) {
                 helper.fail("a feeder took " + fromLoader + " through a loader and put " + intoLoader + " into one",
                         headLoader);
+            }
+        }).thenSucceed();
+    }
+
+    private static void takesLoose(GameTestHelper helper) {
+        LoaderPower.feed(helper);
+        helper.setBlock(TAIL, Blocks.CHEST);
+        feeder(helper, FEEDER, Direction.EAST);
+        helper.spawnItem(Items.COBBLESTONE, HEAD.getX() + 0.5f, HEAD.getY(), HEAD.getZ() + 0.5f);
+        helper.startSequence().thenIdle(60).thenExecute(() -> {
+            int arrived = count(chest(helper, TAIL), Items.COBBLESTONE);
+            if (arrived != 1) helper.fail("the head delivered " + arrived + " of the 1 item dropped at its target", TAIL);
+            if (dropped(helper) != 0) helper.fail("the dropped item is still lying there", HEAD);
+        }).thenSucceed();
+    }
+
+    // The head has a chest to take from, and the tail only air: the feeder must not drop anything loose.
+    private static void tailWaitsInAir(GameTestHelper helper) {
+        LoaderPower.feed(helper);
+        helper.setBlock(HEAD, Blocks.CHEST);
+        fill(helper, HEAD, Items.COBBLESTONE, DROPPED);
+        feeder(helper, FEEDER, Direction.EAST);
+        helper.startSequence().thenIdle(60).thenExecute(() -> {
+            if (dropped(helper) != 0) helper.fail("a feeder tail dropped " + dropped(helper) + " items loose", TAIL);
+            if (count(chest(helper, HEAD), Items.COBBLESTONE) != DROPPED) {
+                helper.fail("a feeder with nothing to drop into took from its head", HEAD);
             }
         }).thenSucceed();
     }
