@@ -27,6 +27,10 @@ repositories {
     // Groundworks: its releases are published to the local maven repository only (5thlayer/groundworks#2).
     mavenLocal()
     maven { url = 'https://cursemaven.com' }
+    exclusiveContent { // Energized Power, the dev client's FE source
+        forRepository { maven { url = 'https://api.modrinth.com/maven' } }
+        filter { includeGroup 'maven.modrinth' }
+    }
     maven { // EMI
         name = 'TerraformersMC'
         url = 'https://maven.terraformersmc.com/'
@@ -128,6 +132,8 @@ dependencies {
     }
 
     clientMods 'curse.maven:jade-324717:8651070'
+    // Its Creative Battery Box powers feeders and loaders with loadersNeedPower on (5thlayer/beltworks#80).
+    clientMods 'maven.modrinth:energized-power:3.0.1+26.1.x-neoforge'
 
     compileOnly 'curse.maven:ftb-filter-system-943925:8300190'
     // Jade finds the tile's tooltip plugin by its annotation, so the Mod runs without it.
