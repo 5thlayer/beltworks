@@ -45,7 +45,7 @@ A tile or other belt piece feeding the side of a straight tile. It does not join
 _Avoid_: T-junction, merge belt
 
 **Tier colour**:
-The colour a belt tier is painted in, yellow, red, blue and green in tier order, as Factorio does. The belt shows it as the stripes along its edges, the loader as its band and the splitter as its divider. It is the family's only accent: everything else, from a tile's frame, sides and support to a loader's housing, is slate.
+The colour a belt tier is painted in, yellow, red, blue and green in tier order, as Factorio does. The belt shows it as the stripes along its edges, the loader as its band, the splitter as its divider and the feeder as its arms. It is the family's only accent: everything else, from a tile's frame, sides and support to a loader's housing, is slate.
 _Avoid_: stripe colour, tier tint
 
 **Belt hand**:
@@ -93,6 +93,26 @@ _Avoid_: chute (Upstream's name), inserter, funnel
 A block two wide whose halves are each a block of belt of its tier: each holds eight items and carries them, and whatever stands on it, at its tier's speed. It joins two belts in to two belts out at its midline, splitting evenly, merging, and sending everything to one side when the other backs up. It draws no power. Placed across a straight tile line running its way, it takes the tile's place, refunds it and keeps its items (ADR 0007).
 _Avoid_: merger, tunnel
 
+**Feeder**:
+A block that moves items one at a time from the inventory or belt tile its **head** reaches to the one its **tail** reaches, so one belt can feed a row of machines. Either end may be a chest, a machine or a tile anywhere along a line, and the head also picks up items lying loose in the world. It moves whatever the far side accepts, with no knowledge of recipes. It has the loader's tiers and filter at a tenth of the loader's rate, and always draws power for each item at every tier, at a figure of its own, whatever the server config says of loaders. A tail with nothing to drop into waits: a feeder never drops items loose. It is drawn as a flat slate base at belt height with a column at its centre holding up its two arms. A splitter half serves as an end as a tile does; a loader never does, holding nothing. It is no belt end: a line runs past the tile it takes from or drops on.
+_Avoid_: double loader, inserter, sweeper
+
+**Head**:
+The end of a feeder that takes, at the end of its **arm**, one to three blocks behind it. It is drawn as a sweeper's nozzle: an item it takes is seen until it is sucked in, and not after, while it runs through the arm to the column and on to the tail.
+_Avoid_: picker, input, pickup, sweeper (its look, not its name)
+
+**Tail**:
+The end of a feeder that drops, at the end of its **arm**, one to three blocks in front of it or turned left or right like a tile, counted from the feeder.
+_Avoid_: dropper, output, drop
+
+**Arm**:
+What a feeder is drawn reaching out with to its head or its tail, one arm each. An arm's reach, one to three blocks, is set on the held feeder before placing, with the **Placement Preview** drawing the arms at it, and changed on a placed feeder with the same keys. An arm passes over whatever stands between, collides with nothing, and moves at the same rate at any reach.
+_Avoid_: reach (the distance, not the thing), boom, extension, pipe
+
+**Head Reach** / **Tail Reach**:
+The Mod's own two keys, each lengthening one **arm** a block at a time, from three back to one. On a held feeder they set the reach its next placement takes, which stays with the held stack until its last item is placed, and the **Placement Preview** redraws with it; on a placed feeder under the crosshair they change that arm in place.
+_Avoid_: reach key, extend, adjust
+
 **Input priority**:
 A splitter's preference for one of its two inputs: it takes from that side first, and from the other whenever that side cannot move. None, left or right. Lost when the splitter is broken.
 _Avoid_: input filter
@@ -111,7 +131,7 @@ _Avoid_: balancer block
 ### Rotating
 
 **Rotate**:
-Groundworks' one action on one key (`R` by default, and **Reverse Rotate** the other way on `Shift+R`) that turns a quarter at a time. It **Rotates the Plan** when the held item is rotatable, and otherwise **Rotates in Place** the block under the crosshair. The Mod adds no key of its own: it gets Rotate from the library it bundles, so a tile turns by Rotate in any pack.
+Groundworks' one action on one key (`R` by default, and **Reverse Rotate** the other way on `Shift+R`) that turns a quarter at a time. It **Rotates the Plan** when the held item is rotatable, and otherwise **Rotates in Place** the block under the crosshair. The Mod gets Rotate from the library it bundles, so a tile turns by Rotate in any pack; its only keys of its own are **Head Reach** and **Tail Reach**.
 _Avoid_: rotate key, turn, wrench rotate
 
 **Rotate the Plan**:
