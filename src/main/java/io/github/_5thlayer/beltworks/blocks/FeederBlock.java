@@ -42,8 +42,8 @@ public class FeederBlock extends HorizontalDirectionalBlock implements EntityBlo
 
     // Its slate base at belt height and the column at its centre with the hub its arms hang from;
     // the arms themselves collide with nothing (CONTEXT.md, Arm).
-    private static final VoxelShape SHAPE = Shapes.or(Block.box(1, 0, 1, 15, 6, 15), Block.box(6, 6, 6, 10, 12, 10),
-            Block.box(5, 12, 5, 11, 15, 11));
+    private static final VoxelShape SHAPE = Shapes.or(Block.box(1, 0, 1, 15, 6, 15), Block.box(6, 6, 6, 10, 17, 10),
+            Block.box(5, 17, 5, 11, 20, 11));
 
     private final BeltTier tier;
 

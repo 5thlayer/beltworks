@@ -43,7 +43,7 @@ import java.util.List;
 public class FeederBlockEntity extends BlockEntity {
 
     /** How long a taken item is drawn going into the head, in ticks, after which it is inside and hidden. */
-    public static final int SUCK_TICKS = 5;
+    public static final int SUCK_TICKS = 8;
 
     private final ItemFilter filter = new ItemFilter();
     private final FlowLimit flow;

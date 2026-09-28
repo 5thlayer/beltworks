@@ -51,26 +51,28 @@ import java.util.function.Function;
  */
 public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, FeederRenderer.RenderState> {
 
-    // Where the arms hang, as the block model's hub and the held feeder's folded arms have them.
+    // Where the arms hang, as the block model's hub has them: above a block's top, so an item on a
+    // belt has room to be seen rising into the head's nozzle, whose mouth is at a chest's lid. The
+    // tail's spout reaches back down to where it drops.
     private static final float ARM_HALF_WIDTH = 1 / 16f;
-    private static final float ARM_BOTTOM = 12.5f / 16;
-    private static final float ARM_TOP = 14.5f / 16;
+    private static final float ARM_BOTTOM = 17.5f / 16;
+    private static final float ARM_TOP = 19.5f / 16;
     private static final float NOZZLE_HALF_WIDTH = 2 / 16f;
-    private static final float NOZZLE_BOTTOM = 10 / 16f;
-    private static final float NOZZLE_TOP = 13 / 16f;
+    private static final float NOZZLE_BOTTOM = 15 / 16f;
+    private static final float NOZZLE_TOP = 18 / 16f;
     private static final float MOUTH_HALF_WIDTH = 3 / 16f;
-    private static final float MOUTH_BOTTOM = 9 / 16f;
+    private static final float MOUTH_BOTTOM = 14 / 16f;
     private static final float SPOUT_HALF_WIDTH = 1.5f / 16;
     private static final float SPOUT_BOTTOM = 10.5f / 16;
 
     // A taken item rises from where it lay to inside the nozzle, above its mouth, where it is hidden.
     private static final double BELT_SURFACE = 6 / 16d;
-    private static final double INSIDE_NOZZLE = 11 / 16d;
+    private static final double INSIDE_NOZZLE = 16 / 16d;
     private static final double ITEM_LIFT = 0.1;
 
     // The filter stands on the column's two sides the arms leave free.
     private static final double COLUMN_HALF_WIDTH = 2 / 16d;
-    private static final double FILTER_HEIGHT = 9 / 16d;
+    private static final double FILTER_HEIGHT = 10 / 16d;
     private static final float FILTER_SCALE = 0.22f;
 
     // Each face samples one texel of its texture: the band's highlight on top, its body on the
