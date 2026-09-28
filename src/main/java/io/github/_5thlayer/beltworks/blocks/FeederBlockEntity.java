@@ -47,8 +47,8 @@ public class FeederBlockEntity extends BlockEntity {
         var facing = state.getValue(HorizontalDirectionalBlock.FACING);
         var spot = new LineScan.Spot(pos.getX(), pos.getY(), pos.getZ());
         var travel = new LineScan.Travel(facing.getStepX(), facing.getStepZ());
-        var head = end(level, arms.head(spot, travel));
-        var tail = end(level, arms.tail(spot, travel));
+        var head = end(level, arms.head(spot, travel), true);
+        var tail = end(level, arms.tail(spot, travel), false);
         if (head == null || tail == null) return;
 
         var taken = head.take(item -> filter.matches(level, item) && tail.accepts(item));
@@ -63,11 +63,11 @@ public class FeederBlockEntity extends BlockEntity {
         setChanged();
     }
 
-    // An arm reaches its end through the face turned towards the feeder.
-    private static @Nullable FeederEnd end(Level level, FeederArms.Target target) {
+    // An arm reaches its end through the face turned towards the feeder; only a head also takes loose items.
+    private static @Nullable FeederEnd end(Level level, FeederArms.Target target, boolean head) {
         var at = new BlockPos(target.spot().x(), target.spot().y(), target.spot().z());
         var face = Direction.getApproximateNearest(-target.pointing().x(), 0, -target.pointing().z());
-        return FeederEnd.at(level, at, face);
+        return head ? FeederEnd.atHead(level, at, face) : FeederEnd.at(level, at, face);
     }
 
     public FeederArms arms() {
