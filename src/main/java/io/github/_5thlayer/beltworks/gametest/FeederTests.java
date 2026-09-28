@@ -29,6 +29,7 @@ import io.github._5thlayer.beltworks.blocks.FeederBlockEntity;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
 import io.github._5thlayer.beltworks.model.BeltContents;
 import io.github._5thlayer.beltworks.model.BeltTier;
+import io.github._5thlayer.beltworks.model.FeederArms;
 
 /**
  * A feeder of every tier moves one item at a time from the chest its head reaches to the one its
@@ -76,6 +77,12 @@ final class FeederTests {
     private static final BlockPos FOOT = SLOPE_SOURCE.east(2);
     private static final int SLOPE_TICKS = 200;
 
+    // A feeder whose arms reach three blocks each, over stone, and one whose tail turns left.
+    private static final BlockPos REACHING = new BlockPos(4, 1, 2);
+    private static final BlockPos FAR_HEAD = REACHING.west(3);
+    private static final BlockPos FAR_TAIL = REACHING.east(3);
+    private static final BlockPos TURNED_TAIL = REACHING.north(2);
+
     private FeederTests() {
     }
 
@@ -102,6 +109,9 @@ final class FeederTests {
         loadersUnpowered.test("feeder_with_a_loader_at_an_end_moves_nothing", 100, FeederTests::loaderIsNoEnd);
         loadersUnpowered.test("two_feeders_on_one_tile_both_take", WARMUP_TICKS + WINDOW_TICKS + 20,
                 FeederTests::twoFeedersShareATile);
+        loadersUnpowered.test("feeder_reaching_3_over_stone_moves_at_1_5_items_per_second",
+                WARMUP_TICKS + WINDOW_TICKS + 20, FeederTests::reachesThree);
+        loadersUnpowered.test("feeder_with_a_left_turned_tail_drops_to_its_left", 120, FeederTests::turnsItsTail);
     }
 
     // A window passes its rate's whole items, give or take the one a fraction carries over its edge.
@@ -355,6 +365,52 @@ final class FeederTests {
             if (south == 0 || north == 0 || Math.abs(south - north) > 1) {
                 helper.fail("two feeders on one tile took " + south + " and " + north + ", expected an even share",
                         ROW_MIDDLE);
+            }
+        }).thenSucceed();
+    }
+
+    // Stone between each arm's end and the feeder, which an arm passes over at the rate of reach 1.
+    private static void reachesThree(GameTestHelper helper) {
+        LoaderPower.feed(helper);
+        helper.setBlock(FAR_HEAD, Blocks.CHEST);
+        helper.setBlock(FAR_TAIL, Blocks.CHEST);
+        for (int step = 1; step < 3; step++) {
+            helper.setBlock(REACHING.west(step), Blocks.STONE);
+            helper.setBlock(REACHING.east(step), Blocks.STONE);
+        }
+        fill(helper, FAR_HEAD, Items.COBBLESTONE, 256);
+        feeder(helper, REACHING, Direction.EAST);
+        helper.getBlockEntity(REACHING, FeederBlockEntity.class).setArms(new FeederArms(3, 3, FeederArms.Turn.STRAIGHT));
+        int[] before = new int[1];
+        helper.startSequence()
+                .thenIdle(WARMUP_TICKS)
+                .thenExecute(() -> before[0] = count(chest(helper, FAR_TAIL)))
+                .thenIdle(WINDOW_TICKS)
+                .thenExecute(() -> {
+                    int expected = (int) Math.round(BeltTier.BELT.feederItemsPerSecond() * WINDOW_TICKS / 20);
+                    int delivered = count(chest(helper, FAR_TAIL)) - before[0];
+                    if (delivered != expected || dropped(helper) != 0) {
+                        helper.fail("a feeder reaching 3 delivered " + delivered + " items in " + WINDOW_TICKS
+                                + " ticks, expected " + expected, FAR_TAIL);
+                    }
+                })
+                .thenSucceed();
+    }
+
+    // An east-facing feeder whose tail turns left reaches the chest two blocks north, not the one ahead.
+    private static void turnsItsTail(GameTestHelper helper) {
+        LoaderPower.feed(helper);
+        helper.setBlock(REACHING.west(), Blocks.CHEST);
+        helper.setBlock(REACHING.east(), Blocks.CHEST);
+        helper.setBlock(TURNED_TAIL, Blocks.CHEST);
+        fill(helper, REACHING.west(), Items.COBBLESTONE, 64);
+        feeder(helper, REACHING, Direction.EAST);
+        helper.getBlockEntity(REACHING, FeederBlockEntity.class).setArms(new FeederArms(1, 2, FeederArms.Turn.LEFT));
+        helper.startSequence().thenIdle(100).thenExecute(() -> {
+            int turned = count(chest(helper, TURNED_TAIL));
+            int ahead = count(chest(helper, REACHING.east()));
+            if (turned == 0 || ahead != 0) {
+                helper.fail("a left-turned tail dropped " + turned + " to its left and " + ahead + " ahead", TURNED_TAIL);
             }
         }).thenSucceed();
     }

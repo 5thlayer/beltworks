@@ -28,9 +28,10 @@ import io.github._5thlayer.beltworks.model.BeltTier;
 import java.util.Objects;
 
 /**
- * A feeder: its head reaches behind its facing and its tail in front. It is placed as a loader is,
- * so against a block's side its head is at that block, and it takes a loader's filter the way a
- * loader does.
+ * A feeder: its head reaches behind its facing and its tail in front, or turned left or right, each
+ * one to three blocks ({@link io.github._5thlayer.beltworks.model.FeederArms}). It is placed as a
+ * loader is, so against a block's side its head is at that block, and it takes a loader's filter
+ * the way a loader does.
  */
 public class FeederBlock extends HorizontalDirectionalBlock implements EntityBlock {
 
