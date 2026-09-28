@@ -6,7 +6,8 @@ package io.github._5thlayer.beltworks.model;
 /**
  * A loader's FE buffer, kept in joules so a fractional FE per item is charged exactly. A loader
  * with no charge for an item moves nothing. Tier 1 is unpowered and always moves, and so is every
- * tier when the server config says loaders need no power (ADR 0002).
+ * tier when the server config says loaders need no power (ADR 0002). A feeder's buffer pays every
+ * item at every tier, whatever the config says of loaders, and never drains.
  */
 public final class LoaderEnergy {
 
@@ -27,12 +28,21 @@ public final class LoaderEnergy {
     private long joules;
 
     public LoaderEnergy(BeltTier tier, Setting setting) {
-        joulesPerFe = setting.joulesPerFe();
-        joulesPerItem = setting.loadersNeedPower() ? tier.loaderJoulesPerItem() : 0;
-        drainPerTick = setting.loadersNeedPower() ? tier.loaderDrainWatts() / 20 : 0;
+        this(setting.loadersNeedPower() ? tier.loaderJoulesPerItem() : 0,
+          setting.loadersNeedPower() ? tier.loaderDrainWatts() / 20 : 0, tier.itemsPerTick(), setting.joulesPerFe());
+    }
+
+    public static LoaderEnergy feeder(BeltTier tier, Setting setting) {
+        return new LoaderEnergy(tier.feederJoulesPerItem(), 0, tier.feederItemsPerTick(), setting.joulesPerFe());
+    }
+
+    private LoaderEnergy(long joulesPerItem, long drainPerTick, double itemsPerTick, long joulesPerFe) {
+        this.joulesPerFe = joulesPerFe;
+        this.joulesPerItem = joulesPerItem;
+        this.drainPerTick = drainPerTick;
         // The largest tick FlowLimit allows and no more: a pole's demand is a machine's room, and a
         // deeper buffer would draw a network's share away from the machines on it.
-        var burst = (long) Math.ceil(tier.itemsPerTick() + 1) * joulesPerItem + drainPerTick;
+        var burst = (long) Math.ceil(itemsPerTick + 1) * joulesPerItem + drainPerTick;
         capacity = Math.ceilDiv(burst, joulesPerFe) * joulesPerFe;
     }
 

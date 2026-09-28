@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A feeder moves items one at a time from the inventory behind it to the one in front, at 1.5 items a second, always paying FE for each item (5thlayer/beltworks#67).
+
 ## 0.3.9
 
 - The jar carries its licensing: LICENSE, NOTICE crediting Rearth and malcolmriley, and the licence texts. It nests Groundworks 0.4.6, which carries its own.

@@ -17,7 +17,6 @@ import io.github._5thlayer.groundworks.Rotate;
 import io.github._5thlayer.groundworks.Stretches;
 
 import io.github._5thlayer.beltworks.api.item.ItemApi;
-import io.github._5thlayer.beltworks.blocks.BeltEndBlockEntity;
 import io.github._5thlayer.beltworks.blocks.BeltFamily;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
 import io.github._5thlayer.beltworks.collision.BeltCollisionRegistry;
@@ -31,6 +30,7 @@ import io.github._5thlayer.beltworks.neoforge.NeoforgeItemApiImpl;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -52,7 +52,7 @@ public final class Beltworks {
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     // One face per loader: two journals on one buffer in one transaction would revert out of order.
-    private static final Map<BeltEndBlockEntity, LoaderEnergyHandler> ENERGY_FACES =
+    private static final Map<BlockEntity, LoaderEnergyHandler> ENERGY_FACES =
       Collections.synchronizedMap(new WeakHashMap<>());
 
     /** The Mod's own blocks: what it opts in to previews and states Rotate in Place turns. */
@@ -119,6 +119,9 @@ public final class Beltworks {
     private static void registerCapabilities(RegisterCapabilitiesEvent event) {
         event.registerBlockEntity(Capabilities.Energy.BLOCK, BlockEntitiesContent.BELT_END.get(),
           (loader, side) -> loader.getEnergy().powered()
-            ? ENERGY_FACES.computeIfAbsent(loader, LoaderEnergyHandler::new) : null);
+            ? ENERGY_FACES.computeIfAbsent(loader, owner -> new LoaderEnergyHandler(owner, loader.getEnergy())) : null);
+        // A feeder always draws power (CONTEXT.md).
+        event.registerBlockEntity(Capabilities.Energy.BLOCK, BlockEntitiesContent.FEEDER.get(),
+          (feeder, side) -> ENERGY_FACES.computeIfAbsent(feeder, owner -> new LoaderEnergyHandler(owner, feeder.getEnergy())));
     }
 }

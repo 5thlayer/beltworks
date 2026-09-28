@@ -6,21 +6,21 @@ package io.github._5thlayer.beltworks.neoforge;
 import net.neoforged.neoforge.transfer.energy.EnergyHandler;
 import net.neoforged.neoforge.transfer.transaction.SnapshotJournal;
 import net.neoforged.neoforge.transfer.transaction.TransactionContext;
-import io.github._5thlayer.beltworks.blocks.BeltEndBlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import io.github._5thlayer.beltworks.model.LoaderEnergy;
 
 /**
- * A powered loader's FE face. It takes and never gives. A pole measures a machine's room with an
+ * A powered loader's or a feeder's FE face. It takes and never gives. A pole measures a machine's room with an
  * insert it then aborts, so every insert is journalled or the probe's worth stays behind.
  */
 public final class LoaderEnergyHandler extends SnapshotJournal<Long> implements EnergyHandler {
 
-    private final BeltEndBlockEntity loader;
+    private final BlockEntity owner;
     private final LoaderEnergy energy;
 
-    public LoaderEnergyHandler(BeltEndBlockEntity loader) {
-        this.loader = loader;
-        this.energy = loader.getEnergy();
+    public LoaderEnergyHandler(BlockEntity owner, LoaderEnergy energy) {
+        this.owner = owner;
+        this.energy = energy;
     }
 
     @Override
@@ -57,6 +57,6 @@ public final class LoaderEnergyHandler extends SnapshotJournal<Long> implements 
 
     @Override
     protected void onRootCommit(Long originalState) {
-        if (energy.joules() != originalState) loader.setChanged();
+        if (energy.joules() != originalState) owner.setChanged();
     }
 }

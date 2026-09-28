@@ -9,6 +9,7 @@ package io.github._5thlayer.beltworks.model;
  * second at {@link BeltContents#SPACING}. A tier's loader moves the same items a second as its belt,
  * and so does each side of its splitter.
  * A loader pays per item and drains what the inserter its recipe is built from does (ADR 0007).
+ * A feeder moves a tenth of its tier's loader and always pays per item, with no drain.
  */
 public enum BeltTier {
     // Tier 1's burner inserter burns fuel the loader has no slot for, so it runs unpowered.
@@ -19,6 +20,9 @@ public enum BeltTier {
       new InserterSwing(0.04, 7000, 0.1, 7000, 1, 1, 500)),
     TURBO(4, "turbo_belt", "turbo_loader", "turbo_splitter", "turbo_conveyorbelt", 0.125,
       new InserterSwing(0.04, 20000, 0.1, 20000, 1, 2, 1000));
+
+    /** The share of its tier's loader a feeder moves. */
+    public static final double FEEDER_SHARE = 0.1;
 
     private final int number;
     private final String stem;
@@ -83,6 +87,27 @@ public enum BeltTier {
 
     public double itemsPerTick() {
         return itemsPerSecond() / 20;
+    }
+
+    /** The feeder's block and item registry path in the {@code beltworks} namespace. */
+    public String feeder() {
+        return loader.replace("loader", "feeder");
+    }
+
+    public double feederItemsPerSecond() {
+        return itemsPerSecond() * FEEDER_SHARE;
+    }
+
+    public double feederItemsPerTick() {
+        return feederItemsPerSecond() / 20;
+    }
+
+    /**
+     * Twice the swing of the loader's inserter. Tier 1's loader swings a burner inserter and pays
+     * nothing, so its feeder pays for the electric inserter above it.
+     */
+    public long feederJoulesPerItem() {
+        return 2 * (this == BELT ? IMPROVED : this).loaderJoulesPerItem();
     }
 
     public InserterSwing inserter() {

@@ -6,6 +6,7 @@ package io.github._5thlayer.beltworks;
 
 import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
 import io.github._5thlayer.beltworks.blocks.BeltEndBlockEntity;
+import io.github._5thlayer.beltworks.blocks.FeederBlockEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.neoforge.registries.DeferredHolder;
@@ -30,5 +31,8 @@ public class BlockEntitiesContent {
                     BlockContent.IMPROVED_BELT_TILE.get(), BlockContent.EXPRESS_BELT_TILE.get(),
                     BlockContent.TURBO_BELT_TILE.get())
     );
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<FeederBlockEntity>> FEEDER = TYPES.register(
+            "feeder", () -> new BlockEntityType<>(FeederBlockEntity::new, BlockContent.FEEDER_BLOCK.get()));
 
 }

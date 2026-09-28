@@ -3,6 +3,7 @@
 
 package io.github._5thlayer.beltworks.gametest;
 
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import io.github._5thlayer.groundworks.PlacementPlan;
 import io.github._5thlayer.groundworks.QuarterTurn;
 import io.github._5thlayer.groundworks.Rotate;
@@ -30,7 +31,7 @@ import io.github._5thlayer.beltworks.model.BeltTier;
 /**
  * Rotate on the Mod's own pieces, with nothing but Groundworks to press it (the library's ADR 0003).
  * A held tile Rotates the Plan through the look Groundworks turns, and a placed piece Rotates in
- * Place by its own answer: a level tile and a loader turn, a splitter half, a slope and a wedge
+ * Place by its own answer: a level tile, a loader and a feeder turn, a splitter half, a slope and a wedge
  * refuse and say why, and a level tile refuses where placing it so would be refused. Every press
  * goes through {@link Rotate#press}, which is what the key's payload calls.
  */
@@ -54,6 +55,9 @@ final class RotateTests {
                 helper -> turnsEachPress(helper, BeltTileTests.tile(BeltTier.BELT, LOOK)));
         tests.test("rotate_in_place_turns_a_loader_a_quarter_each_press_both_ways", 20,
                 helper -> turnsEachPress(helper, BeltTileTests.loader(BeltTier.BELT, LOOK)));
+        tests.test("rotate_in_place_turns_a_feeder_a_quarter_each_press_both_ways", 20,
+                helper -> turnsEachPress(helper, BlockContent.FEEDER_BLOCK.get().defaultBlockState()
+                        .setValue(HorizontalDirectionalBlock.FACING, LOOK)));
         tests.test("rotate_in_place_refuses_a_splitter_half", 20, RotateTests::splitterRefuses);
         tests.test("rotate_in_place_refuses_a_foot_a_middle_a_top_and_a_wedge", 40, RotateTests::slopeRefuses);
         tests.test("rotate_in_place_refuses_a_level_tile_whose_turn_would_slope_a_corner", 20, RotateTests::wouldSlopeACorner);

@@ -7,6 +7,7 @@ package io.github._5thlayer.beltworks;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.BeltWedgeBlock;
 import io.github._5thlayer.beltworks.blocks.BeltEndBlock;
+import io.github._5thlayer.beltworks.blocks.FeederBlock;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import net.minecraft.core.registries.Registries;
@@ -37,6 +38,9 @@ public class BlockContent {
     public static final DeferredHolder<Block, Block> IMPROVED_SPLITTER_BLOCK = splitter(BeltTier.IMPROVED);
     public static final DeferredHolder<Block, Block> EXPRESS_SPLITTER_BLOCK = splitter(BeltTier.EXPRESS);
     public static final DeferredHolder<Block, Block> TURBO_SPLITTER_BLOCK = splitter(BeltTier.TURBO);
+
+    public static final DeferredHolder<Block, Block> FEEDER_BLOCK = BLOCKS.register(BeltTier.BELT.feeder(), () -> new FeederBlock(
+      BlockBehaviour.Properties.ofLegacyCopy(Blocks.GLASS).sound(SoundType.POINTED_DRIPSTONE).noOcclusion().setId(ResourceKey.create(Registries.BLOCK, Beltworks.id(BeltTier.BELT.feeder()))), BeltTier.BELT));
 
     public static Block loaderFor(BeltTier tier) {
         return switch (tier) {

@@ -32,6 +32,9 @@ public class ItemContent {
     public static final DeferredHolder<Item, Item> EXPRESS_SPLITTER = splitter(BeltTier.EXPRESS, BlockContent.EXPRESS_SPLITTER_BLOCK);
     public static final DeferredHolder<Item, Item> TURBO_SPLITTER = splitter(BeltTier.TURBO, BlockContent.TURBO_SPLITTER_BLOCK);
 
+    public static final DeferredHolder<Item, Item> FEEDER = ITEMS.register(BeltTier.BELT.feeder(),
+      () -> new TooltipBlockItem(BlockContent.FEEDER_BLOCK.get(), properties(BeltTier.BELT.feeder())));
+
     public static Item tileFor(BeltTier tier) {
         return switch (tier) {
             case BELT -> BELT_TILE.get();
