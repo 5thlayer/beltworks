@@ -125,7 +125,7 @@ final class FeederTests {
         tests.test("a_held_feeders_reach_is_what_each_placement_takes_until_its_last_item", 20,
                 FeederTests::heldReachPlaces);
         tests.test("a_feeders_filter_and_arms_reach_the_client_in_its_update_tag", 20, FeederTests::updateTagCarriesFilterAndArms);
-        tests.test("the_item_a_feeders_head_takes_reaches_the_client_whole", 20, FeederTests::suckedItemArrivesWhole);
+        tests.test("a_sucked_payload_carries_an_item_whose_id_is_wider_than_a_byte", 20, FeederTests::suckedItemArrivesWhole);
         loadersUnpowered.test("two_feeders_on_one_tile_both_take", WARMUP_TICKS + WINDOW_TICKS + 20,
                 FeederTests::twoFeedersShareATile);
         loadersUnpowered.test("feeder_reaching_3_over_stone_moves_at_1_5_items_per_second",
@@ -523,8 +523,10 @@ final class FeederTests {
         if (updates < 5) helper.fail("five changes sent " + updates + " block updates", FEEDER);
 
         var registries = helper.getLevel().registryAccess();
+        var tag = placed.getUpdateTag(registries);
+        if (tag.contains("energy")) helper.fail("the update tag carried the energy, which no watcher draws", FEEDER);
         var client = new FeederBlockEntity(helper.absolutePos(FEEDER), helper.getBlockState(FEEDER));
-        client.loadWithComponents(TagValueInput.create(ProblemReporter.DISCARDING, registries, placed.getUpdateTag(registries)));
+        client.loadWithComponents(TagValueInput.create(ProblemReporter.DISCARDING, registries, tag));
         if (!client.filteredItem().is(Items.DIRT)) helper.fail("the update tag carried the filter " + client.filteredItem(), FEEDER);
         var arms = new FeederArms(2, 3, FeederArms.Turn.LEFT);
         if (!client.arms().equals(arms)) helper.fail("the update tag carried the arms " + client.arms() + ", not " + arms, FEEDER);
@@ -535,7 +537,8 @@ final class FeederTests {
         helper.succeed();
     }
 
-    // Obsidian's id does not fit the byte a block event's parameter is, which drew another item going in.
+    // The payload a feeder's take is sent in: obsidian's id does not fit the byte a block event's
+    // parameter is, which drew another item going in.
     private static void suckedItemArrivesWhole(GameTestHelper helper) {
         if (Item.getId(Items.OBSIDIAN) < 256) helper.fail("obsidian's id fits a byte, so this proves nothing", FEEDER);
         var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), helper.getLevel().registryAccess());

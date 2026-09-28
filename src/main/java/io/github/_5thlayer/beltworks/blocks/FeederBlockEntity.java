@@ -6,11 +6,13 @@ package io.github._5thlayer.beltworks.blocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
@@ -20,6 +22,7 @@ import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.TagValueOutput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
@@ -32,6 +35,7 @@ import io.github._5thlayer.beltworks.model.LoaderEnergy;
 import io.github._5thlayer.beltworks.neoforge.FeederSuckedPayload;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -75,8 +79,8 @@ public class FeederBlockEntity extends BlockEntity {
 
         var taken = head.take(item -> filter.matches(level, item) && tail.accepts(item));
         if (taken == null) return;
-        // Copied first, since a tail may use up the stack it is handed.
-        var seen = taken.item().copyWithCount(1);
+        // Taken first, since a tail may use up the stack it is handed.
+        var seen = looks(taken.item());
         // An end whose simulation lied gets its item back, so nothing is lost.
         if (!tail.put(taken.item())) {
             taken.undo().run();
@@ -85,11 +89,22 @@ public class FeederBlockEntity extends BlockEntity {
         flow.pass();
         energy.move();
         setChanged();
-        // Its watchers are sent the whole stack: a block event's parameters are a byte each, too
+        // Its watchers are sent the item as a stack: a block event's parameters are a byte each, too
         // narrow for an item's id.
         if (level instanceof ServerLevel server) {
             PacketDistributor.sendToPlayersTrackingChunk(server, ChunkPos.containing(pos), new FeederSuckedPayload(pos, seen));
         }
+    }
+
+    // Only what changes how an item is drawn, so a stack's contents, such as a shulker box's, are
+    // neither sent with each move nor shown to its watchers.
+    private static ItemStack looks(ItemStack item) {
+        var seen = new ItemStack(item.getItem());
+        for (var type : List.of(DataComponents.ITEM_MODEL, DataComponents.CUSTOM_MODEL_DATA, DataComponents.DYED_COLOR)) {
+            seen.copyFrom(type, item);
+        }
+        if (item.hasFoil()) seen.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
+        return seen;
     }
 
     /** On a client: the head took {@code item}, which is drawn going in from now. */
@@ -102,7 +117,7 @@ public class FeederBlockEntity extends BlockEntity {
 
     /** The items being drawn going into the head, oldest first; always none on a server. */
     public List<Sucked> sucked() {
-        return sucked;
+        return Collections.unmodifiableList(sucked);
     }
 
     // An arm reaches its end through the face turned towards the feeder; only a head also takes loose items.
@@ -142,8 +157,13 @@ public class FeederBlockEntity extends BlockEntity {
     @Override
     protected void saveAdditional(ValueOutput output) {
         super.saveAdditional(output);
-        filter.save(output);
         output.putLong("energy", energy.joules());
+        saveDrawn(output);
+    }
+
+    // Its filter and arms, which its watchers draw.
+    private void saveDrawn(ValueOutput output) {
+        filter.save(output);
         output.putInt("head_reach", arms.headReach());
         output.putInt("tail_reach", arms.tailReach());
         output.putString("tail_turn", arms.tailTurn().name());
@@ -163,10 +183,12 @@ public class FeederBlockEntity extends BlockEntity {
         return FeederArms.reaches(blocks) ? blocks : FeederArms.MIN_REACH;
     }
 
-    // Its filter and arms, which its watchers draw.
+    // Only what its watchers draw: its energy changes with every move, which sends no update.
     @Override
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
-        return saveCustomOnly(registries);
+        var output = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, registries);
+        saveDrawn(output);
+        return output.buildResult();
     }
 
     @Override
