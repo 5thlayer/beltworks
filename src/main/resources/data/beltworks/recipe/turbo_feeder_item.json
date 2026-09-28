@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "beltworks:turbo_loader",
+    "beltworks:turbo_belt_tile"
+  ],
+  "result": {
+    "count": 1,
+    "id": "beltworks:turbo_feeder"
+  }
+}

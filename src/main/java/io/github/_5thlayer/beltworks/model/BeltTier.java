@@ -103,8 +103,9 @@ public enum BeltTier {
     }
 
     /**
-     * Twice the swing of the loader's inserter. Tier 1's loader swings a burner inserter and pays
-     * nothing, so its feeder pays for the electric inserter above it.
+     * What the server config starts a feeder's joules per item at: twice the swing of the loader's
+     * inserter. Tier 1's loader swings a burner inserter and pays nothing, so its feeder pays for
+     * the electric inserter above it.
      */
     public long feederJoulesPerItem() {
         return 2 * (this == BELT ? IMPROVED : this).loaderJoulesPerItem();

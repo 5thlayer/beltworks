@@ -26,6 +26,15 @@
   "block.beltworks.feeder": "Feeder",
   "item.beltworks.feeder": "Feeder",
   "item.beltworks.feeder.tooltip": "Moves 1.5 items a second from the inventory behind it to the one in front. Always needs power.",
+  "block.beltworks.improved_feeder": "Fast feeder",
+  "item.beltworks.improved_feeder": "Fast feeder",
+  "item.beltworks.improved_feeder.tooltip": "Moves 3 items a second from the inventory behind it to the one in front. Always needs power.",
+  "block.beltworks.express_feeder": "Express feeder",
+  "item.beltworks.express_feeder": "Express feeder",
+  "item.beltworks.express_feeder.tooltip": "Moves 4.5 items a second from the inventory behind it to the one in front. Always needs power.",
+  "block.beltworks.turbo_feeder": "Turbo feeder",
+  "item.beltworks.turbo_feeder": "Turbo feeder",
+  "item.beltworks.turbo_feeder.tooltip": "Moves 6 items a second from the inventory behind it to the one in front. Always needs power.",
   "block.beltworks.loader.tooltip.1": "[Right-Click] with an item to set it as filter.",
   "block.beltworks.loader.tooltip.ftbfilters": "Supports smart filters from the 'FTB Filters' mod.",
   "message.beltworks.show_extra": "Hold [ctrl] for more info.",
@@ -59,5 +68,11 @@
   "beltworks.configuration.supportSpacing": "Support spacing",
   "beltworks.configuration.supportReach": "Support reach",
   "beltworks.configuration.loadersNeedPower": "Loaders need power",
-  "beltworks.configuration.joulesPerFe": "Joules per FE"
+  "beltworks.configuration.joulesPerFe": "Joules per FE",
+  "beltworks.configuration.feederJoulesPerItem": "Feeder joules per item",
+  "beltworks.configuration.feederJoulesPerItem.button": "Feeder joules per item",
+  "beltworks.configuration.feederJoulesPerItem.belt": "Feeder",
+  "beltworks.configuration.feederJoulesPerItem.improved": "Fast feeder",
+  "beltworks.configuration.feederJoulesPerItem.express": "Express feeder",
+  "beltworks.configuration.feederJoulesPerItem.turbo": "Turbo feeder"
 }
