@@ -1,5 +1,5 @@
 {
-  "parent": "beltworks:block/loader_housing",
+  "parent": "beltworks:block/feeder_body",
   "textures": {
     "band": "beltworks:block/turbo_loader_band"
   }
