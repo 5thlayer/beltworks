@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "beltworks:improved_loader",
+    "beltworks:improved_belt_tile"
+  ],
+  "result": {
+    "count": 1,
+    "id": "beltworks:improved_feeder"
+  }
+}

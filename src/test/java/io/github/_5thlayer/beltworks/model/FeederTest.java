@@ -4,14 +4,19 @@
 package io.github._5thlayer.beltworks.model;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FeederTest {
@@ -19,9 +24,30 @@ class FeederTest {
     private static final LoaderEnergy.Setting LOADERS_UNPOWERED = new LoaderEnergy.Setting(false, 100);
     private static final double SPACING = BeltContents.SPACING;
 
-    @Test
-    void aTierOneFeederMovesATenthOfItsLoader() {
-        assertEquals(1.5, BeltTier.BELT.feederItemsPerSecond(), 1e-9);
+    @ParameterizedTest
+    @CsvSource({"1, 1.5", "2, 3", "3, 4.5", "4, 6"})
+    void aFeederMovesItemsPerSecondAtATenthOfItsLoader(int tier, double itemsPerSecond) {
+        assertEquals(itemsPerSecond, BeltTier.of(tier).feederItemsPerSecond(), 1e-9);
+    }
+
+    @ParameterizedTest
+    @EnumSource(BeltTier.class)
+    void everyTiersRateIsTheOneShareOfItsLoader(BeltTier tier) {
+        assertEquals(tier.itemsPerSecond() * BeltTier.FEEDER_SHARE, tier.feederItemsPerSecond(), 1e-9);
+        assertEquals(tier.feederItemsPerSecond() / 20, tier.feederItemsPerTick(), 1e-12);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"1, feeder", "2, improved_feeder", "3, express_feeder", "4, turbo_feeder"})
+    void eachTierNamesItsFeeder(int tier, String feeder) {
+        assertEquals(feeder, BeltTier.of(tier).feeder());
+    }
+
+    @ParameterizedTest
+    @EnumSource(BeltTier.class)
+    void everyTiersFeederPaysEveryItemWhateverLoadersNeed(BeltTier tier) {
+        assertTrue(LoaderEnergy.feeder(tier, LOADERS_UNPOWERED).powered());
+        assertTrue(LoaderEnergy.feeder(tier, new LoaderEnergy.Setting(true, 100)).powered());
     }
 
     @Test
@@ -135,5 +161,26 @@ class FeederTest {
         var line = new TransportLine<String>(Collections.nCopies(tiles, BeltTier.BELT));
         for (int tick = 0; tick < 20 * 20; tick++) line.tick(() -> "item", item -> false);
         return line;
+    }
+
+    @Test
+    void aTiersFeederPaysWhatTheSettingSaysAndTheDefaultForTheRest() {
+        var setting = new LoaderEnergy.Setting(false, 100, Map.of(BeltTier.TURBO, 500L));
+
+        assertEquals(500, setting.feederJoules(BeltTier.TURBO));
+        assertEquals(BeltTier.BELT.feederJoulesPerItem(), setting.feederJoules(BeltTier.BELT));
+        assertEquals(BeltTier.EXPRESS.feederJoulesPerItem(), LoaderEnergy.Setting.DEFAULT.feederJoules(BeltTier.EXPRESS));
+
+        var energy = LoaderEnergy.feeder(BeltTier.TURBO, setting);
+        energy.insertFe(Long.MAX_VALUE);
+        var before = energy.joules();
+        energy.move();
+        assertEquals(500, before - energy.joules());
+    }
+
+    @Test
+    void aSettingRefusesAFeederThatPaysNothing() {
+        assertThrows(IllegalArgumentException.class,
+          () -> new LoaderEnergy.Setting(false, 100, Map.of(BeltTier.IMPROVED, 0L)));
     }
 }

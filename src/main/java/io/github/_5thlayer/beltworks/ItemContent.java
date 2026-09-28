@@ -32,8 +32,10 @@ public class ItemContent {
     public static final DeferredHolder<Item, Item> EXPRESS_SPLITTER = splitter(BeltTier.EXPRESS, BlockContent.EXPRESS_SPLITTER_BLOCK);
     public static final DeferredHolder<Item, Item> TURBO_SPLITTER = splitter(BeltTier.TURBO, BlockContent.TURBO_SPLITTER_BLOCK);
 
-    public static final DeferredHolder<Item, Item> FEEDER = ITEMS.register(BeltTier.BELT.feeder(),
-      () -> new TooltipBlockItem(BlockContent.FEEDER_BLOCK.get(), properties(BeltTier.BELT.feeder())));
+    public static final DeferredHolder<Item, Item> FEEDER = feeder(BeltTier.BELT, BlockContent.FEEDER_BLOCK);
+    public static final DeferredHolder<Item, Item> IMPROVED_FEEDER = feeder(BeltTier.IMPROVED, BlockContent.IMPROVED_FEEDER_BLOCK);
+    public static final DeferredHolder<Item, Item> EXPRESS_FEEDER = feeder(BeltTier.EXPRESS, BlockContent.EXPRESS_FEEDER_BLOCK);
+    public static final DeferredHolder<Item, Item> TURBO_FEEDER = feeder(BeltTier.TURBO, BlockContent.TURBO_FEEDER_BLOCK);
 
     public static Item tileFor(BeltTier tier) {
         return switch (tier) {
@@ -50,6 +52,10 @@ public class ItemContent {
 
     private static DeferredHolder<Item, Item> loader(BeltTier tier, DeferredHolder<Block, Block> block) {
         return ITEMS.register(tier.loader(), () -> new TooltipBlockItem(block.get(), properties(tier.loader())));
+    }
+
+    private static DeferredHolder<Item, Item> feeder(BeltTier tier, DeferredHolder<Block, Block> block) {
+        return ITEMS.register(tier.feeder(), () -> new TooltipBlockItem(block.get(), properties(tier.feeder())));
     }
 
     private static DeferredHolder<Item, Item> splitter(BeltTier tier, DeferredHolder<Block, Block> block) {

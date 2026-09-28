@@ -4,6 +4,8 @@
 package io.github._5thlayer.beltworks.blocks;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -18,10 +20,11 @@ import io.github._5thlayer.beltworks.model.LoaderEnergy;
 /**
  * Moves one item at a time from the inventory, level tile or splitter half its head reaches to the
  * one its tail reaches, at a tenth of its tier's loader and for FE of its own, whatever the config
- * says of loaders.
+ * says of loaders. Only what its filter matches is taken.
  */
 public class FeederBlockEntity extends BlockEntity {
 
+    private final ItemFilter filter = new ItemFilter();
     private final FlowLimit flow;
     private final LoaderEnergy energy;
 
@@ -40,7 +43,7 @@ public class FeederBlockEntity extends BlockEntity {
         var tail = FeederEnd.at(level, pos.relative(facing), facing.getOpposite());
         if (head == null || tail == null) return;
 
-        var taken = head.take(tail::accepts);
+        var taken = head.take(item -> filter.matches(level, item) && tail.accepts(item));
         if (taken == null) return;
         // An end whose simulation lied gets its item back, so nothing is lost.
         if (!tail.put(taken.item())) {
@@ -56,15 +59,29 @@ public class FeederBlockEntity extends BlockEntity {
         return energy;
     }
 
+    public ItemStack filteredItem() {
+        return filter.item();
+    }
+
+    public void assignFilterItem(ItemStack stack, Player player) {
+        filter.assign(this, stack, player);
+    }
+
+    public void resetFilterItem(Player player) {
+        filter.reset(this, player);
+    }
+
     @Override
     protected void saveAdditional(ValueOutput output) {
         super.saveAdditional(output);
+        filter.save(output);
         output.putLong("energy", energy.joules());
     }
 
     @Override
     protected void loadAdditional(ValueInput input) {
         super.loadAdditional(input);
+        filter.load(input);
         energy.setJoules(input.getLongOr("energy", 0));
     }
 }

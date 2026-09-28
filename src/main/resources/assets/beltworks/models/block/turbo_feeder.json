@@ -1,0 +1,6 @@
+{
+  "parent": "beltworks:block/loader_housing",
+  "textures": {
+    "band": "beltworks:block/turbo_loader_band"
+  }
+}

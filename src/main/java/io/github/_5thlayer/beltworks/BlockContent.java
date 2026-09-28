@@ -39,8 +39,10 @@ public class BlockContent {
     public static final DeferredHolder<Block, Block> EXPRESS_SPLITTER_BLOCK = splitter(BeltTier.EXPRESS);
     public static final DeferredHolder<Block, Block> TURBO_SPLITTER_BLOCK = splitter(BeltTier.TURBO);
 
-    public static final DeferredHolder<Block, Block> FEEDER_BLOCK = BLOCKS.register(BeltTier.BELT.feeder(), () -> new FeederBlock(
-      BlockBehaviour.Properties.ofLegacyCopy(Blocks.GLASS).sound(SoundType.POINTED_DRIPSTONE).noOcclusion().setId(ResourceKey.create(Registries.BLOCK, Beltworks.id(BeltTier.BELT.feeder()))), BeltTier.BELT));
+    public static final DeferredHolder<Block, Block> FEEDER_BLOCK = feeder(BeltTier.BELT);
+    public static final DeferredHolder<Block, Block> IMPROVED_FEEDER_BLOCK = feeder(BeltTier.IMPROVED);
+    public static final DeferredHolder<Block, Block> EXPRESS_FEEDER_BLOCK = feeder(BeltTier.EXPRESS);
+    public static final DeferredHolder<Block, Block> TURBO_FEEDER_BLOCK = feeder(BeltTier.TURBO);
 
     public static Block loaderFor(BeltTier tier) {
         return switch (tier) {
@@ -48,6 +50,15 @@ public class BlockContent {
             case IMPROVED -> IMPROVED_LOADER_BLOCK.get();
             case EXPRESS -> EXPRESS_LOADER_BLOCK.get();
             case TURBO -> TURBO_LOADER_BLOCK.get();
+        };
+    }
+
+    public static Block feederFor(BeltTier tier) {
+        return switch (tier) {
+            case BELT -> FEEDER_BLOCK.get();
+            case IMPROVED -> IMPROVED_FEEDER_BLOCK.get();
+            case EXPRESS -> EXPRESS_FEEDER_BLOCK.get();
+            case TURBO -> TURBO_FEEDER_BLOCK.get();
         };
     }
 
@@ -82,6 +93,11 @@ public class BlockContent {
     private static DeferredHolder<Block, Block> loader(BeltTier tier) {
         return BLOCKS.register(tier.loader(), () -> new BeltEndBlock(
           BlockBehaviour.Properties.ofLegacyCopy(Blocks.GLASS).sound(SoundType.POINTED_DRIPSTONE).noOcclusion().setId(ResourceKey.create(Registries.BLOCK, Beltworks.id(tier.loader()))), tier));
+    }
+
+    private static DeferredHolder<Block, Block> feeder(BeltTier tier) {
+        return BLOCKS.register(tier.feeder(), () -> new FeederBlock(
+          BlockBehaviour.Properties.ofLegacyCopy(Blocks.GLASS).sound(SoundType.POINTED_DRIPSTONE).noOcclusion().setId(ResourceKey.create(Registries.BLOCK, Beltworks.id(tier.feeder()))), tier));
     }
 
 }

@@ -33,6 +33,8 @@ public class BlockEntitiesContent {
     );
 
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<FeederBlockEntity>> FEEDER = TYPES.register(
-            "feeder", () -> new BlockEntityType<>(FeederBlockEntity::new, BlockContent.FEEDER_BLOCK.get()));
+            "feeder", () -> new BlockEntityType<>(FeederBlockEntity::new, BlockContent.FEEDER_BLOCK.get(),
+                    BlockContent.IMPROVED_FEEDER_BLOCK.get(), BlockContent.EXPRESS_FEEDER_BLOCK.get(),
+                    BlockContent.TURBO_FEEDER_BLOCK.get()));
 
 }

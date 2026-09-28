@@ -6,6 +6,10 @@ package io.github._5thlayer.beltworks.blocks;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -17,6 +21,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.beltworks.model.BeltTier;
 
@@ -24,7 +29,8 @@ import java.util.Objects;
 
 /**
  * A feeder: its head reaches behind its facing and its tail in front. It is placed as a loader is,
- * so against a block's side its head is at that block.
+ * so against a block's side its head is at that block, and it takes a loader's filter the way a
+ * loader does.
  */
 public class FeederBlock extends HorizontalDirectionalBlock implements EntityBlock {
 
@@ -51,6 +57,25 @@ public class FeederBlock extends HorizontalDirectionalBlock implements EntityBlo
         var facing = ctx.getClickedFace();
         if (facing.getAxis().isVertical()) facing = ctx.getHorizontalDirection().getOpposite();
         return Objects.requireNonNull(super.getStateForPlacement(ctx)).setValue(FACING, facing);
+    }
+
+    // As a loader's: a click with an item sets the filter to it, and an empty hand clears it. Only the
+    // main hand's empty click reaches useWithoutItem, so an empty off hand tried after the main hand
+    // set a filter does not undo it.
+    @Override
+    protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        if (stack.isEmpty() || !(level.getBlockEntity(pos) instanceof FeederBlockEntity feeder))
+            return super.useItemOn(stack, state, level, pos, player, hand, hit);
+        if (!level.isClientSide()) feeder.assignFilterItem(stack, player);
+        return InteractionResult.SUCCESS;
+    }
+
+    @Override
+    public InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        if (!(level.getBlockEntity(pos) instanceof FeederBlockEntity feeder))
+            return super.useWithoutItem(state, level, pos, player, hit);
+        if (!level.isClientSide()) feeder.resetFilterItem(player);
+        return InteractionResult.SUCCESS;
     }
 
     @Override

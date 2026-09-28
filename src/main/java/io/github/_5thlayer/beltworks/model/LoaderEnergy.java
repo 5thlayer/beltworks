@@ -3,6 +3,10 @@
 
 package io.github._5thlayer.beltworks.model;
 
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.Map;
+
 /**
  * A loader's FE buffer, kept in joules so a fractional FE per item is charged exactly. A loader
  * with no charge for an item moves nothing. Tier 1 is unpowered and always moves, and so is every
@@ -11,13 +15,32 @@ package io.github._5thlayer.beltworks.model;
  */
 public final class LoaderEnergy {
 
-    /** The server config's say on loader power. */
-    public record Setting(boolean loadersNeedPower, long joulesPerFe) {
+    /**
+     * The server config's say on loader power, and on what each tier's feeder pays an item: a feeder
+     * pays whatever loaders need, so its cost is its own to set.
+     */
+    public record Setting(boolean loadersNeedPower, long joulesPerFe, Map<BeltTier, Long> feederJoulesPerItem) {
 
         public static final Setting DEFAULT = new Setting(false, 100);
 
+        public Setting(boolean loadersNeedPower, long joulesPerFe) {
+            this(loadersNeedPower, joulesPerFe, Map.of());
+        }
+
+        /** Every tier a map leaves out pays {@link BeltTier#feederJoulesPerItem}. */
         public Setting {
             if (joulesPerFe <= 0) throw new IllegalArgumentException("joulesPerFe must be positive: " + joulesPerFe);
+            var joules = new EnumMap<BeltTier, Long>(BeltTier.class);
+            for (var tier : BeltTier.values()) joules.put(tier, tier.feederJoulesPerItem());
+            joules.putAll(feederJoulesPerItem);
+            joules.forEach((tier, perItem) -> {
+                if (perItem <= 0) throw new IllegalArgumentException(tier + " feeder joules per item must be positive: " + perItem);
+            });
+            feederJoulesPerItem = Collections.unmodifiableMap(joules);
+        }
+
+        public long feederJoules(BeltTier tier) {
+            return feederJoulesPerItem.get(tier);
         }
     }
 
@@ -33,7 +56,7 @@ public final class LoaderEnergy {
     }
 
     public static LoaderEnergy feeder(BeltTier tier, Setting setting) {
-        return new LoaderEnergy(tier.feederJoulesPerItem(), 0, tier.feederItemsPerTick(), setting.joulesPerFe());
+        return new LoaderEnergy(setting.feederJoules(tier), 0, tier.feederItemsPerTick(), setting.joulesPerFe());
     }
 
     private LoaderEnergy(long joulesPerItem, long drainPerTick, double itemsPerTick, long joulesPerFe) {
