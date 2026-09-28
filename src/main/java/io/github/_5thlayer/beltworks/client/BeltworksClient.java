@@ -29,6 +29,8 @@ public final class BeltworksClient {
         container.registerConfig(ModConfig.Type.CLIENT, BeltworksClientConfig.SPEC);
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         eventBus.addListener(BeltworksClient::registerRenderers);
+        eventBus.addListener(FeederReachKeys::onRegisterKeys);
+        NeoForge.EVENT_BUS.addListener(FeederReachKeys::onClientTick);
         NeoForge.EVENT_BUS.addListener(BeltHandClient::tick);
         NeoForge.EVENT_BUS.addListener(BeltHandClient::interact);
         BeltPreviews.register();

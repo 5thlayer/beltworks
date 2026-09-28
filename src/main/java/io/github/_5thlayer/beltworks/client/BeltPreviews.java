@@ -23,14 +23,18 @@ import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.neoforged.neoforge.common.NeoForge;
 import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
+import io.github._5thlayer.beltworks.blocks.FeederBlock;
+import io.github._5thlayer.beltworks.blocks.FeederReach;
 import io.github._5thlayer.beltworks.blocks.PlannedSupports;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
 import io.github._5thlayer.beltworks.blocks.Supports;
@@ -42,7 +46,8 @@ import io.github._5thlayer.beltworks.model.Support;
 /**
  * The Mod's own drawing in the Groundworks library's Placement Preview (ADR 0010): a planned
  * splitter's belt surface, the wedges a stretch's slopes put down, which are no blocks of its
- * plan since they cost nothing, and the supports the plan's pieces will show (ADR 0012).
+ * plan since they cost nothing, the supports the plan's pieces will show (ADR 0012), and a planned
+ * feeder's arms at the held reach (ADR 0013).
  * Groundworks draws the Stretch's anchors and the Dismantle's span itself (ADR 0011), and never
  * hears of supports.
  */
@@ -56,6 +61,13 @@ final class BeltPreviews {
     private static Support.@Nullable Setting supportsSetting;
     private static Map<BlockPos, List<SupportRenderer.Box>> supports = Map.of();
 
+    // An arm is a bar at the height of the feeder's column top, ending in its nozzle over the block it reaches.
+    private static final float ARM_HALF_WIDTH = 1 / 16f;
+    private static final float ARM_BOTTOM = 8 / 16f;
+    private static final float ARM_TOP = 10 / 16f;
+    private static final float NOZZLE_HALF_WIDTH = 3 / 16f;
+    private static final float NOZZLE_BOTTOM = 5 / 16f;
+
     private BeltPreviews() {
     }
 
@@ -63,6 +75,42 @@ final class BeltPreviews {
         NeoForge.EVENT_BUS.addListener(BeltPreviews::splitterBelts);
         NeoForge.EVENT_BUS.addListener(BeltPreviews::stretchWedges);
         NeoForge.EVENT_BUS.addListener(BeltPreviews::plannedSupports);
+        NeoForge.EVENT_BUS.addListener(BeltPreviews::feederArms);
+    }
+
+    /**
+     * A planned feeder's arms, at the reach the held stack's next placement takes (ADR 0013), so a
+     * press of Head Reach or Tail Reach redraws them. A placed feeder's own arms are not drawn yet,
+     * so these are plain bars in the plan's tint.
+     */
+    private static void feederArms(PlacementPreviewEvent.Overlay event) {
+        var arms = FeederReach.held(event.getStack());
+        var geometry = event.getGeometry();
+        var camera = geometry.getLevelRenderState().cameraRenderState.pos;
+        var poseStack = geometry.getPoseStack();
+        for (var placed : event.getPlan().blocks()) {
+            if (!(placed.state().getBlock() instanceof FeederBlock)) continue;
+            var facing = placed.state().getValue(HorizontalDirectionalBlock.FACING);
+            var feeder = new LineScan.Spot(0, 0, 0);
+            var travel = new LineScan.Travel(facing.getStepX(), facing.getStepZ());
+            var boxes = new ArrayList<SupportRenderer.Box>();
+            arm(boxes, arms.head(feeder, travel).spot());
+            arm(boxes, arms.tail(feeder, travel).spot());
+            var pos = placed.pos();
+            poseStack.pushPose();
+            poseStack.translate(pos.getX() - camera.x(), pos.getY() - camera.y(), pos.getZ() - camera.z());
+            SupportRenderer.submitPlanned(boxes, poseStack, geometry.getSubmitNodeCollector(), event.getTint());
+            poseStack.popPose();
+        }
+    }
+
+    // From the feeder's centre to the centre of the block at end, counted from the feeder.
+    private static void arm(List<SupportRenderer.Box> boxes, LineScan.Spot end) {
+        float x = end.x() + 0.5f, z = end.z() + 0.5f;
+        boxes.add(new SupportRenderer.Box(Math.min(0.5f, x) - ARM_HALF_WIDTH, ARM_BOTTOM, Math.min(0.5f, z) - ARM_HALF_WIDTH,
+          Math.max(0.5f, x) + ARM_HALF_WIDTH, ARM_TOP, Math.max(0.5f, z) + ARM_HALF_WIDTH, 0, LightCoordsUtil.FULL_BRIGHT));
+        boxes.add(new SupportRenderer.Box(x - NOZZLE_HALF_WIDTH, NOZZLE_BOTTOM, z - NOZZLE_HALF_WIDTH,
+          x + NOZZLE_HALF_WIDTH, ARM_BOTTOM, z + NOZZLE_HALF_WIDTH, 0, LightCoordsUtil.FULL_BRIGHT));
     }
 
     /**

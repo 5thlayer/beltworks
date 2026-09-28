@@ -16,6 +16,12 @@ public record FeederArms(int headReach, int tailReach, Turn tailTurn) {
     /** What a feeder placed before arms had reach: its head and tail on the blocks either side. */
     public static final FeederArms ADJACENT = new FeederArms(MIN_REACH, MIN_REACH, Turn.STRAIGHT);
 
+    /** One of a feeder's two arms, as the Head Reach and Tail Reach keys name them. */
+    public enum Arm {
+        HEAD,
+        TAIL
+    }
+
     /** Which way the tail points, seen from above with the feeder's facing ahead. */
     public enum Turn {
         STRAIGHT,
@@ -53,6 +59,16 @@ public record FeederArms(int headReach, int tailReach, Turn tailTurn) {
     public Target tail(LineScan.Spot feeder, LineScan.Travel facing) {
         var pointing = tailTurn.of(facing);
         return new Target(feeder.step(pointing, tailReach), pointing);
+    }
+
+    public int reach(Arm arm) {
+        return arm == Arm.HEAD ? headReach : tailReach;
+    }
+
+    /** These arms with {@code arm} a block longer, from the longest back to the shortest, as a press of its key leaves them. */
+    public FeederArms lengthened(Arm arm) {
+        var blocks = reach(arm) % MAX_REACH + MIN_REACH;
+        return arm == Arm.HEAD ? withHeadReach(blocks) : withTailReach(blocks);
     }
 
     public FeederArms withHeadReach(int blocks) {

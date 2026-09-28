@@ -5,6 +5,7 @@ package io.github._5thlayer.beltworks.model;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -62,5 +63,18 @@ class FeederArmsTest {
     void aReachIsOneToThreeBlocks() {
         assertThrows(IllegalArgumentException.class, () -> new FeederArms(0, 1, FeederArms.Turn.STRAIGHT));
         assertThrows(IllegalArgumentException.class, () -> new FeederArms(1, 4, FeederArms.Turn.STRAIGHT));
+    }
+
+    @Test
+    void eachPressLengthensOneArmABlockAndWrapsFromThreeToOne() {
+        var arms = new FeederArms(1, 2, FeederArms.Turn.LEFT);
+        var heads = new ArrayList<Integer>();
+        for (int press = 0; press < 4; press++) {
+            arms = arms.lengthened(FeederArms.Arm.HEAD);
+            heads.add(arms.headReach());
+        }
+        assertEquals(List.of(2, 3, 1, 2), heads);
+        assertEquals(new FeederArms(2, 3, FeederArms.Turn.LEFT), arms.lengthened(FeederArms.Arm.TAIL));
+        assertEquals(new FeederArms(2, 1, FeederArms.Turn.LEFT), arms.lengthened(FeederArms.Arm.TAIL).lengthened(FeederArms.Arm.TAIL));
     }
 }
