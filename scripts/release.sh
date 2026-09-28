@@ -4,7 +4,7 @@
 #
 # Release the Library at <version> from HEAD: the changelog's Unreleased entries become <version>'s,
 # the build and game tests pass, and the jar is published to the local maven repository, tagged,
-# and uploaded to Modrinth and CurseForge by scripts/upload.py.
+# and uploaded to Modrinth and CurseForge by scripts/upload.py, when gradle.properties names a project.
 #
 #   scripts/release.sh [--no-upload] <version>
 #
@@ -69,7 +69,10 @@ echo "jar sha256 $sha"
 # A trial against another maven repository only shows what it would upload.
 upload=(scripts/upload.py)
 [[ -z "${MAVEN_REPO_LOCAL:-}" ]] || upload+=(--dry-run)
-if [[ -z "$upload_now" ]]; then
+projects="$(property modrinth_project_id)$(property curseforge_project_id)${MODRINTH_PROJECT_ID:-}${CURSEFORGE_PROJECT_ID:-}"
+if [[ -z "$projects" ]]; then
+    echo "gradle.properties names no Modrinth or CurseForge project, so nothing is uploaded."
+elif [[ -z "$upload_now" ]]; then
     echo "Upload with: scripts/upload.py $version"
 elif ! "${upload[@]}" "$version"; then
     echo "release: $version is released and tagged, but an upload failed; retry it with" >&2

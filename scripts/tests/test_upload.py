@@ -19,9 +19,9 @@ from standin import StandIn
 
 SCRIPT = Path(__file__).resolve().parents[1] / "upload.py"
 SECRETS = {"MODRINTH_TOKEN": "mrp_standin-secret-token", "CURSEFORGE_TOKEN": "cf-upload-secret-token"}
-MODRINTH_PROJECT = "beltworks-standin"
+MODRINTH_PROJECT = "examplelib-standin"
 CF_PROJECT = "123456"
-NOTES = "- The jar carries its licensing.\n- It nests Groundworks 0.4.6."
+NOTES = "- A Consumer can read the thing.\n- The other thing is faster."
 
 CHANGELOG = """# Changelog
 
@@ -31,23 +31,27 @@ CHANGELOG = """# Changelog
 
 ## 0.3.9
 
-- The jar carries its licensing.
-- It nests Groundworks 0.4.6.
+- A Consumer can read the thing.
+- The other thing is faster.
 
 ## 0.3.8
 
 - Older.
 """
 
-PROPERTIES = """mod_name = Beltworks
+PROPERTIES = """mod_name = Example Library
 mod_version = 0.3.9
 maven_group = io.github.5thlayer
-archives_name = beltworks
+archives_name = examplelib
 minecraft_version = 26.1.2
+modrinth_project_id = examplelib-properties
+curseforge_project_id = 654321
+modrinth_dependencies = fRiHVvU7, P7dR8mSH
+curseforge_dependencies = emi,fabric-api
 """
 
 
-def jar(entries):
+def nested(entries):
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w") as z:
         for name, data in entries.items():
@@ -55,15 +59,16 @@ def jar(entries):
     return out.getvalue()
 
 
-def licensed(**overrides):
-    entries = {
-        "LICENSE": "MIT", "NOTICE": "Credits Rearth and malcolmriley.",
-        "LICENSES/MIT.txt": "MIT", "LICENSES/CC-BY-4.0.txt": "CC BY",
-        "META-INF/jarjar/groundworks.jar": jar({"LICENSE": "MIT"}),
-        "io/github/beltworks/Beltworks.class": b"\xca\xfe\xba\xbe",
-    }
-    entries.update(overrides)
-    return jar({k: v for k, v in entries.items() if v is not None})
+def jar(**overrides):
+    entries = {"LICENSE": "MIT", "LICENSES/MIT.txt": "MIT", "NOTICE": "Credits Rearth and malcolmriley.",
+               "LICENSES/CC-BY-4.0.txt": "CC BY", "META-INF/jarjar/groundworks.jar": nested({"LICENSE": "MIT"}),
+               "io/github/_5thlayer/examplelib/ExampleLib.class": b"\xca\xfe\xba\xbe", **overrides}
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w") as z:
+        for name, data in entries.items():
+            if data is not None:
+                z.writestr(name, data)
+    return out.getvalue()
 
 
 class Upload(unittest.TestCase):
@@ -84,10 +89,10 @@ class Upload(unittest.TestCase):
                     "CURSEFORGE_API_URL": self.site.url + "/cf-site"}
 
     def publish(self, version, data=None):
-        folder = self.maven / "io/github/5thlayer/beltworks" / version
+        folder = self.maven / "io/github/5thlayer/examplelib" / version
         folder.mkdir(parents=True)
-        data = licensed() if data is None else data
-        (folder / f"beltworks-{version}.jar").write_bytes(data)
+        data = jar() if data is None else data
+        (folder / f"examplelib-{version}.jar").write_bytes(data)
         return data
 
     def upload(self, *args, **env):
@@ -121,7 +126,7 @@ class Upload(unittest.TestCase):
         result = self.upload("0.3.9")
         self.assertEqual(result.returncode, 0, result.stderr)
         for post in [self.modrinth_post(), self.curseforge_post()]:
-            self.assertEqual(post.parts()["file"], (data, "beltworks-0.3.9.jar"))
+            self.assertEqual(post.parts()["file"], (data, "examplelib-0.3.9.jar"))
 
     def test_the_maven_repository_defaults_to_the_home_one(self):
         home = self.root / "home"
@@ -139,13 +144,13 @@ class Upload(unittest.TestCase):
         self.assertRefusedBeforeAnyRequest(self.upload("0.3.7"), "CHANGELOG.md")
 
     def test_refuses_a_jar_that_lacks_its_licensing(self):
-        for lacking, entry in [("LICENSE", {"LICENSE": None}), ("NOTICE", {"NOTICE": None}),
-                               ("LICENSES/CC-BY-4.0.txt", {"LICENSES/CC-BY-4.0.txt": None}),
-                               ("malcolmriley", {"NOTICE": "Credits Rearth."}),
-                               ("groundworks.jar", {"META-INF/jarjar/groundworks.jar": jar({"x": "y"})})]:
+        for lacking, entry in [(name, {name: None}) for name in
+                               ["LICENSE", "NOTICE", "LICENSES/MIT.txt", "LICENSES/CC-BY-4.0.txt"]] + [
+                ("malcolmriley", {"NOTICE": "Credits Rearth."}),
+                ("groundworks.jar", {"META-INF/jarjar/groundworks.jar": nested({"x": "y"})})]:
             with self.subTest(lacking):
                 shutil.rmtree(self.maven, ignore_errors=True)
-                self.publish("0.3.9", licensed(**entry))
+                self.publish("0.3.9", jar(**entry))
                 self.assertRefusedBeforeAnyRequest(self.upload("0.3.9"), lacking)
 
     def test_a_missing_token_is_fetched_through_op_run(self):
@@ -153,7 +158,7 @@ class Upload(unittest.TestCase):
         # file with a token, as `op run --env-file=<file> -- <command>` does, and runs the command.
         bin = self.root / "bin"
         bin.mkdir()
-        (bin / "op").write_text("""#!/bin/sh
+        (bin / "op").write_text(r"""#!/bin/sh
 [ "$1" = run ] || exit 9
 file="${2#--env-file=}"; shift 3
 while IFS='=' read -r name value; do
@@ -184,12 +189,47 @@ exec "$@"
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("MODRINTH_TOKEN", result.stderr)
 
-    def test_the_project_ids_default_to_beltworks_own(self):
+    def properties(self, **values):
+        """gradle.properties with the given settings replaced."""
+        text = PROPERTIES
+        for name, value in values.items():
+            text = "".join(f"{name} = {value}\n" if line.startswith(f"{name} ") else line + "\n"
+                           for line in text.splitlines())
+        (self.root / "gradle.properties").write_text(text)
+
+    def test_the_projects_come_from_gradle_properties(self):
         self.publish("0.3.9")
         result = self.upload("--dry-run", "0.3.9", MODRINTH_PROJECT_ID=None, CURSEFORGE_PROJECT_ID=None)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("/modrinth/project/p4zxipln/version", result.stdout)
-        self.assertIn("/cf-upload/api/projects/1714527/upload-file", result.stdout)
+        self.assertIn("/modrinth/project/examplelib-properties/version", result.stdout)
+        self.assertIn("/cf-upload/api/projects/654321/upload-file", result.stdout)
+
+    def test_refuses_when_no_project_is_set(self):
+        self.properties(modrinth_project_id="", curseforge_project_id="")
+        self.publish("0.3.9")
+        result = self.upload("0.3.9", MODRINTH_PROJECT_ID=None, CURSEFORGE_PROJECT_ID=None)
+        self.assertRefusedBeforeAnyRequest(result, "modrinth_project_id")
+
+    def test_uploads_only_to_the_site_with_a_project(self):
+        self.properties(curseforge_project_id="")
+        self.publish("0.3.9")
+        result = self.upload("0.3.9", CURSEFORGE_PROJECT_ID=None)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.modrinth_post()
+        self.assertEqual({r.path.split("/")[1] for r in self.site.requests}, {"modrinth"})
+
+    def test_refuses_a_site_without_a_project(self):
+        self.properties(curseforge_project_id="")
+        self.publish("0.3.9")
+        result = self.upload("--site", "curseforge", "0.3.9", CURSEFORGE_PROJECT_ID=None)
+        self.assertRefusedBeforeAnyRequest(result, "curseforge_project_id")
+
+    def test_no_dependencies_sends_none(self):
+        self.properties(modrinth_dependencies="", curseforge_dependencies="")
+        self.publish("0.3.9")
+        self.assertEqual(self.upload("0.3.9").returncode, 0)
+        self.assertEqual(json.loads(self.modrinth_post().parts()["data"][0])["dependencies"], [])
+        self.assertNotIn("relations", json.loads(self.curseforge_post().parts()["metadata"][0]))
 
     def test_a_missing_token_fails_clearly_and_leaves_the_other_site(self):
         self.publish("0.3.9")
@@ -246,7 +286,7 @@ exec "$@"
                      f"GET {self.site.url}/cf-upload/api/game/versions",
                      f"POST {self.site.url}/cf-upload/api/projects/{CF_PROJECT}/upload-file",
                      "X-Api-Token: <redacted>",
-                     "beltworks-0.3.9.jar", '"version_type": "beta"', '"releaseType": "beta"']:
+                     "examplelib-0.3.9.jar", '"version_type": "beta"', '"releaseType": "beta"']:
             self.assertIn(line, result.stdout)
 
     # Modrinth
@@ -266,7 +306,8 @@ exec "$@"
         self.assertEqual(data["game_versions"], ["26.1.2"])
         self.assertEqual(data["loaders"], ["neoforge"])
         self.assertEqual(data["version_type"], "beta")
-        self.assertEqual(data["dependencies"], [])
+        self.assertEqual(data["dependencies"], [{"project_id": "fRiHVvU7", "dependency_type": "required"},
+                                                {"project_id": "P7dR8mSH", "dependency_type": "required"}])
         self.assertEqual(data["file_parts"], ["file"])
 
     def test_a_release_from_1_0_is_a_release_on_both_sites(self):
@@ -308,16 +349,17 @@ exec "$@"
         metadata = json.loads(self.curseforge_post().parts()["metadata"][0])
         self.assertEqual(metadata["changelog"], NOTES)
         self.assertEqual(metadata["changelogType"], "markdown")
-        self.assertEqual(metadata["displayName"], "Beltworks 0.3.9")
-        # 26.1.2 the Minecraft version, not the Bukkit one, and NeoForge the loader.
-        self.assertEqual(sorted(metadata["gameVersions"]), [101, 301])
+        self.assertEqual(metadata["displayName"], "Example Library 0.3.9")
+        # 26.1.2 the Minecraft version, not the Bukkit one, NeoForge the loader, and both environments.
+        self.assertEqual(sorted(metadata["gameVersions"]), [101, 301, 401, 402])
         self.assertEqual(metadata["releaseType"], "beta")
-        self.assertNotIn("relations", metadata)
+        self.assertEqual(metadata["relations"], {"projects": [{"slug": "emi", "type": "requiredDependency"},
+                                                              {"slug": "fabric-api", "type": "requiredDependency"}]})
 
     def test_refuses_a_version_curseforge_already_has(self):
         self.publish("0.3.9")
         # Past the first page of the listing.
-        self.site.curseforge[CF_PROJECT] = ["beltworks-0.3.6.jar", "beltworks-0.3.7.jar", "beltworks-0.3.9.jar"]
+        self.site.curseforge[CF_PROJECT] = ["examplelib-0.3.6.jar", "examplelib-0.3.7.jar", "examplelib-0.3.9.jar"]
         result = self.upload("--site", "curseforge", "0.3.9")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("CurseForge already has 0.3.9", result.stderr)
@@ -325,14 +367,14 @@ exec "$@"
 
     def test_refuses_a_version_curseforge_has_under_another_file_name(self):
         self.publish("0.3.9")
-        self.site.curseforge[CF_PROJECT] = ["Beltworks 0.3.9"]
+        self.site.curseforge[CF_PROJECT] = ["Example Library 0.3.9"]
         result = self.upload("--site", "curseforge", "0.3.9")
         self.assertIn("CurseForge already has 0.3.9", result.stderr)
         self.assertEqual(self.site.sent("POST", "/cf-upload/"), [])
 
     def test_uploads_a_version_curseforge_lacks_among_others(self):
         self.publish("0.3.9")
-        self.site.curseforge[CF_PROJECT] = ["beltworks-0.3.6.jar", "beltworks-0.3.7.jar", "beltworks-0.3.8.jar"]
+        self.site.curseforge[CF_PROJECT] = ["examplelib-0.3.6.jar", "examplelib-0.3.7.jar", "examplelib-0.3.8.jar"]
         self.assertEqual(self.upload("--site", "curseforge", "0.3.9").returncode, 0)
         self.curseforge_post()
 

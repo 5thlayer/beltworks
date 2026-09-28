@@ -12,15 +12,19 @@ from email.policy import HTTP
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 # What CurseForge's /api/game/version-types and /api/game/versions answer, trimmed to the entries
-# that matter: 26.1.2 exists both as a Minecraft version and as a Bukkit one.
+# that matter: 26.1.2 exists both as a Minecraft version and as a Bukkit one, and every file names
+# its environments, Client and Server.
 VERSION_TYPES = [{"id": 1, "name": "Minecraft 26.1", "slug": "minecraft-26-1"},
                  {"id": 2, "name": "Bukkit", "slug": "bukkit"},
-                 {"id": 3, "name": "Modloader", "slug": "modloader"}]
+                 {"id": 3, "name": "Modloader", "slug": "modloader"},
+                 {"id": 4, "name": "Environment", "slug": "environment"}]
 GAME_VERSIONS = [{"id": 101, "gameVersionTypeID": 1, "name": "26.1.2", "slug": "26-1-2"},
                  {"id": 102, "gameVersionTypeID": 1, "name": "26.1.1", "slug": "26-1-1"},
                  {"id": 201, "gameVersionTypeID": 2, "name": "26.1.2", "slug": "26-1-2"},
                  {"id": 301, "gameVersionTypeID": 3, "name": "NeoForge", "slug": "neoforge"},
-                 {"id": 302, "gameVersionTypeID": 3, "name": "Forge", "slug": "forge"}]
+                 {"id": 302, "gameVersionTypeID": 3, "name": "Forge", "slug": "forge"},
+                 {"id": 401, "gameVersionTypeID": 4, "name": "Client", "slug": "client"},
+                 {"id": 402, "gameVersionTypeID": 4, "name": "Server", "slug": "server"}]
 
 
 class Request:
