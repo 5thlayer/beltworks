@@ -12,13 +12,13 @@ import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import io.github._5thlayer.beltworks.BeltworksConfig;
 import io.github._5thlayer.beltworks.BlockEntitiesContent;
-import io.github._5thlayer.beltworks.api.item.ItemApi;
 import io.github._5thlayer.beltworks.model.FlowLimit;
 import io.github._5thlayer.beltworks.model.LoaderEnergy;
 
 /**
- * Moves one item at a time from the inventory its head reaches to the one its tail reaches, at a
- * tenth of its tier's loader and for FE of its own, whatever the config says of loaders.
+ * Moves one item at a time from the inventory, level tile or splitter half its head reaches to the
+ * one its tail reaches, at a tenth of its tier's loader and for FE of its own, whatever the config
+ * says of loaders.
  */
 public class FeederBlockEntity extends BlockEntity {
 
@@ -36,26 +36,20 @@ public class FeederBlockEntity extends BlockEntity {
     void tick(Level level, BlockPos pos, BlockState state) {
         if (!flow.ready(level.getGameTime()) || !energy.canMove()) return;
         var facing = state.getValue(HorizontalDirectionalBlock.FACING);
-        var head = ItemApi.BLOCK.find(level, pos.relative(facing.getOpposite()), null, null, facing);
-        var tail = ItemApi.BLOCK.find(level, pos.relative(facing), null, null, facing.getOpposite());
+        var head = FeederEnd.at(level, pos.relative(facing.getOpposite()), facing);
+        var tail = FeederEnd.at(level, pos.relative(facing), facing.getOpposite());
         if (head == null || tail == null) return;
 
-        for (int slot = 0; slot < head.getSlotCount(); slot++) {
-            var available = head.getStackInSlot(slot);
-            if (available.isEmpty()) continue;
-            var one = available.copyWithCount(1);
-            if (tail.insert(one, true) != 1 || head.extract(one, true) != 1) continue;
-            if (head.extract(one, false) != 1) continue;
-            // An inventory whose simulation lied gets its item back, so nothing is lost.
-            if (tail.insert(one, false) != 1) {
-                head.insert(one, false);
-                continue;
-            }
-            flow.pass();
-            energy.move();
-            setChanged();
+        var taken = head.take(tail::accepts);
+        if (taken == null) return;
+        // An end whose simulation lied gets its item back, so nothing is lost.
+        if (!tail.put(taken.item())) {
+            taken.undo().run();
             return;
         }
+        flow.pass();
+        energy.move();
+        setChanged();
     }
 
     public LoaderEnergy getEnergy() {

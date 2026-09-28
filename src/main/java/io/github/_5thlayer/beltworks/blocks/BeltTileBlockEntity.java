@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 /**
  * One block of belt, and, where it is the head of its line, the {@link TransportLine} that ticks
@@ -418,6 +419,47 @@ public class BeltTileBlockEntity extends BlockEntity {
         holding.shares = null;
         for (var tile : holding.inChunks) level.blockEntityChanged(tile);
         return true;
+    }
+
+    /**
+     * Takes the frontmost item on this level tile that {@code wanted} accepts, for a feeder's head,
+     * or null where it has none or no line holds it yet.
+     */
+    public BeltContents.@Nullable Entry<ItemStack> feederTake(Predicate<ItemStack> wanted) {
+        var holding = feederLine();
+        if (holding == null) return null;
+        var taken = holding.line.take(index, wanted);
+        if (taken != null) lineChanged();
+        return taken;
+    }
+
+    /** Puts an item a feeder took back where it was, when the far end refused it after all. */
+    public void feederPutBack(BeltContents.Entry<ItemStack> taken) {
+        var holding = feederLine();
+        if (holding == null) return;
+        holding.line.contents().place(taken.payload(), taken.position());
+        lineChanged();
+    }
+
+    /** Whether a feeder's tail could drop an item at this level tile's midpoint now. */
+    public boolean feederCanDrop() {
+        var holding = feederLine();
+        return holding != null && holding.line.canDrop(index);
+    }
+
+    /** Drops an item at this level tile's midpoint for a feeder's tail, when its line has a gap there. */
+    public boolean feederDrop(ItemStack item) {
+        var holding = feederLine();
+        if (holding == null || !holding.line.drop(item, index)) return false;
+        lineChanged();
+        return true;
+    }
+
+    // A slope is never a feeder's end (CONTEXT.md).
+    private @Nullable BeltTileBlockEntity feederLine() {
+        if (pitch() != Pitch.LEVEL) return null;
+        var holding = holder();
+        return holding == null || holding.line == null || index >= holding.line.tileCount() ? null : holding;
     }
 
     private @Nullable BeltEndBlockEntity splitterAt(BlockPos pos, Direction travel) {

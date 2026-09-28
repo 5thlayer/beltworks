@@ -93,6 +93,37 @@ public final class TransportLine<T> {
         return contents.insert(payload, tile, tile + 0.5 - BeltContents.SPACING / 2, length(), ring);
     }
 
+    /**
+     * Takes the frontmost item on this tile of the line that {@code wanted} accepts, for a feeder's
+     * head; the line runs on past the gap it leaves.
+     */
+    public BeltContents.@Nullable Entry<T> take(int tile, Predicate<T> wanted) {
+        return contents.take(tile, tile + 1, wanted);
+    }
+
+    /** Whether a feeder's tail could drop an item on this tile now. */
+    public boolean canDrop(int tile) {
+        return !Double.isNaN(dropPlacement(tile));
+    }
+
+    /**
+     * Drops an item at this tile's midpoint for a feeder's tail, when the line has a gap there. It
+     * is no side-load: it takes no room from anything but the gap under it, and a corner takes it.
+     */
+    public boolean drop(T payload, int tile) {
+        var at = dropPlacement(tile);
+        if (Double.isNaN(at)) return false;
+        contents.place(payload, at);
+        return true;
+    }
+
+    private double dropPlacement(int tile) {
+        var at = tile + 0.5 - BeltContents.SPACING / 2;
+        // As wide as the line moves in a tick, so a one-item gap is caught as it crosses the midpoint.
+        var slack = Math.max(BeltContents.SPACING, speed) / 2;
+        return contents.dropPlacement(at, at - slack, at + slack, length(), ring);
+    }
+
     /** Moves the items one tick with nothing loaded or delivered, as a client's copy does. */
     public void advance() {
         if (ring) {
