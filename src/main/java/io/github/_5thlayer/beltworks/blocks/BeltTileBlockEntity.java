@@ -436,7 +436,11 @@ public class BeltTileBlockEntity extends BlockEntity {
     /** Puts an item a feeder took back where it was, when the far end refused it after all. */
     public void feederPutBack(BeltContents.Entry<ItemStack> taken) {
         var holding = feederLine();
-        if (holding == null) return;
+        // With no line to take it, the tile keeps it as its own share, so nothing is lost.
+        if (holding == null) {
+            carry(List.of(new TransportLine.Share<>(Math.clamp(taken.position() - index, 0, 1 - BeltContents.SPACING), taken.payload())));
+            return;
+        }
         holding.line.contents().place(taken.payload(), taken.position());
         lineChanged();
     }
