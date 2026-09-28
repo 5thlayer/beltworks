@@ -23,8 +23,8 @@ import io.github._5thlayer.beltworks.model.LoaderEnergy;
 
 /**
  * Moves one item at a time from the inventory, level tile or splitter half its head reaches to the
- * one its tail reaches, at a tenth of its tier's loader and for FE of its own, whatever the config
- * says of loaders. Only what its filter matches is taken. Each arm reaches one to three blocks on
+ * one its tail reaches, at a tenth of its tier's loader: for free while loaders need no power, and
+ * for FE of its own while they do (ADR 0014). Only what its filter matches is taken. Each arm reaches one to three blocks on
  * the feeder's level, over whatever stands between, and the tail may turn left or right.
  */
 public class FeederBlockEntity extends BlockEntity {

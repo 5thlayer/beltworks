@@ -2,12 +2,13 @@
 
 ## Unreleased
 
-- A feeder moves items one at a time from the inventory behind it to the one in front, at 1.5 items a second, always paying FE for each item (5thlayer/beltworks#67).
+- A feeder moves items one at a time from the inventory behind it to the one in front, at 1.5 items a second (5thlayer/beltworks#67).
 - A feeder takes from and drops onto a belt: any level tile of a line, straight or corner, and a splitter half. Its head takes from anywhere on the tile while the line runs on; its tail drops at the tile's midpoint, waiting for a gap. A slope or a loader is never an end (5thlayer/beltworks#68).
 - Feeders come in every tier: fast, express and turbo feeders move 3, 4.5 and 6 items a second, each a tenth of its tier's loader, and craft from that tier's loader and belt tile. They take a loader's filter, set by clicking with an item and cleared with an empty hand. Each tier's FE per item is its own entry under `feederJoulesPerItem` in the server config (5thlayer/beltworks#69).
 - A feeder's head and tail each reach one, two or three blocks, over whatever stands between and at the same rate, and its tail may turn left or right. (5thlayer/beltworks#70).
 - A feeder's head also takes items lying loose at its target block and delivers them. A tail never drops items loose: aimed at air, it waits (5thlayer/beltworks#72).
 - The Mod's own two keys, Head Reach (`H`) and Tail Reach (`J`), lengthen a feeder's arm a block per press, from one to three and back to one. Aimed at a placed feeder, a press changes that arm and says its new reach; on a held feeder, it sets the reach every feeder placed from the stack takes, and the Placement Preview draws the arms at it (5thlayer/beltworks#71).
+- A feeder needs power only when loaders do: with `loadersNeedPower` off, the default, every feeder moves items for free, and with it on, every tier pays its `feederJoulesPerItem` for each item, tier 1 included (5thlayer/beltworks#80).
 
 ## 0.3.9
 
