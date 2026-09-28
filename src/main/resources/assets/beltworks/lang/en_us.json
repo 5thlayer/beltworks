@@ -74,5 +74,10 @@
   "beltworks.configuration.feederJoulesPerItem.belt": "Feeder",
   "beltworks.configuration.feederJoulesPerItem.improved": "Fast feeder",
   "beltworks.configuration.feederJoulesPerItem.express": "Express feeder",
-  "beltworks.configuration.feederJoulesPerItem.turbo": "Turbo feeder"
+  "beltworks.configuration.feederJoulesPerItem.turbo": "Turbo feeder",
+  "message.beltworks.head_reach": "Head reach: %s",
+  "message.beltworks.tail_reach": "Tail reach: %s",
+  "key.category.beltworks.beltworks": "Beltworks",
+  "key.beltworks.head_reach": "Head Reach",
+  "key.beltworks.tail_reach": "Tail Reach"
 }

@@ -26,10 +26,13 @@ import io.github._5thlayer.beltworks.blocks.BeltEndBlockEntity;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
 import io.github._5thlayer.beltworks.blocks.FeederBlockEntity;
+import io.github._5thlayer.beltworks.blocks.FeederReach;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
 import io.github._5thlayer.beltworks.model.BeltContents;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.FeederArms;
+
+import java.util.List;
 
 /**
  * A feeder of every tier moves one item at a time from the chest its head reaches to the one its
@@ -109,6 +112,10 @@ final class FeederTests {
         loadersUnpowered.test("feeder_with_a_loader_at_an_end_moves_nothing", 100, FeederTests::loaderIsNoEnd);
         loadersUnpowered.test("feeder_head_takes_a_dropped_item_and_delivers_it", 80, FeederTests::takesLoose);
         loadersUnpowered.test("feeder_tail_aimed_at_air_waits_and_spawns_nothing", 80, FeederTests::tailWaitsInAir);
+        tests.test("head_reach_and_tail_reach_lengthen_a_placed_feeders_arm_one_to_three_and_back", 20,
+                FeederTests::reachesInPlace);
+        tests.test("a_held_feeders_reach_is_what_each_placement_takes_until_its_last_item", 20,
+                FeederTests::heldReachPlaces);
         loadersUnpowered.test("two_feeders_on_one_tile_both_take", WARMUP_TICKS + WINDOW_TICKS + 20,
                 FeederTests::twoFeedersShareATile);
         loadersUnpowered.test("feeder_reaching_3_over_stone_moves_at_1_5_items_per_second",
@@ -443,6 +450,51 @@ final class FeederTests {
                 helper.fail("a left-turned tail dropped " + turned + " to its left and " + ahead + " ahead", TURNED_TAIL);
             }
         }).thenSucceed();
+    }
+
+    // Each press lengthens only its own arm, from one block to three and back, and tells the new reach.
+    private static void reachesInPlace(GameTestHelper helper) {
+        feeder(helper, FEEDER, Direction.EAST);
+        var placed = helper.getBlockEntity(FEEDER, FeederBlockEntity.class);
+        var player = new ListeningPlayer(helper, FEEDER.north(2));
+        var expected = FeederArms.ADJACENT;
+        for (var arm : FeederArms.Arm.values()) {
+            for (int press = 1; press <= 3; press++) {
+                FeederReach.press(player, helper.absolutePos(FEEDER), arm);
+                expected = expected.lengthened(arm);
+                if (!placed.arms().equals(expected)) {
+                    helper.fail(arm + " press " + press + " left " + placed.arms() + ", expected " + expected, FEEDER);
+                }
+            }
+        }
+        if (!expected.equals(FeederArms.ADJACENT)) helper.fail("three presses of each did not wrap to the start", FEEDER);
+        if (helper.getBlockEntity(FEEDER, FeederBlockEntity.class) != placed) helper.fail("a press replaced the feeder", FEEDER);
+        if (player.heard.size() != 6) helper.fail("six presses told " + player.heard, FEEDER);
+        helper.succeed();
+    }
+
+    // A held press sets the stack's reach and leaves the aimed feeder alone; both feeders placed from the stack take it.
+    private static void heldReachPlaces(GameTestHelper helper) {
+        feeder(helper, FEEDER, Direction.EAST);
+        var player = new ListeningPlayer(helper, FEEDER.north(2));
+        var stack = new ItemStack(BlockContent.FEEDER_BLOCK.get(), 2);
+        player.setItemInHand(InteractionHand.MAIN_HAND, stack);
+        FeederReach.press(player, helper.absolutePos(FEEDER), FeederArms.Arm.HEAD);
+        FeederReach.press(player, helper.absolutePos(FEEDER), FeederArms.Arm.TAIL);
+        FeederReach.press(player, helper.absolutePos(FEEDER), FeederArms.Arm.TAIL);
+        var held = new FeederArms(2, 3, FeederArms.Turn.STRAIGHT);
+        if (!FeederReach.held(stack).equals(held)) helper.fail("presses left the held reach " + FeederReach.held(stack), FEEDER);
+        if (!helper.getBlockEntity(FEEDER, FeederBlockEntity.class).arms().equals(FeederArms.ADJACENT)) {
+            helper.fail("a held press changed the aimed feeder", FEEDER);
+        }
+        for (var ground : List.of(HEAD.south(2), TAIL.south(2))) {
+            helper.setBlock(ground, Blocks.STONE);
+            player.gameMode.useItemOn(player, helper.getLevel(), stack, InteractionHand.MAIN_HAND, hit(helper, ground));
+            var arms = helper.getBlockEntity(ground.above(), FeederBlockEntity.class).arms();
+            if (!arms.equals(held)) helper.fail("a feeder placed from the stack reaches " + arms + ", not " + held, ground.above());
+        }
+        if (!stack.isEmpty()) helper.fail("the stack kept " + stack.getCount() + " feeders after two placements", FEEDER);
+        helper.succeed();
     }
 
     /** The row, placed downstream first, ending in a loader and a chest or in nothing. */

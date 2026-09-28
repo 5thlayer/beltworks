@@ -8,6 +8,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -29,9 +30,9 @@ import java.util.Objects;
 
 /**
  * A feeder: its head reaches behind its facing and its tail in front, or turned left or right, each
- * one to three blocks ({@link io.github._5thlayer.beltworks.model.FeederArms}). It is placed as a
- * loader is, so against a block's side its head is at that block, and it takes a loader's filter
- * the way a loader does.
+ * one to three blocks ({@link io.github._5thlayer.beltworks.model.FeederArms}), as far as the held
+ * stack's {@linkplain FeederReach reach} when placed. It is placed as a loader is, so against a
+ * block's side its head is at that block, and it takes a loader's filter the way a loader does.
  */
 public class FeederBlock extends HorizontalDirectionalBlock implements EntityBlock {
 
@@ -58,6 +59,15 @@ public class FeederBlock extends HorizontalDirectionalBlock implements EntityBlo
         var facing = ctx.getClickedFace();
         if (facing.getAxis().isVertical()) facing = ctx.getHorizontalDirection().getOpposite();
         return Objects.requireNonNull(super.getStateForPlacement(ctx)).setValue(FACING, facing);
+    }
+
+    // The held stack's reach, set by Head Reach and Tail Reach before placing (ADR 0013).
+    @Override
+    public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
+        super.setPlacedBy(level, pos, state, placer, stack);
+        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof FeederBlockEntity feeder) {
+            feeder.setArms(FeederReach.held(stack));
+        }
     }
 
     // As a loader's: a click with an item sets the filter to it, and an empty hand clears it. Only the
