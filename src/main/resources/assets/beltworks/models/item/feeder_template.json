@@ -3,7 +3,8 @@
   "textures": {
     "slate": "beltworks:block/loader_slate",
     "band": "beltworks:block/loader_band",
-    "particle": "beltworks:block/loader_slate"
+    "particle": "beltworks:block/loader_slate",
+    "top": "beltworks:block/feeder_top"
   },
   "elements": [
     {
@@ -32,7 +33,13 @@
           "texture": "#slate"
         },
         "up": {
-          "texture": "#slate"
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#top"
         },
         "down": {
           "texture": "#slate",
