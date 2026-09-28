@@ -243,10 +243,11 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
         }
     }
 
-    // Its arms reach out of its block, so it is drawn while they are in sight.
+    // Its arms reach out of its block and above it, so it is drawn while they are in sight.
     @Override
     public AABB getRenderBoundingBox(FeederBlockEntity blockEntity) {
-        return new AABB(blockEntity.getBlockPos()).inflate(FeederArms.MAX_REACH, 0, FeederArms.MAX_REACH);
+        return new AABB(blockEntity.getBlockPos()).inflate(FeederArms.MAX_REACH, 0, FeederArms.MAX_REACH)
+          .expandTowards(0, ARM_TOP - 1, 0);
     }
 
     @Override
