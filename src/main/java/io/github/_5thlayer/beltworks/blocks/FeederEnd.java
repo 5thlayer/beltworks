@@ -44,10 +44,11 @@ sealed interface FeederEnd {
         return storage == null ? null : new Inventory(storage);
     }
 
-    /** A head's end: {@link #at}, or else the items lying loose at {@code pos}. */
+    /** A head's end: {@link #at}, or else the items lying loose at {@code pos}, unless a loader stands there. */
     static @Nullable FeederEnd atHead(Level level, BlockPos pos, Direction face) {
         var end = at(level, pos, face);
-        return end != null || !level.isLoaded(pos) ? end : new Loose(level, pos);
+        if (end != null || !level.isLoaded(pos) || level.getBlockEntity(pos) instanceof BeltEndBlockEntity) return end;
+        return new Loose(level, pos);
     }
 
     /** Item entities lying at a block, only ever a head's: a tail with no end waits, and drops nothing. */
