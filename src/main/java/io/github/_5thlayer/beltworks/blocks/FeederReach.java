@@ -50,7 +50,7 @@ public final class FeederReach {
         if (!(player.level().getBlockEntity(aimed) instanceof FeederBlockEntity feeder) || !mayChange(player, aimed)) return;
         var arms = feeder.arms().lengthened(arm);
         feeder.setArms(arms);
-        // A placed feeder's arms are not drawn yet, so the new reach is told.
+        // Told as well as drawn, since a reach of three can end out of sight.
         player.sendOverlayMessage(Component.translatable(
                 arm == FeederArms.Arm.HEAD ? "message.beltworks.head_reach" : "message.beltworks.tail_reach", arms.reach(arm)));
     }

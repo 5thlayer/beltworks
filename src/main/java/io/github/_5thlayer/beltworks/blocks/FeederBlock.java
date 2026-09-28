@@ -22,7 +22,11 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.beltworks.model.BeltTier;
 
@@ -35,6 +39,11 @@ import java.util.Objects;
  * block's side its head is at that block, and it takes a loader's filter the way a loader does.
  */
 public class FeederBlock extends HorizontalDirectionalBlock implements EntityBlock {
+
+    // Its slate base at belt height and the column at its centre with the hub its arms hang from;
+    // the arms themselves collide with nothing (CONTEXT.md, Arm).
+    private static final VoxelShape SHAPE = Shapes.or(Block.box(1, 0, 1, 15, 6, 15), Block.box(6, 6, 6, 10, 12, 10),
+            Block.box(5, 12, 5, 11, 15, 11));
 
     private final BeltTier tier;
 
@@ -51,6 +60,11 @@ public class FeederBlock extends HorizontalDirectionalBlock implements EntityBlo
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(FACING);
+    }
+
+    @Override
+    protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        return SHAPE;
     }
 
     @Nullable
@@ -87,6 +101,12 @@ public class FeederBlock extends HorizontalDirectionalBlock implements EntityBlo
             return super.useWithoutItem(state, level, pos, player, hit);
         if (!level.isClientSide()) feeder.resetFilterItem(player);
         return InteractionResult.SUCCESS;
+    }
+
+    // A move's block event, which tells the watchers what the head took (FeederBlockEntity.SUCKED).
+    @Override
+    protected boolean triggerEvent(BlockState state, Level level, BlockPos pos, int event, int param) {
+        return level.getBlockEntity(pos) instanceof FeederBlockEntity feeder && feeder.receiveEvent(event, param);
     }
 
     @Override

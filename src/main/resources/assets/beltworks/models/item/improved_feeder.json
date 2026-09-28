@@ -1,3 +1,6 @@
 {
-  "parent": "beltworks:block/improved_feeder"
+  "parent": "beltworks:item/feeder_template",
+  "textures": {
+    "band": "beltworks:block/improved_loader_band"
+  }
 }

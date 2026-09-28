@@ -6,6 +6,7 @@ package io.github._5thlayer.beltworks.gametest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -17,6 +18,7 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import net.minecraft.world.level.storage.TagValueInput;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.capabilities.Capabilities;
@@ -119,6 +121,7 @@ final class FeederTests {
                 FeederTests::reachesInPlace);
         tests.test("a_held_feeders_reach_is_what_each_placement_takes_until_its_last_item", 20,
                 FeederTests::heldReachPlaces);
+        tests.test("a_feeders_filter_and_arms_reach_the_client_in_its_update_tag", 20, FeederTests::updateTagCarriesFilterAndArms);
         loadersUnpowered.test("two_feeders_on_one_tile_both_take", WARMUP_TICKS + WINDOW_TICKS + 20,
                 FeederTests::twoFeedersShareATile);
         loadersUnpowered.test("feeder_reaching_3_over_stone_moves_at_1_5_items_per_second",
@@ -497,6 +500,34 @@ final class FeederTests {
             if (!arms.equals(held)) helper.fail("a feeder placed from the stack reaches " + arms + ", not " + held, ground.above());
         }
         if (!stack.isEmpty()) helper.fail("the stack kept " + stack.getCount() + " feeders after two placements", FEEDER);
+        helper.succeed();
+    }
+
+    // A client learns a feeder's filter and arms only from the update tag it is sent, as it loads one,
+    // so a feeder read from that tag draws them; each change sends it.
+    private static void updateTagCarriesFilterAndArms(GameTestHelper helper) {
+        feeder(helper, FEEDER, Direction.EAST);
+        var placed = helper.getBlockEntity(FEEDER, FeederBlockEntity.class);
+        var player = new ListeningPlayer(helper, FEEDER.north(2));
+        BlockUpdateWatch.watch(helper.absolutePos(FEEDER));
+        placed.assignFilterItem(new ItemStack(Items.DIRT), player);
+        FeederReach.press(player, helper.absolutePos(FEEDER), FeederArms.Arm.HEAD);
+        FeederReach.press(player, helper.absolutePos(FEEDER), FeederArms.Arm.TAIL);
+        FeederReach.press(player, helper.absolutePos(FEEDER), FeederArms.Arm.TAIL);
+        placed.setArms(placed.arms().withTailTurn(FeederArms.Turn.LEFT));
+        var updates = BlockUpdateWatch.stop(helper.absolutePos(FEEDER));
+        if (updates < 5) helper.fail("five changes sent " + updates + " block updates", FEEDER);
+
+        var registries = helper.getLevel().registryAccess();
+        var client = new FeederBlockEntity(helper.absolutePos(FEEDER), helper.getBlockState(FEEDER));
+        client.loadWithComponents(TagValueInput.create(ProblemReporter.DISCARDING, registries, placed.getUpdateTag(registries)));
+        if (!client.filteredItem().is(Items.DIRT)) helper.fail("the update tag carried the filter " + client.filteredItem(), FEEDER);
+        var arms = new FeederArms(2, 3, FeederArms.Turn.LEFT);
+        if (!client.arms().equals(arms)) helper.fail("the update tag carried the arms " + client.arms() + ", not " + arms, FEEDER);
+
+        placed.resetFilterItem(player);
+        client.loadWithComponents(TagValueInput.create(ProblemReporter.DISCARDING, registries, placed.getUpdateTag(registries)));
+        if (!client.filteredItem().isEmpty()) helper.fail("the update tag kept a cleared filter " + client.filteredItem(), FEEDER);
         helper.succeed();
     }
 
