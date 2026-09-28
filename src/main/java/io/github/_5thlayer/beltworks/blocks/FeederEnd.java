@@ -5,8 +5,10 @@ package io.github._5thlayer.beltworks.blocks;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
 import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.beltworks.api.item.ItemApi;
 
@@ -14,7 +16,8 @@ import java.util.function.Predicate;
 
 /**
  * What a feeder's head takes from or its tail drops into: an inventory, a level tile or a splitter
- * half. A slope or a loader is never one (CONTEXT.md).
+ * half, and, where there is none of those, the items lying loose at the block, which only a head
+ * takes from. A slope or a loader is never one (CONTEXT.md).
  */
 sealed interface FeederEnd {
 
@@ -38,7 +41,43 @@ sealed interface FeederEnd {
         if (blockEntity instanceof BeltTileBlockEntity tile) return new Tile(tile);
         if (blockEntity instanceof BeltEndBlockEntity end) return end.isSplitter() ? new Half(end) : null;
         var storage = ItemApi.BLOCK.find(level, pos, null, null, face);
-        return storage == null ? null : new Inventory(storage);
+        return storage == null ? new Loose(level, pos) : new Inventory(storage);
+    }
+
+    /** Item entities lying at a block: taken from by a head, never dropped into by a tail, which waits. */
+    record Loose(Level level, BlockPos pos) implements FeederEnd {
+
+        @Override
+        public @Nullable Taken take(Predicate<ItemStack> wanted) {
+            for (var entity : level.getEntitiesOfClass(ItemEntity.class, new AABB(pos))) {
+                var stack = entity.getItem();
+                if (stack.isEmpty()) continue;
+                var one = stack.copyWithCount(1);
+                if (!wanted.test(one)) continue;
+                if (stack.getCount() == 1) entity.discard();
+                else entity.setItem(stack.copyWithCount(stack.getCount() - 1));
+                return new Taken(one, () -> putBack(entity, one));
+            }
+            return null;
+        }
+
+        private void putBack(ItemEntity entity, ItemStack one) {
+            if (entity.isRemoved()) {
+                level.addFreshEntity(new ItemEntity(level, entity.getX(), entity.getY(), entity.getZ(), one));
+            } else {
+                entity.setItem(entity.getItem().copyWithCount(entity.getItem().getCount() + 1));
+            }
+        }
+
+        @Override
+        public boolean accepts(ItemStack item) {
+            return false;
+        }
+
+        @Override
+        public boolean put(ItemStack item) {
+            return false;
+        }
     }
 
     record Inventory(ItemApi.InventoryStorage storage) implements FeederEnd {
