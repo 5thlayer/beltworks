@@ -73,6 +73,7 @@ public class FeederBlockEntity extends BlockEntity {
         var facing = state.getValue(HorizontalDirectionalBlock.FACING);
         var spot = new LineScan.Spot(pos.getX(), pos.getY(), pos.getZ());
         var travel = new LineScan.Travel(facing.getStepX(), facing.getStepZ());
+        var arms = arms();
         var head = end(level, arms.head(spot, travel), true);
         var tail = end(level, arms.tail(spot, travel), false);
         if (head == null || tail == null) return;
@@ -127,10 +128,12 @@ public class FeederBlockEntity extends BlockEntity {
         return head ? FeederEnd.atHead(level, at, face) : FeederEnd.at(level, at, face);
     }
 
+    /** Its arms: the reach kept here, and the tail's turn, which Rotate keeps on the block state. */
     public FeederArms arms() {
-        return arms;
+        return arms.withTailTurn(getBlockState().getValue(FeederBlock.TAIL_TURN).turn());
     }
 
+    /** Sets both reaches; the tail's turn stays the block state's. */
     public void setArms(FeederArms arms) {
         this.arms = arms;
         setChanged();
@@ -166,7 +169,6 @@ public class FeederBlockEntity extends BlockEntity {
         filter.save(output);
         output.putInt("head_reach", arms.headReach());
         output.putInt("tail_reach", arms.tailReach());
-        output.putString("tail_turn", arms.tailTurn().name());
     }
 
     @Override
@@ -174,7 +176,7 @@ public class FeederBlockEntity extends BlockEntity {
         super.loadAdditional(input);
         filter.load(input);
         energy.setJoules(input.getLongOr("energy", 0));
-        arms = new FeederArms(reach(input, "head_reach"), reach(input, "tail_reach"), turn(input));
+        arms = new FeederArms(reach(input, "head_reach"), reach(input, "tail_reach"), FeederArms.Turn.STRAIGHT);
     }
 
     // A feeder saved before arms had reach, or with a reach out of range, reaches the blocks beside it.
@@ -194,11 +196,5 @@ public class FeederBlockEntity extends BlockEntity {
     @Override
     public @Nullable Packet<ClientGamePacketListener> getUpdatePacket() {
         return ClientboundBlockEntityDataPacket.create(this);
-    }
-
-    private static FeederArms.Turn turn(ValueInput input) {
-        var name = input.getStringOr("tail_turn", FeederArms.Turn.STRAIGHT.name());
-        for (var turn : FeederArms.Turn.values()) if (turn.name().equals(name)) return turn;
-        return FeederArms.Turn.STRAIGHT;
     }
 }

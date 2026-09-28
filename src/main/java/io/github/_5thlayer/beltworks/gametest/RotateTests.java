@@ -24,6 +24,7 @@ import io.github._5thlayer.beltworks.Beltworks;
 import io.github._5thlayer.beltworks.BlockContent;
 import io.github._5thlayer.beltworks.ItemContent;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
+import io.github._5thlayer.beltworks.blocks.FeederBlock;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
 import io.github._5thlayer.beltworks.items.BeltRefusal;
 import io.github._5thlayer.beltworks.model.BeltTier;
@@ -31,8 +32,8 @@ import io.github._5thlayer.beltworks.model.BeltTier;
 /**
  * Rotate on the Mod's own pieces, with nothing but Groundworks to press it (the library's ADR 0003).
  * A held tile Rotates the Plan through the look Groundworks turns, and a placed piece Rotates in
- * Place by its own answer: a level tile, a loader and a feeder turn, a splitter half, a slope and a wedge
- * refuse and say why, and a level tile refuses where placing it so would be refused. Every press
+ * Place by its own answer: a level tile and a loader turn, a feeder turns only its tail, a splitter
+ * half, a slope and a wedge refuse and say why, and a level tile refuses where placing it so would be refused. Every press
  * goes through {@link Rotate#press}, which is what the key's payload calls.
  */
 final class RotateTests {
@@ -55,9 +56,7 @@ final class RotateTests {
                 helper -> turnsEachPress(helper, BeltTileTests.tile(BeltTier.BELT, LOOK)));
         tests.test("rotate_in_place_turns_a_loader_a_quarter_each_press_both_ways", 20,
                 helper -> turnsEachPress(helper, BeltTileTests.loader(BeltTier.BELT, LOOK)));
-        tests.test("rotate_in_place_turns_a_feeder_a_quarter_each_press_both_ways", 20,
-                helper -> turnsEachPress(helper, BlockContent.FEEDER_BLOCK.get().defaultBlockState()
-                        .setValue(HorizontalDirectionalBlock.FACING, LOOK)));
+        tests.test("rotate_in_place_turns_only_a_feeders_tail_each_press_both_ways", 20, RotateTests::turnsFeederTail);
         tests.test("rotate_in_place_refuses_a_splitter_half", 20, RotateTests::splitterRefuses);
         tests.test("rotate_in_place_refuses_a_foot_a_middle_a_top_and_a_wedge", 40, RotateTests::slopeRefuses);
         tests.test("rotate_in_place_refuses_a_level_tile_whose_turn_would_slope_a_corner", 20, RotateTests::wouldSlopeACorner);
@@ -114,6 +113,28 @@ final class RotateTests {
         }
         if (helper.getBlockEntity(AIMED, BlockEntity.class) != entity) helper.fail("a turn replaced the block entity", AIMED);
         if (!player.heard.isEmpty()) helper.fail("a turn that went through said " + player.heard, AIMED);
+        helper.succeed();
+    }
+
+    /** Each press turns the tail a quarter, skipping the way back, and keeps the facing, so the head, and the block entity (#66, story 6). */
+    private static void turnsFeederTail(GameTestHelper helper) {
+        helper.setBlock(AIMED, BlockContent.FEEDER_BLOCK.get().defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, LOOK));
+        BlockEntity entity = helper.getBlockEntity(AIMED, BlockEntity.class);
+        var player = emptyHanded(helper);
+        var expected = Map.of(
+                false, List.of(FeederBlock.TailTurn.RIGHT, FeederBlock.TailTurn.LEFT, FeederBlock.TailTurn.STRAIGHT),
+                true, List.of(FeederBlock.TailTurn.LEFT, FeederBlock.TailTurn.RIGHT, FeederBlock.TailTurn.STRAIGHT));
+        for (boolean reverse : List.of(false, true)) {
+            for (var turn : expected.get(reverse)) {
+                Rotate.press(player, helper.absolutePos(AIMED), reverse);
+                var state = helper.getBlockState(AIMED);
+                if (state.getValue(HorizontalDirectionalBlock.FACING) != LOOK || state.getValue(FeederBlock.TAIL_TURN) != turn) {
+                    helper.fail((reverse ? "Reverse Rotate" : "Rotate") + " left " + state + ", expected facing "
+                            + LOOK + " with its tail " + turn, AIMED);
+                }
+            }
+        }
+        if (helper.getBlockEntity(AIMED, BlockEntity.class) != entity) helper.fail("a turn replaced the block entity", AIMED);
         helper.succeed();
     }
 

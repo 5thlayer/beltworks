@@ -22,11 +22,23 @@ public record FeederArms(int headReach, int tailReach, Turn tailTurn) {
         TAIL
     }
 
-    /** Which way the tail points, seen from above with the feeder's facing ahead. */
+    /**
+     * Which way the tail points, seen from above with the feeder's facing ahead. Rotate turns it as it
+     * turns a tile, a quarter at a time, skipping the way back, where the head is.
+     */
     public enum Turn {
         STRAIGHT,
         LEFT,
         RIGHT;
+
+        /** The turn a quarter clockwise, seen from above, or the other way if {@code reverse}. */
+        public Turn turned(boolean reverse) {
+            return switch (this) {
+                case LEFT -> reverse ? RIGHT : STRAIGHT;
+                case STRAIGHT -> reverse ? LEFT : RIGHT;
+                case RIGHT -> reverse ? STRAIGHT : LEFT;
+            };
+        }
 
         LineScan.Travel of(LineScan.Travel facing) {
             return switch (this) {

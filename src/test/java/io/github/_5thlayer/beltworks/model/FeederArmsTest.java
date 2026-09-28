@@ -77,4 +77,15 @@ class FeederArmsTest {
         assertEquals(new FeederArms(2, 3, FeederArms.Turn.LEFT), arms.lengthened(FeederArms.Arm.TAIL));
         assertEquals(new FeederArms(2, 1, FeederArms.Turn.LEFT), arms.lengthened(FeederArms.Arm.TAIL).lengthened(FeederArms.Arm.TAIL));
     }
+
+    @Test
+    void rotateTurnsTheTailAQuarterSkippingTheWayBack() {
+        assertEquals(FeederArms.Turn.RIGHT, FeederArms.Turn.STRAIGHT.turned(false));
+        assertEquals(FeederArms.Turn.LEFT, FeederArms.Turn.RIGHT.turned(false));
+        assertEquals(FeederArms.Turn.STRAIGHT, FeederArms.Turn.LEFT.turned(false));
+        for (var turn : FeederArms.Turn.values()) {
+            assertEquals(turn, turn.turned(false).turned(true));
+            assertEquals(turn, turn.turned(true).turned(true).turned(true));
+        }
+    }
 }

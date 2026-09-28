@@ -1,17 +1,47 @@
 {
   "variants": {
-    "facing=north": {
+    "facing=north,tail_turn=straight": {
       "model": "beltworks:block/express_feeder"
     },
-    "facing=east": {
+    "facing=north,tail_turn=left": {
+      "model": "beltworks:block/express_feeder"
+    },
+    "facing=north,tail_turn=right": {
+      "model": "beltworks:block/express_feeder"
+    },
+    "facing=east,tail_turn=straight": {
       "model": "beltworks:block/express_feeder",
       "y": 90
     },
-    "facing=south": {
+    "facing=east,tail_turn=left": {
+      "model": "beltworks:block/express_feeder",
+      "y": 90
+    },
+    "facing=east,tail_turn=right": {
+      "model": "beltworks:block/express_feeder",
+      "y": 90
+    },
+    "facing=south,tail_turn=straight": {
       "model": "beltworks:block/express_feeder",
       "y": 180
     },
-    "facing=west": {
+    "facing=south,tail_turn=left": {
+      "model": "beltworks:block/express_feeder",
+      "y": 180
+    },
+    "facing=south,tail_turn=right": {
+      "model": "beltworks:block/express_feeder",
+      "y": 180
+    },
+    "facing=west,tail_turn=straight": {
+      "model": "beltworks:block/express_feeder",
+      "y": 270
+    },
+    "facing=west,tail_turn=left": {
+      "model": "beltworks:block/express_feeder",
+      "y": 270
+    },
+    "facing=west,tail_turn=right": {
       "model": "beltworks:block/express_feeder",
       "y": 270
     }

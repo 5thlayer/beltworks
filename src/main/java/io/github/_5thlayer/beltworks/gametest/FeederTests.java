@@ -29,6 +29,7 @@ import io.github._5thlayer.beltworks.BlockContent;
 import io.github._5thlayer.beltworks.blocks.BeltEndBlockEntity;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
+import io.github._5thlayer.beltworks.blocks.FeederBlock;
 import io.github._5thlayer.beltworks.blocks.FeederBlockEntity;
 import io.github._5thlayer.beltworks.blocks.FeederReach;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
@@ -36,6 +37,7 @@ import io.github._5thlayer.beltworks.model.BeltContents;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.FeederArms;
 import io.github._5thlayer.beltworks.neoforge.FeederSuckedPayload;
+import io.github._5thlayer.groundworks.Rotate;
 
 import java.util.List;
 
@@ -444,7 +446,8 @@ final class FeederTests {
                 .thenSucceed();
     }
 
-    // An east-facing feeder whose tail turns left reaches the chest two blocks north, not the one ahead.
+    // An east-facing feeder whose tail Reverse Rotate turns left reaches the chest two blocks north, not
+    // the one ahead, and keeps its facing, so its head still takes from behind (#66, story 6).
     private static void turnsItsTail(GameTestHelper helper) {
         LoaderPower.feed(helper);
         helper.setBlock(REACHING.west(), Blocks.CHEST);
@@ -452,7 +455,12 @@ final class FeederTests {
         helper.setBlock(TURNED_TAIL, Blocks.CHEST);
         fill(helper, REACHING.west(), Items.COBBLESTONE, 64);
         feeder(helper, REACHING, Direction.EAST);
-        helper.getBlockEntity(REACHING, FeederBlockEntity.class).setArms(new FeederArms(1, 2, FeederArms.Turn.LEFT));
+        helper.getBlockEntity(REACHING, FeederBlockEntity.class).setArms(new FeederArms(1, 2, FeederArms.Turn.STRAIGHT));
+        Rotate.press(new ListeningPlayer(helper, REACHING.south(2)), helper.absolutePos(REACHING), true);
+        var state = helper.getBlockState(REACHING);
+        if (state.getValue(HorizontalDirectionalBlock.FACING) != Direction.EAST || state.getValue(FeederBlock.TAIL_TURN) != FeederBlock.TailTurn.LEFT) {
+            helper.fail("Reverse Rotate left a feeder " + state + ", not facing east with its tail turned left", REACHING);
+        }
         helper.startSequence().thenIdle(100).thenExecute(() -> {
             int turned = count(chest(helper, TURNED_TAIL));
             int ahead = count(chest(helper, REACHING.east()));
@@ -507,8 +515,9 @@ final class FeederTests {
         helper.succeed();
     }
 
-    // A client learns a feeder's filter and arms only from the update tag it is sent, as it loads one,
-    // so a feeder read from that tag draws them; each change sends it.
+    // A client learns a feeder's filter and reaches only from the update tag it is sent, as it loads
+    // one, and its tail's turn from the block state, so a feeder read from both draws them; each
+    // change sends an update.
     private static void updateTagCarriesFilterAndArms(GameTestHelper helper) {
         feeder(helper, FEEDER, Direction.EAST);
         var placed = helper.getBlockEntity(FEEDER, FeederBlockEntity.class);
@@ -518,7 +527,7 @@ final class FeederTests {
         FeederReach.press(player, helper.absolutePos(FEEDER), FeederArms.Arm.HEAD);
         FeederReach.press(player, helper.absolutePos(FEEDER), FeederArms.Arm.TAIL);
         FeederReach.press(player, helper.absolutePos(FEEDER), FeederArms.Arm.TAIL);
-        placed.setArms(placed.arms().withTailTurn(FeederArms.Turn.LEFT));
+        Rotate.press(player, helper.absolutePos(FEEDER), true);
         var updates = BlockUpdateWatch.stop(helper.absolutePos(FEEDER));
         if (updates < 5) helper.fail("five changes sent " + updates + " block updates", FEEDER);
 
