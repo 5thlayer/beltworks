@@ -96,10 +96,10 @@ public class BeltEndRenderer implements BlockEntityRenderer<BeltEndBlockEntity, 
         }
         if (entity.isSplitter()) addHalfItems(entity, state, partialTicks);
 
-        if (!entity.filteredItem.isEmpty()) {
+        if (!entity.filteredItem().isEmpty()) {
             var filterState = new ItemStackRenderState();
             Minecraft.getInstance().getItemModelResolver().updateForTopItem(
-              filterState, entity.filteredItem, ItemDisplayContext.FIXED, level, null, 0
+              filterState, entity.filteredItem(), ItemDisplayContext.FIXED, level, null, 0
             );
             state.filter = filterState;
             state.filterFacing = entity.getOwnFacing();

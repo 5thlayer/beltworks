@@ -4,13 +4,11 @@
 
 package io.github._5thlayer.beltworks.blocks;
 
-import dev.ftb.mods.ftbfiltersystem.api.FTBFilterSystemAPI;
 import com.mojang.datafixers.util.Pair;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
@@ -29,7 +27,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.fml.ModList;
 import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.beltworks.BeltSync;
 import io.github._5thlayer.beltworks.BeltworksConfig;
@@ -53,8 +50,8 @@ import java.util.function.Predicate;
 /** A belt end that is a block: a loader or a splitter half. */
 public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker<BeltEndBlockEntity> {
 
-    // used for filtering. Optionally works with create and ftb filters.
-    public ItemStack filteredItem = ItemStack.EMPTY;
+    // Optionally works with create and ftb filters.
+    private final ItemFilter filter = new ItemFilter();
 
     private static boolean tearingDownSplitter;
 
@@ -357,7 +354,7 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
 
         for (int slot = 0; slot < source.getSlotCount(); slot++) {
             var availableStack = source.getStackInSlot(slot);
-            if (availableStack.isEmpty() || !stackMatchesFilter(availableStack)) continue;
+            if (availableStack.isEmpty() || !filter.matches(level, availableStack)) continue;
 
             var extractingStack = availableStack.copyWithCount(1);
             if (source.extract(extractingStack, false) <= 0) continue;
@@ -369,22 +366,10 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
         return null;
     }
     
-    private boolean stackMatchesFilter(ItemStack stack) {
-        if (filteredItem.isEmpty()) return true;
-        
-        if (ModList.get().isLoaded("ftbfiltersystem")) {
-            var filterAPI = FTBFilterSystemAPI.api();
-            if (filterAPI.isFilterItem(filteredItem))
-                return filterAPI.doesFilterMatch(filteredItem, stack, level.registryAccess());
-        }
-        
-        return stack.getItem().equals(filteredItem.getItem());
-    }
-    
     @Override
     protected void saveAdditional(ValueOutput output) {
         super.saveAdditional(output);
-        output.store("filter", ItemStack.OPTIONAL_CODEC, filteredItem);
+        filter.save(output);
         output.putLong("energy", energy.joules());
 
         if (half != null) {
@@ -414,7 +399,7 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
     @Override
     protected void loadAdditional(ValueInput input) {
         super.loadAdditional(input);
-        filteredItem = input.read("filter", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY);
+        filter.load(input);
         energy.setJoules(input.getLongOr("energy", 0));
 
         if (half != null) {
@@ -475,30 +460,18 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
         super.setRemoved();
     }
 
+    public ItemStack filteredItem() {
+        return filter.item();
+    }
+
     public void assignFilterItem(ItemStack stack, Player player) {
-        
-        if (stack.isEmpty()) {
-            resetFilterItem(player);
-            return;
-        }
-        
-        player.sendSystemMessage(Component.translatable("message.beltworks.filter_set"));
-        filteredItem = stack.copy();
-        this.setChanged();
-        
-        if (level instanceof ServerLevel serverWorld)
-            serverWorld.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
+        filter.assign(this, stack, player);
     }
-    
+
     public void resetFilterItem(Player player) {
-        player.sendSystemMessage(Component.translatable("message.beltworks.filter_reset"));
-        filteredItem = ItemStack.EMPTY;
-        this.setChanged();
-        
-        if (level instanceof ServerLevel serverWorld)
-            serverWorld.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
+        filter.reset(this, player);
     }
-    
+
     public record BeltData(List<Pair<Vec3, Vec3>> allPoints, double totalLength, double[] segmentLengths) {
     }
 }
