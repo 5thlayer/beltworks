@@ -23,6 +23,12 @@ public final class LoaderEnergy {
 
         public static final Setting DEFAULT = new Setting(false, 100);
 
+        /**
+         * The most a feeder may pay for an item: far past any tuning, and small enough that its
+         * buffer's size, a couple of items' worth, stays within a long.
+         */
+        public static final long MAX_FEEDER_JOULES_PER_ITEM = 1_000_000_000L;
+
         public Setting(boolean loadersNeedPower, long joulesPerFe) {
             this(loadersNeedPower, joulesPerFe, Map.of());
         }
@@ -34,7 +40,10 @@ public final class LoaderEnergy {
             for (var tier : BeltTier.values()) joules.put(tier, tier.feederJoulesPerItem());
             joules.putAll(feederJoulesPerItem);
             joules.forEach((tier, perItem) -> {
-                if (perItem <= 0) throw new IllegalArgumentException(tier + " feeder joules per item must be positive: " + perItem);
+                if (perItem <= 0 || perItem > MAX_FEEDER_JOULES_PER_ITEM) {
+                    throw new IllegalArgumentException(tier + " feeder joules per item must be from 1 to "
+                      + MAX_FEEDER_JOULES_PER_ITEM + ": " + perItem);
+                }
             });
             feederJoulesPerItem = Collections.unmodifiableMap(joules);
         }

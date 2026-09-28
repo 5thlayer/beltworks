@@ -40,7 +40,7 @@ public final class BeltworksConfig {
         for (var tier : BeltTier.values()) {
             var name = tier.name().toLowerCase(Locale.ROOT);
             values.put(tier, BUILDER.translation("beltworks.configuration.feederJoulesPerItem." + name)
-              .defineInRange(name, tier.feederJoulesPerItem(), 1, Long.MAX_VALUE));
+              .defineInRange(name, tier.feederJoulesPerItem(), 1, LoaderEnergy.Setting.MAX_FEEDER_JOULES_PER_ITEM));
         }
         BUILDER.pop();
         return values;
