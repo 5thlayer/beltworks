@@ -48,6 +48,7 @@ import io.github._5thlayer.beltworks.model.TransportLine;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 /** A belt end that is a block: a loader or a splitter half. */
 public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker<BeltEndBlockEntity> {
@@ -230,6 +231,56 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
 
     private Splitter.Handoff<ItemStack> enteringHandoff() {
         return Splitter.entering(half, halfSpeed, hand(level), halfMovedAt == level.getGameTime() ? 0 : halfSpeed);
+    }
+
+    /**
+     * Takes the frontmost item on this splitter half that {@code wanted} accepts, for a feeder's
+     * head, from past its midline first. Null on a loader, which holds nothing.
+     */
+    public @Nullable FeederTaken feederTake(Predicate<ItemStack> wanted) {
+        if (!splitter) return null;
+        var leaving = true;
+        var taken = half.leaving().take(0, Splitter.MIDLINE, wanted);
+        if (taken == null) {
+            leaving = false;
+            taken = half.entering().take(0, Splitter.MIDLINE, wanted);
+        }
+        if (taken == null) return null;
+        setChanged();
+        return new FeederTaken(taken, leaving);
+    }
+
+    /** An item a feeder took from a splitter half, and which of its segments it was on. */
+    public record FeederTaken(BeltContents.Entry<ItemStack> entry, boolean leaving) {
+    }
+
+    /** Puts an item a feeder took back where it was, when the far end refused it after all. */
+    public void feederPutBack(FeederTaken taken) {
+        (taken.leaving() ? half.leaving() : half.entering()).place(taken.entry().payload(), taken.entry().position());
+        setChanged();
+    }
+
+    /** Whether a feeder's tail could drop an item on this splitter half now. */
+    public boolean feederCanDrop() {
+        return splitter && !Double.isNaN(feederDropPlacement());
+    }
+
+    /**
+     * Drops an item for a feeder's tail just past this splitter half's midline, where a tile's
+     * midpoint is, when there is a gap there; it leaves by the half's own front.
+     */
+    public boolean feederDrop(ItemStack item) {
+        if (!splitter) return false;
+        var at = feederDropPlacement();
+        if (Double.isNaN(at)) return false;
+        half.leaving().place(item, at);
+        setChanged();
+        return true;
+    }
+
+    // As wide as the half moves in a tick, so a one-item gap is caught as it crosses the midline.
+    private double feederDropPlacement() {
+        return half.leaving().dropPlacement(0, 0, Math.max(BeltContents.SPACING, halfSpeed), Splitter.MIDLINE, false);
     }
 
     /** Hands a splitter half's items to the player who broke it, or drops them here when nobody did. */

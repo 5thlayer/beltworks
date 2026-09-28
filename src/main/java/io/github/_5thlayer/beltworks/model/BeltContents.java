@@ -185,14 +185,7 @@ public final class BeltContents<T> {
      * @return whether there was a gap for it
      */
     public boolean insert(T payload, double from, double at, double length, boolean ring) {
-        var positions = new ArrayList<Double>();
-        for (var entry : entries) {
-            positions.add(entry.position);
-            if (ring) {
-                positions.add(entry.position - length);
-                positions.add(entry.position + length);
-            }
-        }
+        var positions = positions(length, ring);
         var upper = Math.min(from + 1, length) - SPACING;
         var placed = Double.NaN;
         for (var position : positions) {
@@ -204,16 +197,67 @@ public final class BeltContents<T> {
             if (!fits(at, from, upper, positions)) return false;
             placed = at;
         }
+        place(payload, placed);
+        return true;
+    }
 
+    /**
+     * Where an entry dropped at {@code at} goes: there when it has room, else the nearest spot within
+     * {@code [lower, upper]} abutting an entry, or NaN when there is no gap. Unlike {@link #insert}, it
+     * never looks past its window for room.
+     */
+    public double dropPlacement(double at, double lower, double upper, double length, boolean ring) {
+        var positions = positions(length, ring);
+        var from = Math.max(lower, 0);
+        var to = Math.min(upper, length - SPACING);
+        if (fits(at, from, to, positions)) return at;
+        var placed = Double.NaN;
+        for (var position : positions) {
+            for (var abutting : new double[] {position - SPACING, position + SPACING}) {
+                if (fits(abutting, from, to, positions) && !(Math.abs(abutting - at) >= Math.abs(placed - at))) placed = abutting;
+            }
+        }
+        return placed;
+    }
+
+    /** Places an entry among the others at this position, as one gained mid-belt, which a copy places by position. */
+    public void place(T payload, double at) {
         var sorted = new ArrayList<>(entries);
-        var entry = new Entry<>(nextId++, payload, placed);
+        var entry = new Entry<>(nextId++, payload, at);
         sorted.add(entry);
         sorted.sort(Comparator.comparingDouble(Entry::position));
         entries.clear();
         entries.addAll(sorted);
         added.put(entry.id, entry);
         sided.add(entry.id);
-        return true;
+    }
+
+    /**
+     * Removes the frontmost entry in {@code [from, to)} that {@code wanted} accepts, as a feeder's
+     * head takes one from anywhere on a tile: the entries around it run on past the gap.
+     */
+    public @Nullable Entry<T> take(double from, double to, Predicate<T> wanted) {
+        for (var iterator = entries.descendingIterator(); iterator.hasNext(); ) {
+            var entry = iterator.next();
+            if (entry.position < from || entry.position >= to || !wanted.test(entry.payload)) continue;
+            iterator.remove();
+            removed(entry);
+            return entry;
+        }
+        return null;
+    }
+
+    // A ring's positions wrap, so each is also counted a length either side.
+    private List<Double> positions(double length, boolean ring) {
+        var positions = new ArrayList<Double>();
+        for (var entry : entries) {
+            positions.add(entry.position);
+            if (ring) {
+                positions.add(entry.position - length);
+                positions.add(entry.position + length);
+            }
+        }
+        return positions;
     }
 
     private static boolean fits(double placed, double from, double upper, List<Double> positions) {

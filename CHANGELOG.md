@@ -3,6 +3,7 @@
 ## Unreleased
 
 - A feeder moves items one at a time from the inventory behind it to the one in front, at 1.5 items a second, always paying FE for each item (5thlayer/beltworks#67).
+- A feeder takes from and drops onto a belt: any level tile of a line, straight or corner, and a splitter half. Its head takes from anywhere on the tile while the line runs on; its tail drops at the tile's midpoint, waiting for a gap. A slope or a loader is never an end (5thlayer/beltworks#68).
 
 ## 0.3.9
 
