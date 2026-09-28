@@ -34,17 +34,23 @@ sealed interface FeederEnd {
     record Taken(ItemStack item, Runnable undo) {
     }
 
-    /** The end at {@code pos}, reached through its {@code face}, or null where there is none to use. */
+    /** A tail's end at {@code pos}, reached through its {@code face}, or null where there is none to use. */
     static @Nullable FeederEnd at(Level level, BlockPos pos, Direction face) {
         if (!level.isLoaded(pos)) return null;
         var blockEntity = level.getBlockEntity(pos);
         if (blockEntity instanceof BeltTileBlockEntity tile) return new Tile(tile);
         if (blockEntity instanceof BeltEndBlockEntity end) return end.isSplitter() ? new Half(end) : null;
         var storage = ItemApi.BLOCK.find(level, pos, null, null, face);
-        return storage == null ? new Loose(level, pos) : new Inventory(storage);
+        return storage == null ? null : new Inventory(storage);
     }
 
-    /** Item entities lying at a block: taken from by a head, never dropped into by a tail, which waits. */
+    /** A head's end: {@link #at}, or else the items lying loose at {@code pos}. */
+    static @Nullable FeederEnd atHead(Level level, BlockPos pos, Direction face) {
+        var end = at(level, pos, face);
+        return end != null || !level.isLoaded(pos) ? end : new Loose(level, pos);
+    }
+
+    /** Item entities lying at a block, only ever a head's: a tail with no end waits, and drops nothing. */
     record Loose(Level level, BlockPos pos) implements FeederEnd {
 
         @Override
@@ -54,19 +60,11 @@ sealed interface FeederEnd {
                 if (stack.isEmpty()) continue;
                 var one = stack.copyWithCount(1);
                 if (!wanted.test(one)) continue;
-                if (stack.getCount() == 1) entity.discard();
-                else entity.setItem(stack.copyWithCount(stack.getCount() - 1));
-                return new Taken(one, () -> putBack(entity, one));
+                // An emptied entity discards itself on its next tick, so an undo in this one restores it whole.
+                entity.setItem(stack.copyWithCount(stack.getCount() - 1));
+                return new Taken(one, () -> entity.setItem(one.copyWithCount(entity.getItem().getCount() + 1)));
             }
             return null;
-        }
-
-        private void putBack(ItemEntity entity, ItemStack one) {
-            if (entity.isRemoved()) {
-                level.addFreshEntity(new ItemEntity(level, entity.getX(), entity.getY(), entity.getZ(), one));
-            } else {
-                entity.setItem(entity.getItem().copyWithCount(entity.getItem().getCount() + 1));
-            }
         }
 
         @Override
