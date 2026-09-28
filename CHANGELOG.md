@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.10
+
 - A feeder moves items one at a time from the inventory behind it to the one in front, at 1.5 items a second (5thlayer/beltworks#67).
 - A feeder takes from and drops onto a belt: any level tile of a line, straight or corner, and a splitter half. Its head takes from anywhere on the tile while the line runs on; its tail drops at the tile's midpoint, waiting for a gap. A slope or a loader is never an end (5thlayer/beltworks#68).
 - Feeders come in every tier: fast, express and turbo feeders move 3, 4.5 and 6 items a second, each a tenth of its tier's loader, and craft from that tier's loader and belt tile. They take a loader's filter, set by clicking with an item and cleared with an empty hand. Each tier's FE per item is its own entry under `feederJoulesPerItem` in the server config (5thlayer/beltworks#69).
