@@ -12,9 +12,8 @@ import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
@@ -22,6 +21,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
+import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.beltworks.BeltworksConfig;
 import io.github._5thlayer.beltworks.BlockEntitiesContent;
@@ -29,6 +29,7 @@ import io.github._5thlayer.beltworks.model.FeederArms;
 import io.github._5thlayer.beltworks.model.FlowLimit;
 import io.github._5thlayer.beltworks.model.LineScan;
 import io.github._5thlayer.beltworks.model.LoaderEnergy;
+import io.github._5thlayer.beltworks.neoforge.FeederSuckedPayload;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,8 +42,6 @@ import java.util.List;
  */
 public class FeederBlockEntity extends BlockEntity {
 
-    /** The block event a move sends its watchers, naming the item the head took, so they draw it sucked in. */
-    static final int SUCKED = 1;
     /** How long a taken item is drawn going into the head, in ticks, after which it is inside and hidden. */
     public static final int SUCK_TICKS = 5;
 
@@ -76,6 +75,8 @@ public class FeederBlockEntity extends BlockEntity {
 
         var taken = head.take(item -> filter.matches(level, item) && tail.accepts(item));
         if (taken == null) return;
+        // Copied first, since a tail may use up the stack it is handed.
+        var seen = taken.item().copyWithCount(1);
         // An end whose simulation lied gets its item back, so nothing is lost.
         if (!tail.put(taken.item())) {
             taken.undo().run();
@@ -84,19 +85,19 @@ public class FeederBlockEntity extends BlockEntity {
         flow.pass();
         energy.move();
         setChanged();
-        level.blockEvent(pos, state.getBlock(), SUCKED, Item.getId(taken.item().getItem()));
+        // Its watchers are sent the whole stack: a block event's parameters are a byte each, too
+        // narrow for an item's id.
+        if (level instanceof ServerLevel server) {
+            PacketDistributor.sendToPlayersTrackingChunk(server, ChunkPos.containing(pos), new FeederSuckedPayload(pos, seen));
+        }
     }
 
-    // Sent on to the watchers only when the server answers true.
-    boolean receiveEvent(int event, int item) {
-        if (event != SUCKED) return false;
-        if (level != null && level.isClientSide()) {
-            var now = level.getGameTime();
-            sucked.removeIf(entry -> now - entry.gameTime() >= SUCK_TICKS);
-            var taken = Item.byId(item);
-            if (taken != Items.AIR) sucked.add(new Sucked(new ItemStack(taken), now));
-        }
-        return true;
+    /** On a client: the head took {@code item}, which is drawn going in from now. */
+    public void sucked(ItemStack item) {
+        if (level == null || item.isEmpty()) return;
+        var now = level.getGameTime();
+        sucked.removeIf(entry -> now - entry.gameTime() >= SUCK_TICKS);
+        sucked.add(new Sucked(item, now));
     }
 
     /** The items being drawn going into the head, oldest first; always none on a server. */
