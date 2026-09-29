@@ -50,9 +50,10 @@ public final class BeltCollisionRegistry {
     /** A splitter half's own block of belt (#373). */
     public static void registerHalf(BeltEndBlockEntity entity) {
         var beltData = entity.getHalfData();
-        if (beltData == null) return;
+        var half = entity.getHalf();
+        if (beltData == null || half == null) return;
         register(entity.getLevel(), entity.getBlockPos(), beltData, t -> SplineUtil.getPositionOnSpline(beltData, t), beltData.totalLength(),
-          entity.getHalfSpeed() * 20);
+          half.speed() * 20);
     }
 
     /**

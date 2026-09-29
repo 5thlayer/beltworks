@@ -45,7 +45,6 @@ import io.github._5thlayer.beltworks.model.TransportLine;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Predicate;
 
 /** A belt end that is a block: a loader or a splitter half. */
 public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker<BeltEndBlockEntity> {
@@ -66,7 +65,6 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
     // Run by the left half only, for both halves (#349).
     private final @Nullable Splitter<ItemStack> splitterModel;
     private final Splitter.@Nullable Half<ItemStack> half;
-    private final double halfSpeed;
     // The game time a splitter's halves last moved.
     private long halfMovedAt = Long.MIN_VALUE;
     private @Nullable BeltData halfData;
@@ -80,8 +78,7 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
         // loader when its chunk next loads.
         energy = new LoaderEnergy(splitter ? BeltTier.BELT : tier, BeltworksConfig.loaderPower());
         splitterModel = splitter ? new Splitter<>(tier) : null;
-        half = splitter ? new Splitter.Half<>() : null;
-        halfSpeed = tier.blocksPerTick();
+        half = splitter ? new Splitter.Half<>(tier) : null;
     }
     
     @Override
@@ -164,8 +161,8 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
     private void tickHalf(Level level, BlockPos pos, BlockState state) {
         BeltCollisionRegistry.registerHalf(this);
         if (level.isClientSide()) {
-            half.entering().advance(Splitter.MIDLINE, halfSpeed);
-            half.leaving().advance(Splitter.MIDLINE, halfSpeed);
+            half.entering().advance(Splitter.MIDLINE, half.speed());
+            half.leaving().advance(Splitter.MIDLINE, half.speed());
             return;
         }
         if (state.getValue(SplitterBlock.SIDE) == SplitterBlock.Side.LEFT) tickSplitter(level, pos, state);
@@ -227,57 +224,7 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
     }
 
     private Splitter.Handoff<ItemStack> enteringHandoff() {
-        return Splitter.entering(half, halfSpeed, hand(level), halfMovedAt == level.getGameTime() ? 0 : halfSpeed);
-    }
-
-    /**
-     * Takes the frontmost item on this splitter half that {@code wanted} accepts, for a feeder's
-     * head, from past its midline first. Null on a loader, which holds nothing.
-     */
-    public @Nullable FeederTaken feederTake(Predicate<ItemStack> wanted) {
-        if (!splitter) return null;
-        var leaving = true;
-        var taken = half.leaving().take(0, Splitter.MIDLINE, wanted);
-        if (taken == null) {
-            leaving = false;
-            taken = half.entering().take(0, Splitter.MIDLINE, wanted);
-        }
-        if (taken == null) return null;
-        setChanged();
-        return new FeederTaken(taken, leaving);
-    }
-
-    /** An item a feeder took from a splitter half, and which of its segments it was on. */
-    public record FeederTaken(BeltContents.Entry<ItemStack> entry, boolean leaving) {
-    }
-
-    /** Puts an item a feeder took back where it was, when the far end refused it after all. */
-    public void feederPutBack(FeederTaken taken) {
-        (taken.leaving() ? half.leaving() : half.entering()).place(taken.entry().payload(), taken.entry().position());
-        setChanged();
-    }
-
-    /** Whether a feeder's tail could drop an item on this splitter half now. */
-    public boolean feederCanDrop() {
-        return splitter && !Double.isNaN(feederDropPlacement());
-    }
-
-    /**
-     * Drops an item for a feeder's tail just past this splitter half's midline, where a tile's
-     * midpoint is, when there is a gap there; it leaves by the half's own front.
-     */
-    public boolean feederDrop(ItemStack item) {
-        if (!splitter) return false;
-        var at = feederDropPlacement();
-        if (Double.isNaN(at)) return false;
-        half.leaving().place(item, at);
-        setChanged();
-        return true;
-    }
-
-    // As wide as the half moves in a tick, so a one-item gap is caught as it crosses the midline.
-    private double feederDropPlacement() {
-        return half.leaving().dropPlacement(0, 0, Math.max(BeltContents.SPACING, halfSpeed), Splitter.MIDLINE, false);
+        return Splitter.entering(half, half.speed(), hand(level), halfMovedAt == level.getGameTime() ? 0 : half.speed());
     }
 
     /** Hands a splitter half's items to the player who broke it, or drops them here when nobody did. */
@@ -423,10 +370,6 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
         return half;
     }
 
-    /** Blocks per tick a splitter half's items move: its own tier's belt speed. */
-    public double getHalfSpeed() {
-        return halfSpeed;
-    }
 
     /** A splitter half's straight block of belt from its back face to its front face, or null on any other block. */
     public @Nullable BeltData getHalfData() {

@@ -14,6 +14,8 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SplitterTest {
@@ -289,7 +291,7 @@ class SplitterTest {
 
         Halves splitter(BeltTier tier, Belt inLeft, Belt inRight, Belt outLeft, Belt outRight) {
             var splitter = new Splitter<String>(tier);
-            var halves = new Halves(new Splitter.Half<>(), new Splitter.Half<>());
+            var halves = new Halves(new Splitter.Half<>(tier), new Splitter.Half<>(tier));
             // The belts tick first, so the splitter is still to move.
             var speed = tier.blocksPerTick();
             if (inLeft != null) inLeft.sink = item -> Join.offer(item, inLeft.overshoot(),
@@ -368,5 +370,72 @@ class SplitterTest {
         long from(String input) {
             return sources.stream().filter(input::equals).count();
         }
+    }
+
+    @Test
+    void aFeederTakesFromPastTheMidlineFirst() {
+        var half = new Splitter.Half<String>(BeltTier.BELT);
+        half.entering().place("in", 0.1);
+        half.leaving().place("out", 0.1);
+
+        var taken = half.take(item -> true);
+
+        assertEquals("out", taken.entry().payload());
+        assertTrue(taken.leaving());
+        assertEquals(List.of("in"), half.payloads());
+    }
+
+    @Test
+    void aFeederTakesFromBeforeTheMidlineWhenNothingIsPastIt() {
+        var half = new Splitter.Half<String>(BeltTier.BELT);
+        half.entering().place("in", 0.1);
+
+        var taken = half.take(item -> true);
+
+        assertEquals("in", taken.entry().payload());
+        assertFalse(taken.leaving());
+        assertNull(half.take(item -> true));
+    }
+
+    @Test
+    void anItemPutBackIsWhereItWasTaken() {
+        var half = new Splitter.Half<String>(BeltTier.BELT);
+        half.leaving().place("out", 0.2);
+
+        half.putBack(half.take(item -> true));
+
+        assertEquals(List.of(0.2), half.leaving().entries().stream().map(BeltContents.Entry::position).toList());
+    }
+
+    @Test
+    void aFeederDropsJustPastTheMidline() {
+        var half = new Splitter.Half<String>(BeltTier.BELT);
+
+        assertTrue(half.canDrop());
+        assertTrue(half.drop("dropped"));
+
+        assertEquals(List.of(0.0), half.leaving().entries().stream().map(BeltContents.Entry::position).toList());
+        assertTrue(half.entering().isEmpty());
+    }
+
+    @Test
+    void aFeederWaitsWhileThereIsNoGapPastTheMidline() {
+        var half = new Splitter.Half<String>(BeltTier.BELT);
+        half.leaving().place("a", 0);
+        half.leaving().place("b", BeltContents.SPACING);
+
+        assertFalse(half.canDrop());
+        assertFalse(half.drop("dropped"));
+        assertEquals(2, half.size());
+    }
+
+    @Test
+    void aFasterHalfCatchesAGapAsWideAsItMovesInATick() {
+        var half = new Splitter.Half<String>(BeltTier.TURBO);
+        half.leaving().place("a", 0);
+        half.leaving().place("b", BeltContents.SPACING + half.speed());
+
+        assertTrue(half.drop("dropped"));
+        assertEquals(3, half.leaving().size());
     }
 }

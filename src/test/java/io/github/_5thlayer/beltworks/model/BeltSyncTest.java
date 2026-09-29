@@ -67,7 +67,7 @@ class BeltSyncTest {
     @Test
     void aSplitterPassIsARemovalFromOneBeltAndAnAdditionToTheOther() {
         var in = new BeltContents<String>();
-        var half = new Splitter.Half<String>();
+        var half = new Splitter.Half<String>(BeltTier.BELT);
         for (int tick = 0; tick < 20; tick++) in.tick(1, TIER_1, () -> in.isEmpty() ? "item" : null, item -> false);
         in.drainChanges();
         var passed = in.entries().getFirst().id();

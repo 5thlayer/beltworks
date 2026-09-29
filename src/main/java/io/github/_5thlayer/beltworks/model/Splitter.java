@@ -7,6 +7,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * Two belts in and two out, through two halves that are each a block of belt of the splitter's
@@ -103,6 +104,57 @@ public final class Splitter<T> {
     public static final class Half<T> {
         private final BeltContents<T> entering = new BeltContents<>();
         private final BeltContents<T> leaving = new BeltContents<>();
+        private final double speed;
+
+        public Half(BeltTier tier) {
+            speed = tier.blocksPerTick();
+        }
+
+        /** Blocks per tick its items move: its own tier's belt speed (ADR 0007). */
+        public double speed() {
+            return speed;
+        }
+
+        /**
+         * Takes the frontmost item {@code wanted} accepts, for a feeder's head, from past the
+         * midline first, or null where there is none.
+         */
+        public @Nullable Taken<T> take(Predicate<T> wanted) {
+            var taken = leaving.take(0, MIDLINE, wanted);
+            if (taken != null) return new Taken<>(taken, true);
+            taken = entering.take(0, MIDLINE, wanted);
+            return taken == null ? null : new Taken<>(taken, false);
+        }
+
+        /** Puts an item a feeder took back where it was, when the far end refused it after all. */
+        public void putBack(Taken<T> taken) {
+            (taken.leaving() ? leaving : entering).place(taken.entry().payload(), taken.entry().position());
+        }
+
+        /** Whether a feeder's tail could {@link #drop} an item now. */
+        public boolean canDrop() {
+            return !Double.isNaN(dropPlacement());
+        }
+
+        /**
+         * Drops an item for a feeder's tail just past the midline, where a tile's midpoint is, when
+         * there is a gap there; it leaves by the half's own front.
+         */
+        public boolean drop(T item) {
+            var at = dropPlacement();
+            if (Double.isNaN(at)) return false;
+            leaving.place(item, at);
+            return true;
+        }
+
+        /** An item a feeder took from a half, and whether it was past the midline. */
+        public record Taken<T>(BeltContents.Entry<T> entry, boolean leaving) {
+        }
+
+        // As wide as the half moves in a tick, so a one-item gap is caught as it crosses the midline.
+        private double dropPlacement() {
+            return leaving.dropPlacement(0, 0, Math.max(BeltContents.SPACING, speed), MIDLINE, false);
+        }
 
         public BeltContents<T> entering() {
             return entering;

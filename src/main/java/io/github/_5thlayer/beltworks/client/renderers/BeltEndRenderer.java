@@ -116,7 +116,7 @@ public class BeltEndRenderer implements BlockEntityRenderer<BeltEndBlockEntity, 
         var half = entity.getHalf();
         var halfData = entity.getHalfData();
         if (half == null || halfData == null) return;
-        var speed = entity.getHalfSpeed();
+        var speed = half.speed();
         for (var segment : List.of(half.entering(), half.leaving())) {
             var start = segment == half.leaving() ? Splitter.MIDLINE : 0;
             var entries = segment.entries();

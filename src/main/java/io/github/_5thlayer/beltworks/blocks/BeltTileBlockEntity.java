@@ -35,7 +35,6 @@ import io.github._5thlayer.beltworks.model.TransportLine;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Predicate;
 
 /**
  * One block of belt, and, where it is the head of its line, the {@link TransportLine} that ticks
@@ -343,51 +342,6 @@ public class BeltTileBlockEntity extends BlockEntity {
         return true;
     }
 
-    /**
-     * Takes the frontmost item on this level tile that {@code wanted} accepts, for a feeder's head,
-     * or null where it has none or no line holds it yet.
-     */
-    public BeltContents.@Nullable Entry<ItemStack> feederTake(Predicate<ItemStack> wanted) {
-        var holding = feederLine();
-        if (holding == null) return null;
-        var taken = holding.take(membership.index(), wanted);
-        if (taken != null) lineChanged();
-        return taken;
-    }
-
-    /** Puts an item a feeder took back where it was, when the far end refused it after all. */
-    public void feederPutBack(BeltContents.Entry<ItemStack> taken) {
-        var holding = feederLine();
-        // With no line to take it, the tile keeps it as its own share, so nothing is lost.
-        if (holding == null) {
-            carry(List.of(new TransportLine.Share<>(Math.clamp(taken.position() - membership.index(), 0, 1 - BeltContents.SPACING), taken.payload())));
-            return;
-        }
-        holding.contents().place(taken.payload(), taken.position());
-        lineChanged();
-    }
-
-    /** Whether a feeder's tail could drop an item at this level tile's midpoint now. */
-    public boolean feederCanDrop() {
-        var holding = feederLine();
-        return holding != null && holding.canDrop(membership.index());
-    }
-
-    /** Drops an item at this level tile's midpoint for a feeder's tail, when its line has a gap there. */
-    public boolean feederDrop(ItemStack item) {
-        var holding = feederLine();
-        if (holding == null || !holding.drop(item, membership.index())) return false;
-        lineChanged();
-        return true;
-    }
-
-    // A slope is never a feeder's end (CONTEXT.md).
-    private @Nullable TransportLine<ItemStack> feederLine() {
-        if (pitch() != Pitch.LEVEL) return null;
-        var line = membership.line();
-        return line == null || membership.index() >= line.tileCount() ? null : line;
-    }
-
     private @Nullable BeltEndBlockEntity splitterAt(BlockPos pos, Direction travel) {
         if (level == null || !level.isLoaded(pos)) return null;
         var half = level.getBlockEntity(pos, BlockEntitiesContent.BELT_END.get()).orElse(null);
@@ -404,6 +358,11 @@ public class BeltTileBlockEntity extends BlockEntity {
     /** The line this tile belongs to, whichever tile of the run holds it. */
     public @Nullable TransportLine<ItemStack> line() {
         return membership.line();
+    }
+
+    /** Where this tile is in its line, counted from the line's first tile. */
+    public int index() {
+        return membership.index();
     }
 
     /** What this tile itself carries, and where in the tile, whether or not a line holds it. */

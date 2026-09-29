@@ -11,7 +11,12 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.beltworks.api.item.ItemApi;
+import io.github._5thlayer.beltworks.model.BeltContents;
+import io.github._5thlayer.beltworks.model.Pitch;
+import io.github._5thlayer.beltworks.model.Splitter;
+import io.github._5thlayer.beltworks.model.TransportLine;
 
+import java.util.List;
 import java.util.function.Predicate;
 
 /**
@@ -39,7 +44,10 @@ sealed interface FeederEnd {
         if (!level.isLoaded(pos)) return null;
         var blockEntity = level.getBlockEntity(pos);
         if (blockEntity instanceof BeltTileBlockEntity tile) return new Tile(tile);
-        if (blockEntity instanceof BeltEndBlockEntity end) return end.isSplitter() ? new Half(end) : null;
+        if (blockEntity instanceof BeltEndBlockEntity end) {
+            var half = end.getHalf();
+            return half == null ? null : new Half(end, half);
+        }
         var storage = ItemApi.BLOCK.find(level, pos, null, null, face);
         return storage == null ? null : new Inventory(storage);
     }
@@ -105,41 +113,77 @@ sealed interface FeederEnd {
         }
     }
 
+    /** A level tile of a line: its head takes from anywhere on it, its tail drops at its midpoint. */
     record Tile(BeltTileBlockEntity tile) implements FeederEnd {
 
         @Override
         public @Nullable Taken take(Predicate<ItemStack> wanted) {
-            var taken = tile.feederTake(wanted);
-            return taken == null ? null : new Taken(taken.payload(), () -> tile.feederPutBack(taken));
+            var line = line();
+            if (line == null) return null;
+            var taken = line.take(tile.index(), wanted);
+            if (taken == null) return null;
+            tile.lineChanged();
+            return new Taken(taken.payload(), () -> putBack(taken));
         }
 
         @Override
         public boolean accepts(ItemStack item) {
-            return tile.feederCanDrop();
+            var line = line();
+            return line != null && line.canDrop(tile.index());
         }
 
         @Override
         public boolean put(ItemStack item) {
-            return tile.feederDrop(item);
+            var line = line();
+            if (line == null || !line.drop(item, tile.index())) return false;
+            tile.lineChanged();
+            return true;
+        }
+
+        private void putBack(BeltContents.Entry<ItemStack> taken) {
+            var line = line();
+            // With no line to take it, the tile keeps it as its own share, so nothing is lost.
+            if (line == null) {
+                var offset = Math.clamp(taken.position() - tile.index(), 0, 1 - BeltContents.SPACING);
+                tile.carry(List.of(new TransportLine.Share<>(offset, taken.payload())));
+                return;
+            }
+            line.contents().place(taken.payload(), taken.position());
+            tile.lineChanged();
+        }
+
+        // A slope is never a feeder's end (CONTEXT.md).
+        private @Nullable TransportLine<ItemStack> line() {
+            if (tile.pitch() != Pitch.LEVEL) return null;
+            var line = tile.line();
+            return line == null || tile.index() >= line.tileCount() ? null : line;
         }
     }
 
-    record Half(BeltEndBlockEntity half) implements FeederEnd {
+    /** A splitter half: its head takes from past the midline first, its tail drops just past it. */
+    record Half(BeltEndBlockEntity end, Splitter.Half<ItemStack> half) implements FeederEnd {
 
         @Override
         public @Nullable Taken take(Predicate<ItemStack> wanted) {
-            var taken = half.feederTake(wanted);
-            return taken == null ? null : new Taken(taken.entry().payload(), () -> half.feederPutBack(taken));
+            var taken = half.take(wanted);
+            if (taken == null) return null;
+            end.setChanged();
+            return new Taken(taken.entry().payload(), () -> {
+                half.putBack(taken);
+                end.setChanged();
+            });
         }
 
         @Override
         public boolean accepts(ItemStack item) {
-            return half.feederCanDrop();
+            return half.canDrop();
         }
 
         @Override
         public boolean put(ItemStack item) {
-            return half.feederDrop(item);
+            if (!half.drop(item)) return false;
+            end.setChanged();
+            return true;
         }
     }
 }
