@@ -18,6 +18,9 @@ import java.util.function.Supplier;
  * <p>At the midline the two sides are each taken in turn, so one input splits evenly and two merge
  * evenly; a side that cannot move is skipped, so a backed-up output sends everything to the other.
  * Each side passes no more than the splitter's own tier.
+ *
+ * <p>An output priority sends everything to its side, and to the other only when that side cannot
+ * move, as Factorio's does. With none, the outputs alternate.
  */
 public final class Splitter<T> {
 
@@ -29,12 +32,18 @@ public final class Splitter<T> {
     private final FlowLimit[] outputLimits;
     private int nextInput;
     private int nextOutput;
+    private Priority outputPriority = Priority.NONE;
 
     public Splitter(BeltTier tier) {
         speed = tier.blocksPerTick();
         var itemsPerTick = tier.itemsPerTick();
         inputLimits = new FlowLimit[] {new FlowLimit(itemsPerTick), new FlowLimit(itemsPerTick)};
         outputLimits = new FlowLimit[] {new FlowLimit(itemsPerTick), new FlowLimit(itemsPerTick)};
+    }
+
+    /** Sets the side every item goes to first, or none to alternate. */
+    public void outputPriority(Priority priority) {
+        outputPriority = priority;
     }
 
     /**
@@ -47,13 +56,17 @@ public final class Splitter<T> {
     public boolean tick(long gameTime, Side<T> left, Side<T> right) {
         var sides = List.of(left, right);
         var changed = false;
-        for (var side : sides) {
-            if (side.out != null) changed |= Join.pass(new Handoff<>(side.half.leaving, MIDLINE, speed, side.hand(true)), side.out);
-            changed |= side.half.leaving.tick(MIDLINE, speed, () -> null, item -> false, side.hand(true));
+        var backedUp = new boolean[2];
+        for (int i = 0; i < 2; i++) {
+            var side = sides.get(i);
+            var moved = side.out != null && Join.pass(new Handoff<>(side.half.leaving, MIDLINE, speed, side.hand(true)), side.out);
+            moved |= side.half.leaving.tick(MIDLINE, speed, () -> null, item -> false, side.hand(true));
+            backedUp[i] = !moved && !side.half.leaving.isEmpty();
+            changed |= moved;
         }
         // Before the first segments move, as a belt delivers before it moves: the pass looks a
         // tick ahead, so after the move it would carry an item two ticks' travel in one.
-        while (passOne(gameTime, sides)) changed = true;
+        while (passOne(gameTime, sides, backedUp)) changed = true;
         for (var side : sides) {
             changed |= side.half.entering.tick(MIDLINE, speed, side.in, item -> false, side.hand(false));
         }
@@ -76,7 +89,7 @@ public final class Splitter<T> {
         return pastMidline ? new BeltContents.Hand<>(hand.point() - MIDLINE, hand.taker()) : hand;
     }
 
-    private boolean passOne(long gameTime, List<Side<T>> sides) {
+    private boolean passOne(long gameTime, List<Side<T>> sides, boolean[] backedUp) {
         for (int i = 0; i < 2; i++) {
             var in = (nextInput + i) % 2;
             var input = sides.get(in).half.entering;
@@ -85,8 +98,12 @@ public final class Splitter<T> {
             if (!input.endReady(MIDLINE, speed, hand == null ? -1 : hand.point())
                   || !inputLimits[in].ready(gameTime)) continue;
             var at = input.overshoot(MIDLINE, speed);
+            var preferred = outputPriority == Priority.NONE ? -1 : outputPriority.ordinal() - 1;
             for (int o = 0; o < 2; o++) {
-                var out = (nextOutput + o) % 2;
+                var out = ((preferred < 0 ? nextOutput : preferred) + o) % 2;
+                // Past a preferred side with no room only when it is backed up, its items not moving:
+                // one still moving has room again in a tick or two.
+                if (preferred >= 0 && out != preferred && !backedUp[preferred]) continue;
                 var output = sides.get(out).half.leaving;
                 var outHand = sides.get(out).hand(true);
                 if (!output.canOffer(MIDLINE, at, outHand) || !outputLimits[out].ready(gameTime)) continue;
@@ -99,6 +116,11 @@ public final class Splitter<T> {
             }
         }
         return false;
+    }
+
+    /** A splitter's preferred side, of its outputs or its inputs; none alternates. */
+    public enum Priority {
+        NONE, LEFT, RIGHT
     }
 
     /** One half's belt: the segment before its midline and the one after, each with positions of its own. */

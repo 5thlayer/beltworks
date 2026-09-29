@@ -17,6 +17,7 @@ import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.beltworks.BlockContent;
 import io.github._5thlayer.beltworks.blocks.BeltFamily;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
+import io.github._5thlayer.beltworks.blocks.SplitterBlock;
 import io.github._5thlayer.beltworks.collision.BeltCollisionRegistry;
 import io.github._5thlayer.beltworks.items.BeltTileItem;
 import io.github._5thlayer.beltworks.items.SplitterItem;
@@ -54,7 +55,8 @@ public final class BeltHandClient {
     /**
      * The belt under the crosshair within reach, unless a block or an entity is nearer. A held tile
      * or splitter is never a hand, since its click places one, and nor is an item that dismantles
-     * when sneaking or with a start stored, since its click is a dismantle's (#404).
+     * when sneaking or with a start stored, since its click is a dismantle's (#404). A sneaking
+     * player's use on a splitter half is its screen's.
      */
     private static BeltCollisionRegistry.@Nullable BeltHit aim(Minecraft minecraft) {
         var player = minecraft.player;
@@ -72,6 +74,8 @@ public final class BeltHandClient {
         var reach = eye.add(player.getViewVector(1).scale(player.blockInteractionRange()));
         var hit = BeltCollisionRegistry.raycast(minecraft.level, eye, reach);
         if (hit == null) return null;
+        // A sneak-use on a half opens its screen (#20).
+        if (player.isShiftKeyDown() && minecraft.level.getBlockState(hit.source()).getBlock() instanceof SplitterBlock) return null;
         var other = minecraft.hitResult;
         if (other != null && other.getType() != HitResult.Type.MISS
               && eye.distanceTo(other.getLocation()) < hit.distance()) return null;

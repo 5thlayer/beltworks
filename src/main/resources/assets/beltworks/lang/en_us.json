@@ -79,5 +79,10 @@
   "message.beltworks.tail_reach": "Tail reach: %s",
   "key.category.beltworks.beltworks": "Beltworks",
   "key.beltworks.head_reach": "Head Reach",
-  "key.beltworks.tail_reach": "Tail Reach"
+  "key.beltworks.tail_reach": "Tail Reach",
+  "screen.beltworks.splitter": "Splitter",
+  "screen.beltworks.splitter.output_priority": "Output priority",
+  "screen.beltworks.splitter.left": "Left",
+  "screen.beltworks.splitter.right": "Right",
+  "screen.beltworks.splitter.side": "Output priority side"
 }

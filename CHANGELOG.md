@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A splitter has a screen, opened by sneaking and using either half with an empty hand. Its output priority sends everything to one side, and to the other only when that side backs up. Breaking the splitter clears it (5thlayer/beltworks#20).
+
 ## 0.3.12
 
 - Nests Groundworks 0.5.0.

@@ -6,6 +6,7 @@ package io.github._5thlayer.beltworks.client;
 
 import io.github._5thlayer.beltworks.Beltworks;
 import io.github._5thlayer.beltworks.BlockEntitiesContent;
+import io.github._5thlayer.beltworks.blocks.SplitterBlock;
 import io.github._5thlayer.beltworks.client.renderers.BeltTileRenderer;
 import io.github._5thlayer.beltworks.client.renderers.FeederRenderer;
 import io.github._5thlayer.beltworks.collision.BeltCollisionRegistry;
@@ -35,6 +36,7 @@ public final class BeltworksClient {
         NeoForge.EVENT_BUS.addListener(BeltHandClient::tick);
         NeoForge.EVENT_BUS.addListener(BeltHandClient::interact);
         BeltPreviews.register();
+        SplitterBlock.openScreen = SplitterScreen::open;
     }
 
     /** Runs at the start of each client level tick, before its entities move. */

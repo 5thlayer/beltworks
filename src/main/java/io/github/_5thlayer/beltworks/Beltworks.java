@@ -19,11 +19,13 @@ import io.github._5thlayer.groundworks.Stretches;
 import io.github._5thlayer.beltworks.api.item.ItemApi;
 import io.github._5thlayer.beltworks.blocks.BeltFamily;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
+import io.github._5thlayer.beltworks.blocks.SplitterBlock;
 import io.github._5thlayer.beltworks.collision.BeltCollisionRegistry;
 import io.github._5thlayer.beltworks.gametest.BeltGameTests;
 import io.github._5thlayer.beltworks.items.BeltLegs;
 import io.github._5thlayer.beltworks.neoforge.BeltChangesPayload;
 import io.github._5thlayer.beltworks.neoforge.BeltHandPayload;
+import io.github._5thlayer.beltworks.neoforge.SplitterSettingsPayload;
 import io.github._5thlayer.beltworks.neoforge.FeederReachPayload;
 import io.github._5thlayer.beltworks.neoforge.FeederSuckedPayload;
 import io.github._5thlayer.beltworks.neoforge.BeltLinePayload;
@@ -34,6 +36,9 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -41,6 +46,7 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.ChunkEvent;
 import net.neoforged.neoforge.event.level.ChunkWatchEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
@@ -85,6 +91,15 @@ public final class Beltworks {
             if (!event.getLevel().isClientSide()) BeltCollisionRegistry.moveServerEntities(event.getLevel());
         });
 
+        // Ahead of Groundworks' Dismantle, which passes a tool with nothing stored on a splitter.
+        NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, PlayerInteractEvent.RightClickBlock.class, event -> {
+            if (event.getHand() != InteractionHand.MAIN_HAND) return;
+            var result = SplitterBlock.useOn(event.getEntity(), event.getItemStack(), event.getPos());
+            if (result == InteractionResult.PASS) return;
+            event.setCanceled(true);
+            event.setCancellationResult(result);
+        });
+
         BeltGameTests.register(modBus);
     }
 
@@ -93,9 +108,10 @@ public final class Beltworks {
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
-        event.registrar("3")
+        event.registrar("4")
           .playToServer(BeltHandPayload.TYPE, BeltHandPayload.STREAM_CODEC, BeltHandPayload::handle)
           .playToServer(FeederReachPayload.TYPE, FeederReachPayload.STREAM_CODEC, FeederReachPayload::handle)
+          .playToServer(SplitterSettingsPayload.TYPE, SplitterSettingsPayload.STREAM_CODEC, SplitterSettingsPayload::handle)
           .playToClient(BeltChangesPayload.TYPE, BeltChangesPayload.STREAM_CODEC, BeltChangesPayload::handle)
           .playToClient(BeltLinePayload.TYPE, BeltLinePayload.STREAM_CODEC, BeltLinePayload::handle)
           .playToClient(FeederSuckedPayload.TYPE, FeederSuckedPayload.STREAM_CODEC, FeederSuckedPayload::handle);

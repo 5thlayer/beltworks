@@ -26,12 +26,15 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
+import io.github._5thlayer.groundworks.Dismantles;
 import io.github._5thlayer.groundworks.TurnsInPlace;
+import io.github._5thlayer.beltworks.BlockContent;
 import io.github._5thlayer.beltworks.BlockEntitiesContent;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.Support;
 
 import java.util.Locale;
+import java.util.function.Consumer;
 
 /**
  * One half of a splitter, two blocks wide across its {@link #FACING}, which is the way items flow.
@@ -45,6 +48,10 @@ public class SplitterBlock extends BeltEndBlock implements TurnsInPlace {
 
     /** Why a splitter half is not turned in place. */
     public static final String NOT_TURNED = "message.beltworks.rotate_splitter";
+
+    /** Opens a splitter's screen for the half at a position; set by the client, a no-op on a server. */
+    public static Consumer<BlockPos> openScreen = pos -> {
+    };
 
     // A tile's slab, with the divider on top (PlanetaryFactory #394).
     private static final VoxelShape SHAPE = Shapes.box(0, 0, 0, 1, 8 / 16d, 1);
@@ -117,6 +124,20 @@ public class SplitterBlock extends BeltEndBlock implements TurnsInPlace {
     @Override
     public InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos, Player player, BlockHitResult hit) {
         return InteractionResult.PASS;
+    }
+
+    /**
+     * A sneak-use on a half, with an empty hand or a dismantling tool with no Dismantle in progress,
+     * opens the screen; a plain use is the hand-take (#20). An event, as a sneaking player's held
+     * item skips the block's own use.
+     */
+    public static InteractionResult useOn(Player player, ItemStack held, BlockPos pos) {
+        var level = player.level();
+        if (!player.isShiftKeyDown() || !(level.getBlockState(pos).getBlock() instanceof SplitterBlock)) return InteractionResult.PASS;
+        var tool = BeltFamily.INSTANCE.acceptsTool(held, BlockContent.BELT_TILE.get().defaultBlockState()) && !Dismantles.hasStored(held);
+        if (!held.isEmpty() && !tool) return InteractionResult.PASS;
+        if (level.isClientSide()) openScreen.accept(pos);
+        return InteractionResult.SUCCESS;
     }
 
     // The other half is removed without a player, which would drop its belts' refund on the ground (#346).

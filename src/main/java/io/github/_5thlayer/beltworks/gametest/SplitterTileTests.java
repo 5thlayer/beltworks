@@ -11,6 +11,8 @@ import com.mojang.authlib.GameProfile;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.ProblemReporter;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.ContainerHelper;
@@ -24,6 +26,7 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.TagValueInput;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -36,6 +39,8 @@ import io.github._5thlayer.beltworks.blocks.BeltEndBlockEntity;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
 import io.github._5thlayer.beltworks.items.SplitterItem;
 import io.github._5thlayer.beltworks.model.BeltTier;
+import io.github._5thlayer.beltworks.model.Splitter;
+import io.github._5thlayer.beltworks.model.SplitterSettings;
 
 /**
  * A splitter between belt tiles (PlanetaryFactory #394): its split, fallback, cap and break, and a splitter placed
@@ -103,6 +108,106 @@ final class SplitterTileTests {
                 WARMUP_TICKS + 20, helper -> breaks(helper, RIGHT));
         tests.test("a_held_splitter_half_fills_the_inventory", WARMUP_TICKS + HAND_TICKS + 20,
                 SplitterTileTests::heldHalfFillsTheInventory);
+        tests.test("a_sneaking_player_holding_a_splitter_half_takes_nothing", WARMUP_TICKS + HAND_TICKS + 20,
+                SplitterTileTests::sneakingTakesNothing);
+        tests.test("splitter_output_priority_fills_its_side_first", WARMUP_TICKS + WINDOW_TICKS + 20,
+                SplitterTileTests::priorityFillsItsSide);
+        tests.test("splitter_output_priority_overflows_when_its_side_backs_up", WARMUP_TICKS + WINDOW_TICKS + 20,
+                SplitterTileTests::priorityOverflows);
+        tests.test("splitter_settings_survive_a_save_and_load_of_the_halves", 20,
+                SplitterTileTests::settingsSurviveSaveAndLoad);
+        tests.test("a_broken_and_replaced_splitter_is_plain", 20, SplitterTileTests::replacedIsPlain);
+    }
+
+    // A sneak-use on a half opens its screen, so the hand never takes (#20).
+    private static void sneakingTakesNothing(GameTestHelper helper) {
+        line(helper, BeltTier.BELT, true, true, BeltTier.BELT);
+        ServerPlayer player = player(helper, "beltworks_splitter_sneak");
+        player.setShiftKeyDown(true);
+        BeltEndBlockEntity held = helper.getBlockEntity(LEFT, BeltEndBlockEntity.class);
+
+        helper.startSequence()
+                .thenIdle(WARMUP_TICKS)
+                .thenExecuteFor(HAND_TICKS, () -> held.holdHand(player, 0.5))
+                .thenExecute(() -> {
+                    if (cobblestone(player) != 0) helper.fail("a sneaking player's hand took from a splitter half", LEFT);
+                })
+                .thenSucceed();
+    }
+
+    // Set from the right half, as either half edits the one record (#20).
+    private static void priorityFillsItsSide(GameTestHelper helper) {
+        line(helper, BeltTier.BELT, true, true, BeltTier.BELT);
+        helper.getBlockEntity(RIGHT, BeltEndBlockEntity.class).setOutputPriority(Splitter.Priority.RIGHT);
+        int expected = TIER_1_ITEMS_PER_SECOND * WINDOW_TICKS / 20;
+        measure(helper, (left, right) -> {
+            if (right != expected || left != 0) {
+                helper.fail("a splitter with right output priority delivered " + left + " left and " + right
+                        + " right in " + WINDOW_TICKS + " ticks, expected all " + expected + " right", LEFT);
+            }
+        });
+    }
+
+    // Nothing behind the left end's loader, so the priority side backs up.
+    private static void priorityOverflows(GameTestHelper helper) {
+        line(helper, BeltTier.BELT, false, true, BeltTier.BELT);
+        helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).setOutputPriority(Splitter.Priority.LEFT);
+        int expected = TIER_1_ITEMS_PER_SECOND * WINDOW_TICKS / 20;
+        measure(helper, (left, right) -> {
+            if (right != expected) {
+                helper.fail("with its left priority side backed up a splitter delivered " + right + " right in "
+                        + WINDOW_TICKS + " ticks, expected " + expected, LEFT);
+            }
+        });
+    }
+
+    private static void settingsSurviveSaveAndLoad(GameTestHelper helper) {
+        placeSplitter(helper, BeltTier.BELT);
+        helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).setOutputPriority(Splitter.Priority.RIGHT);
+        var registries = helper.getLevel().registryAccess();
+        var saved = new CompoundTag[2];
+        var halves = new BlockPos[] {LEFT, RIGHT};
+        for (int i = 0; i < 2; i++) saved[i] = helper.getBlockEntity(halves[i], BeltEndBlockEntity.class).saveWithFullMetadata(registries);
+        var update = helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).getUpdateTag(registries);
+        if (!update.getStringOr("output_priority", "").equals(Splitter.Priority.RIGHT.name())) {
+            helper.fail("the splitter's update tag carries no output priority", LEFT);
+        }
+
+        helper.setBlock(LEFT, Blocks.AIR);
+        placeSplitter(helper, BeltTier.BELT);
+        for (int i = 0; i < 2; i++) {
+            helper.getBlockEntity(halves[i], BeltEndBlockEntity.class)
+                    .loadWithComponents(TagValueInput.create(ProblemReporter.DISCARDING, registries, saved[i]));
+        }
+        for (BlockPos half : halves) {
+            var priority = helper.getBlockEntity(half, BeltEndBlockEntity.class).splitterSettings().outputPriority();
+            if (priority != Splitter.Priority.RIGHT) {
+                helper.fail("after a save and load the half reads output priority " + priority + ", expected RIGHT", half);
+            }
+        }
+        helper.succeed();
+    }
+
+    private static void replacedIsPlain(GameTestHelper helper) {
+        placeSplitter(helper, BeltTier.BELT);
+        helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).setOutputPriority(Splitter.Priority.LEFT);
+        ServerPlayer player = player(helper, "beltworks_splitter_replacer");
+        player.gameMode.destroyBlock(helper.absolutePos(LEFT));
+        var dropped = helper.getLevel().getEntities(EntityType.ITEM, area(helper), e -> true).stream()
+                .map(ItemEntity::getItem)
+                .filter(stack -> stack.is(ItemContent.SPLITTER.get()))
+                .toList();
+        if (dropped.size() != 1 || !dropped.getFirst().getComponentsPatch().isEmpty()) {
+            helper.fail("the broken splitter dropped " + dropped + ", expected one plain splitter", LEFT);
+        }
+
+        placeSplitter(helper, BeltTier.BELT);
+        for (BlockPos half : new BlockPos[] {LEFT, RIGHT}) {
+            if (!helper.getBlockEntity(half, BeltEndBlockEntity.class).splitterSettings().equals(SplitterSettings.NONE)) {
+                helper.fail("a splitter placed where one was broken kept its settings", half);
+            }
+        }
+        helper.succeed();
     }
 
     // A smoke test: the hold's own rules are HeldHandTest's.

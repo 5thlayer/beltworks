@@ -41,6 +41,7 @@ import io.github._5thlayer.beltworks.model.HeldHand;
 import io.github._5thlayer.beltworks.model.Join;
 import io.github._5thlayer.beltworks.model.LoaderEnergy;
 import io.github._5thlayer.beltworks.model.Splitter;
+import io.github._5thlayer.beltworks.model.SplitterSettings;
 import io.github._5thlayer.beltworks.model.TransportLine;
 
 import java.util.ArrayList;
@@ -67,6 +68,8 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
     // The game time a splitter's halves last moved.
     private long halfMovedAt = Long.MIN_VALUE;
     private @Nullable BeltData halfData;
+    // Held by the left half for the splitter; the right half's stays unset.
+    private SplitterSettings settings = SplitterSettings.NONE;
 
     public BeltEndBlockEntity(BlockPos pos, BlockState state) {
         super(BlockEntitiesContent.BELT_END.get(), pos, state);
@@ -120,7 +123,8 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
      */
     public void holdHand(ServerPlayer player, double progress) {
         var data = getHalfData();
-        if (data == null || !(progress >= 0 && progress <= 1)) return;
+        // A sneaking player's use opens the splitter's screen instead (#20).
+        if (data == null || player.isShiftKeyDown() || !(progress >= 0 && progress <= 1)) return;
         var reach = player.blockInteractionRange() + 1;
         if (player.getEyePosition().distanceToSqr(SplineUtil.getPositionOnSpline(data, progress)) > reach * reach) return;
         heldHand.hold(player, level.getGameTime());
@@ -204,6 +208,35 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
 
     private Splitter.Handoff<ItemStack> enteringHandoff() {
         return Splitter.entering(half, half.speed(), hand(level), halfMovedAt == level.getGameTime() ? 0 : half.speed());
+    }
+
+    /** The splitter's one settings record, read from either half, or none where the pair is broken. */
+    public SplitterSettings splitterSettings() {
+        var left = leftHalf();
+        return left == null ? SplitterSettings.NONE : left.settings;
+    }
+
+    /** Sets the splitter's output priority from either half: the screen's one way to change it, on the server. */
+    public void setOutputPriority(Splitter.Priority priority) {
+        var left = leftHalf();
+        if (left == null || level == null || level.isClientSide()) return;
+        left.applySettings(left.settings.withOutputPriority(priority));
+        left.setChanged();
+        level.sendBlockUpdated(left.worldPosition, left.getBlockState(), left.getBlockState(), Block.UPDATE_CLIENTS);
+    }
+
+    private void applySettings(SplitterSettings settings) {
+        this.settings = settings;
+        if (splitterModel != null) splitterModel.outputPriority(settings.outputPriority());
+    }
+
+    private @Nullable BeltEndBlockEntity leftHalf() {
+        if (!splitter) return null;
+        var state = getBlockState();
+        if (state.getValue(SplitterBlock.SIDE) == SplitterBlock.Side.LEFT) return this;
+        if (level == null) return null;
+        return level.getBlockEntity(SplitterBlock.partner(worldPosition, state), BlockEntitiesContent.BELT_END.get())
+                 .filter(partner -> SplitterBlock.isPartner(state, partner.getBlockState())).orElse(null);
     }
 
     /** Hands a splitter half's items to the player who broke it, or drops them here when nobody did. */
@@ -301,6 +334,7 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
         if (half != null) {
             saveEntries(output, "half_entering", half.entering());
             saveEntries(output, "half_leaving", half.leaving());
+            if (!settings.equals(SplitterSettings.NONE)) output.putString("output_priority", settings.outputPriority().name());
         }
     }
 
@@ -331,9 +365,15 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
         if (half != null) {
             loadEntries(input, "half_entering", half.entering());
             loadEntries(input, "half_leaving", half.leaving());
+            applySettings(new SplitterSettings(priority(input.getStringOr("output_priority", ""))));
         }
     }
     
+    private static Splitter.Priority priority(String name) {
+        for (var priority : Splitter.Priority.values()) if (priority.name().equals(name)) return priority;
+        return Splitter.Priority.NONE;
+    }
+
     @Override
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
         return saveCustomOnly(registries);
