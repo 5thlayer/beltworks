@@ -324,9 +324,12 @@ public class BeltTileBlockEntity extends BlockEntity {
         return outlet != null && outlet.offer(item, line.contents().overshoot(line.length(), line.speed()));
     }
 
-    /** Merges an item from the end of the line {@code from} heads into this tile's line here. */
-    boolean sideLoadFrom(BeltTileBlockEntity from, ItemStack item) {
-        return membership.sideLoad(item, from.membership, world);
+    /**
+     * Merges an item from the end of the line {@code from} heads, or from a splitter half when
+     * null, into this tile's line here.
+     */
+    boolean sideLoadFrom(@Nullable BeltTileBlockEntity from, ItemStack item) {
+        return membership.sideLoad(item, from == null ? null : from.membership, world);
     }
 
     private @Nullable BeltEndBlockEntity loaderAt(BlockPos pos, Direction facing) {

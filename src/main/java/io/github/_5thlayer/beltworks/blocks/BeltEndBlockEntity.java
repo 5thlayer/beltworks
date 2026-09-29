@@ -181,10 +181,19 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
     }
 
     private Splitter.Side<ItemStack> side(Level level) {
-        return new Splitter.Side<>(half, outlet(), hand(level));
+        return new Splitter.Side<>(half, this::takeFromLoader, outlet(), hand(level));
     }
 
-    // A half hands on to what stands in front of it, a tile line's head or another half (#85).
+    // A loader behind a half, its mouth to the half's back, loads it as it loads a line's first tile (#89).
+    private @Nullable ItemStack takeFromLoader() {
+        var behind = worldPosition.relative(getOwnFacing().getOpposite());
+        if (!level.isLoaded(behind)) return null;
+        var loader = level.getBlockEntity(behind, BlockEntitiesContent.BELT_END.get()).orElse(null);
+        if (loader == null || loader.isSplitter() || loader.getOwnFacing() != getOwnFacing()) return null;
+        return loader.extractOne();
+    }
+
+    // A half hands on to what stands in front of it, as a line's last tile does (#85, #89).
     private @Nullable BeltOutlet outlet() {
         return BeltOutlet.aheadOfHalf(level, worldPosition.relative(getOwnFacing()), getOwnFacing());
     }

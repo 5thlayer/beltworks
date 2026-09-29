@@ -8,6 +8,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 /**
  * Two belts in and two out, through two halves that are each a block of belt of the splitter's
@@ -54,7 +55,7 @@ public final class Splitter<T> {
         // tick ahead, so after the move it would carry an item two ticks' travel in one.
         while (passOne(gameTime, sides)) changed = true;
         for (var side : sides) {
-            changed |= side.half.entering.tick(MIDLINE, speed, () -> null, item -> false, side.hand(false));
+            changed |= side.half.entering.tick(MIDLINE, speed, side.in, item -> false, side.hand(false));
         }
         return changed;
     }
@@ -182,10 +183,15 @@ public final class Splitter<T> {
     }
 
     /**
-     * A half with what it hands on to, null when there is none, and a player's hand on it at a
-     * point along the whole half.
+     * One half as the splitter ticks it: what loads its back, as a loader loads a line's first
+     * tile (#89), what its front hands on to, and any hand held on it.
      */
-    public record Side<T>(Half<T> half, @Nullable Outlet<T> out, BeltContents.@Nullable Hand<T> hand) {
+    public record Side<T>(Half<T> half, Supplier<T> in, @Nullable Outlet<T> out, BeltContents.@Nullable Hand<T> hand) {
+
+        /** A half with nothing loading its back. */
+        public Side(Half<T> half, @Nullable Outlet<T> out, BeltContents.@Nullable Hand<T> hand) {
+            this(half, () -> null, out, hand);
+        }
 
         private BeltContents.@Nullable Hand<T> hand(boolean pastMidline) {
             return onSegment(hand, pastMidline);

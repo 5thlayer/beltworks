@@ -84,6 +84,12 @@ final class SplitterTileTests {
                 SplitterTileTests::chainedSplitEvenly);
         tests.test("tier_1_splitter_ahead_of_a_tier_3_splitter_caps_it_at_" + TIER_1_ITEMS_PER_SECOND,
                 WARMUP_TICKS + WINDOW_TICKS + 20, SplitterTileTests::chainedCapsAtTheSlower);
+        tests.test("splitter_unloads_straight_into_a_loader_at_each_half", WARMUP_TICKS + WINDOW_TICKS + 20,
+                SplitterTileTests::unloadsIntoLoaders);
+        tests.test("loader_loads_straight_into_a_splitter_half", WARMUP_TICKS + WINDOW_TICKS + 20,
+                SplitterTileTests::loadedByALoader);
+        tests.test("splitter_side_loads_a_tile_line_from_both_halves", WARMUP_TICKS + WINDOW_TICKS + 20,
+                SplitterTileTests::sideLoadsALine);
         tests.test("splitter_placed_across_a_tile_line_replaces_the_tile_and_loses_nothing",
                 CROSSED_FILL_TICKS + CROSSED_DRAIN_TICKS + 20, SplitterTileTests::placedAcrossALine);
         tests.test("splitter_aimed_across_a_tile_line_facing_north_places_nothing", 20,
@@ -150,6 +156,64 @@ final class SplitterTileTests {
             if (left != expected) {
                 helper.fail("a tier-1 splitter ahead of a tier-3 one delivered " + left + " in "
                         + WINDOW_TICKS + " ticks, expected " + expected, LEFT);
+            }
+        });
+    }
+
+    // A half's front hands to a loader facing it, as a line's last tile does (#89).
+    private static void unloadsIntoLoaders(GameTestHelper helper) {
+        placeSplitter(helper, BeltTier.BELT);
+        feed(helper, SOURCE, FROM, BeltTier.BELT);
+        for (BlockPos half : new BlockPos[] {LEFT, RIGHT}) {
+            helper.setBlock(half.east(), BeltTileTests.loader(BeltTier.BELT, Direction.WEST));
+            helper.setBlock(half.east(2), Blocks.CHEST);
+        }
+        splitEvenly(helper, LEFT.east(), RIGHT.east(), "a splitter unloading into loaders");
+    }
+
+    // A loader's mouth at a half's back loads it, as it loads a line's first tile (#89).
+    private static void loadedByALoader(GameTestHelper helper) {
+        placeSplitter(helper, BeltTier.BELT);
+        outputs(helper, BeltTier.BELT, LEFT.getX() + 1, true, true);
+        helper.setBlock(LEFT.west(2), Blocks.CHEST);
+        BeltTileTests.fill(helper, LEFT.west(2), SUPPLY);
+        helper.setBlock(LEFT.west(), BeltTileTests.loader(BeltTier.BELT, Direction.EAST));
+        splitEvenly(helper, LEFT_END, RIGHT_END, "a splitter loaded by a loader");
+    }
+
+    /**
+     * A south-facing splitter loaded from the north, both halves' fronts on the side of one line
+     * running east to a chest: the line takes the whole split (#89).
+     */
+    private static void sideLoadsALine(GameTestHelper helper) {
+        BlockPos left = new BlockPos(6, 1, 2);
+        BlockPos right = left.relative(Direction.SOUTH.getClockWise());
+        helper.setBlock(left, half(BeltTier.BELT, SplitterBlock.Side.LEFT, Direction.SOUTH));
+        helper.setBlock(right, half(BeltTier.BELT, SplitterBlock.Side.RIGHT, Direction.SOUTH));
+        helper.setBlock(left.north(2), Blocks.CHEST);
+        BeltTileTests.fill(helper, left.north(2), SUPPLY);
+        helper.setBlock(left.north(), BeltTileTests.loader(BeltTier.BELT, Direction.SOUTH));
+        BlockPos end = new BlockPos(10, 1, 3);
+        for (BlockPos at = right.south(); at.getX() < end.getX(); at = at.east()) {
+            helper.setBlock(at, BeltTileTests.tile(BeltTier.BELT, Direction.EAST));
+        }
+        helper.setBlock(end, BeltTileTests.loader(BeltTier.BELT, Direction.WEST));
+        helper.setBlock(end.east(), Blocks.CHEST);
+        int expected = TIER_1_ITEMS_PER_SECOND * WINDOW_TICKS / 20;
+        measure(helper, end, end, (delivered, ignored) -> {
+            if (delivered != expected) {
+                helper.fail("a splitter side-loading a line delivered " + delivered + " in " + WINDOW_TICKS
+                        + " ticks, expected " + expected, end);
+            }
+        });
+    }
+
+    private static void splitEvenly(GameTestHelper helper, BlockPos leftEnd, BlockPos rightEnd, String what) {
+        int expected = TIER_1_ITEMS_PER_SECOND * WINDOW_TICKS / 20;
+        measure(helper, leftEnd, rightEnd, (left, right) -> {
+            if (left + right != expected || Math.abs(left - right) > 1) {
+                helper.fail(what + " delivered " + left + " left and " + right + " right in " + WINDOW_TICKS
+                        + " ticks, expected " + expected / 2 + " each", leftEnd);
             }
         });
     }
@@ -294,8 +358,13 @@ final class SplitterTileTests {
         if (belts != BeltTier.BELT) LoaderPower.feed(helper);
         for (int i = 0; i < splitters.length; i++) placeSplitter(helper, splitters[i], LEFT.east(i));
         feed(helper, SOURCE, FROM, belts);
+        outputs(helper, belts, LEFT.getX() + splitters.length, leftDrains, rightDrains);
+    }
+
+    /** A tile line from {@code fromX} on each half's row to a loader, with a chest behind it or not. */
+    private static void outputs(GameTestHelper helper, BeltTier belts, int fromX, boolean leftDrains, boolean rightDrains) {
         for (BlockPos end : new BlockPos[] {LEFT_END, RIGHT_END}) {
-            for (BlockPos at = new BlockPos(LEFT.getX() + splitters.length, 1, end.getZ()); at.getX() < end.getX(); at = at.east()) {
+            for (BlockPos at = new BlockPos(fromX, 1, end.getZ()); at.getX() < end.getX(); at = at.east()) {
                 helper.setBlock(at, BeltTileTests.tile(belts, Direction.EAST));
             }
             helper.setBlock(end, BeltTileTests.loader(belts, Direction.WEST));
@@ -315,16 +384,21 @@ final class SplitterTileTests {
     }
 
     private static void measure(GameTestHelper helper, Check check) {
+        measure(helper, LEFT_END, RIGHT_END, check);
+    }
+
+    /** What reaches the chest past each end in a window after the warmup. */
+    private static void measure(GameTestHelper helper, BlockPos leftEnd, BlockPos rightEnd, Check check) {
         int[] before = new int[2];
         helper.startSequence()
                 .thenIdle(WARMUP_TICKS)
                 .thenExecute(() -> {
-                    before[0] = delivered(helper, LEFT_END);
-                    before[1] = delivered(helper, RIGHT_END);
+                    before[0] = delivered(helper, leftEnd);
+                    before[1] = delivered(helper, rightEnd);
                 })
                 .thenIdle(WINDOW_TICKS)
-                .thenExecute(() -> check.accept(delivered(helper, LEFT_END) - before[0],
-                        delivered(helper, RIGHT_END) - before[1]))
+                .thenExecute(() -> check.accept(delivered(helper, leftEnd) - before[0],
+                        delivered(helper, rightEnd) - before[1]))
                 .thenSucceed();
     }
 
@@ -371,8 +445,12 @@ final class SplitterTileTests {
     }
 
     private static BlockState half(BeltTier tier, SplitterBlock.Side side) {
+        return half(tier, side, Direction.EAST);
+    }
+
+    private static BlockState half(BeltTier tier, SplitterBlock.Side side, Direction facing) {
         return BlockContent.splitterFor(tier).defaultBlockState()
-                .setValue(HorizontalDirectionalBlock.FACING, Direction.EAST)
+                .setValue(HorizontalDirectionalBlock.FACING, facing)
                 .setValue(SplitterBlock.SIDE, side);
     }
 

@@ -71,6 +71,20 @@ class SplitterTest {
         assertEquals(TIER_1_PER_MINUTE, free.delivered, 1);
     }
 
+    // A loader at a half's back loads it as it loads a line's first tile (#89).
+    @Test
+    void aSourceAtAHalfsBackFillsItAtItsTier() {
+        var line = new Line();
+        var out = line.drained(BeltTier.BELT);
+        line.splitter(BeltTier.BELT, null, null, out, null, () -> "loaded");
+
+        line.run(MINUTE);
+        line.resetCounts();
+        line.run(MINUTE);
+
+        assertEquals(TIER_1_PER_MINUTE, out.delivered, 1);
+    }
+
     @Test
     void aSplitterCapsTheLineAtItsOwnTier() {
         var line = new Line();
@@ -290,6 +304,10 @@ class SplitterTest {
         }
 
         Halves splitter(BeltTier tier, Belt inLeft, Belt inRight, Belt outLeft, Belt outRight) {
+            return splitter(tier, inLeft, inRight, outLeft, outRight, () -> null);
+        }
+
+        Halves splitter(BeltTier tier, Belt inLeft, Belt inRight, Belt outLeft, Belt outRight, Supplier<String> loadLeft) {
             var splitter = new Splitter<String>(tier);
             var halves = new Halves(new Splitter.Half<>(tier), new Splitter.Half<>(tier));
             // The belts tick first, so the splitter is still to move.
@@ -299,7 +317,7 @@ class SplitterTest {
             if (inRight != null) inRight.sink = item -> Join.offer(item, inRight.overshoot(),
               Splitter.entering(halves.right, speed, null, speed));
             splitters.add(() -> splitter.tick(now,
-              new Splitter.Side<>(halves.left, handoff(outLeft), hand),
+              new Splitter.Side<>(halves.left, loadLeft, handoff(outLeft), hand),
               new Splitter.Side<>(halves.right, handoff(outRight), null)));
             return halves;
         }

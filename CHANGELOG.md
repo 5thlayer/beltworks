@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Splitters placed back to back pass items on, as with a tile between them; each passes no more than its own tier (5thlayer/beltworks#85).
+- A splitter half hands items straight into a loader facing it and side-loads a tile line it faces, and a loader loads straight into a splitter half, with no tile between (5thlayer/beltworks#89).
 
 ## 0.3.10
 

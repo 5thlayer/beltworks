@@ -153,9 +153,10 @@ public final class LineMembership {
 
         /**
          * Merges an item from the end of the line {@code from} heads into this tile's line at this
-         * tile, answering whether it went. A line never side-loads itself.
+         * tile, answering whether it went. A line never side-loads itself; {@code from} is null for
+         * a sender that is no line's tile, such as a splitter half.
          */
-        public boolean sideLoad(T payload, Member<T, O> from, World<T, O> world) {
+        public boolean sideLoad(T payload, @Nullable Member<T, O> from, World<T, O> world) {
             var holding = holder();
             if (holding == null || holding == from) return false;
             var fed = holding.line;
