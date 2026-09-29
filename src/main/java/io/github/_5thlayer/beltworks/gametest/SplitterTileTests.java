@@ -61,6 +61,7 @@ final class SplitterTileTests {
     private static final int WINDOW_TICKS = 200;
     private static final int WARMUP_TICKS = 200;
     private static final int SUPPLY = 27 * 64;
+    private static final int HAND_TICKS = 40;
     // Two blocks of belt, one per half.
     private static final int BACKED_UP = 16;
 
@@ -100,6 +101,23 @@ final class SplitterTileTests {
                 WARMUP_TICKS + 20, helper -> breaks(helper, LEFT));
         tests.test("splitter_between_tiles_broken_at_its_right_half_hands_its_items_to_the_breaker",
                 WARMUP_TICKS + 20, helper -> breaks(helper, RIGHT));
+        tests.test("a_held_splitter_half_fills_the_inventory", WARMUP_TICKS + HAND_TICKS + 20,
+                SplitterTileTests::heldHalfFillsTheInventory);
+    }
+
+    // A smoke test: the hold's own rules are HeldHandTest's.
+    private static void heldHalfFillsTheInventory(GameTestHelper helper) {
+        line(helper, BeltTier.BELT, true, true, BeltTier.BELT);
+        ServerPlayer player = player(helper, "beltworks_splitter_hand");
+        BeltEndBlockEntity held = helper.getBlockEntity(LEFT, BeltEndBlockEntity.class);
+
+        helper.startSequence()
+                .thenIdle(WARMUP_TICKS)
+                .thenExecuteFor(HAND_TICKS, () -> held.holdHand(player, 0.5))
+                .thenExecute(() -> {
+                    if (cobblestone(player) == 0) helper.fail("holding a splitter half took nothing", LEFT);
+                })
+                .thenSucceed();
     }
 
     private static void splitsEvenly(GameTestHelper helper) {

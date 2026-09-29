@@ -37,6 +37,7 @@ import io.github._5thlayer.beltworks.util.SplineUtil;
 import io.github._5thlayer.beltworks.model.BeltContents;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.FlowLimit;
+import io.github._5thlayer.beltworks.model.HeldHand;
 import io.github._5thlayer.beltworks.model.Join;
 import io.github._5thlayer.beltworks.model.LoaderEnergy;
 import io.github._5thlayer.beltworks.model.Splitter;
@@ -53,9 +54,8 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
 
     private static boolean tearingDownSplitter;
 
-    // The client resends a hold every tick the button is down, so a hold it stopped sending lapses.
-    static final int HAND_LAPSE_TICKS = 5;
-    private @Nullable HeldHand heldHand;
+    private final HeldHand<ServerPlayer> heldHand = new HeldHand<>();
+    private double handPoint;
 
     // A loader either loads a line or unloads one, never both, so one limit serves.
     private final FlowLimit flow;
@@ -123,38 +123,16 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
         if (data == null || !(progress >= 0 && progress <= 1)) return;
         var reach = player.blockInteractionRange() + 1;
         if (player.getEyePosition().distanceToSqr(SplineUtil.getPositionOnSpline(data, progress)) > reach * reach) return;
-        var taking = heldHand == null || heldHand.player != player || heldHand.taking;
-        heldHand = new HeldHand(player, progress - BeltContents.SPACING / 2, level.getGameTime() + HAND_LAPSE_TICKS, taking);
+        heldHand.hold(player, level.getGameTime());
+        handPoint = progress - BeltContents.SPACING / 2;
     }
 
-    public void releaseHand(Player player) {
-        if (heldHand != null && heldHand.player == player) heldHand = null;
+    public void releaseHand(ServerPlayer player) {
+        heldHand.release(player);
     }
 
     private BeltContents.@Nullable Hand<ItemStack> hand(Level level) {
-        if (heldHand == null) return null;
-        var held = heldHand;
-        var player = held.player;
-        if (level.getGameTime() > held.until || player.isRemoved() || !player.isAlive() || player.level() != level) {
-            heldHand = null;
-            return null;
-        }
-        if (!held.taking) return null;
-        return new BeltContents.Hand<>(held.point, item -> {
-            if (intoInventory(player, item)) return true;
-            heldHand = new HeldHand(player, held.point, held.until, false);
-            return false;
-        });
-    }
-
-    /** Whether a hand's holder took the item. */
-    static boolean intoInventory(Player player, ItemStack item) {
-        // Asked first: a creative inventory's add answers true when full and voids the item.
-        var inventory = player.getInventory();
-        return (inventory.getSlotWithRemainingSpace(item) >= 0 || inventory.getFreeSlot() >= 0) && inventory.add(item.copy());
-    }
-
-    private record HeldHand(ServerPlayer player, double point, long until, boolean taking) {
+        return heldHand.hand(handPoint, level.getGameTime(), PlayerHand.alive(level), PlayerHand::intoInventory);
     }
 
     private void tickHalf(Level level, BlockPos pos, BlockState state) {

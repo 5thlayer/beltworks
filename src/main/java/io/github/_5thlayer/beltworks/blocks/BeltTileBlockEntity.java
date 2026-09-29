@@ -8,7 +8,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
@@ -25,6 +24,7 @@ import io.github._5thlayer.beltworks.TileLineUpdate;
 import io.github._5thlayer.beltworks.collision.BeltCollisionRegistry;
 import io.github._5thlayer.beltworks.model.BeltContents;
 import io.github._5thlayer.beltworks.model.BeltTier;
+import io.github._5thlayer.beltworks.model.HeldHand;
 import io.github._5thlayer.beltworks.model.LineMembership;
 import io.github._5thlayer.beltworks.model.LineScan;
 import io.github._5thlayer.beltworks.model.Pitch;
@@ -56,7 +56,7 @@ public class BeltTileBlockEntity extends BlockEntity {
     private long movedAt = Long.MIN_VALUE;
 
     // On the tile rather than the line, so a rebuilt line keeps it (#396).
-    private @Nullable HeldHand heldHand;
+    private final HeldHand<ServerPlayer> heldHand = new HeldHand<>();
 
     public BeltTileBlockEntity(BlockPos pos, BlockState state) {
         super(BlockEntitiesContent.BELT_TILE.get(), pos, state);
@@ -125,39 +125,23 @@ public class BeltTileBlockEntity extends BlockEntity {
     public void holdHand(ServerPlayer player) {
         var reach = player.blockInteractionRange() + 1;
         if (player.getEyePosition().distanceToSqr(worldPosition.getCenter()) > reach * reach) return;
-        var taking = heldHand == null || heldHand.player != player || heldHand.taking;
-        heldHand = new HeldHand(player, level.getGameTime() + HAND_LAPSE_TICKS, taking);
+        heldHand.hold(player, level.getGameTime());
     }
 
-    public void releaseHand(Player player) {
-        if (heldHand != null && heldHand.player == player) heldHand = null;
+    public void releaseHand(ServerPlayer player) {
+        heldHand.release(player);
     }
 
     // The first live hand on the line's tiles; the line has one end, so it takes one hand.
     private BeltContents.@Nullable Hand<ItemStack> hand() {
         var members = membership.members();
+        var now = level.getGameTime();
+        var alive = PlayerHand.alive(level);
         for (var at = 0; at < members.size(); at++) {
-            var member = members.get(at).owner();
-            var held = member.heldHand;
-            if (held == null) continue;
-            var player = held.player;
-            if (level.getGameTime() > held.until || player.isRemoved() || !player.isAlive() || player.level() != level) {
-                member.heldHand = null;
-                continue;
-            }
-            if (!held.taking) continue;
-            return new BeltContents.Hand<>(TransportLine.handPoint(at), item -> {
-                if (BeltEndBlockEntity.intoInventory(player, item)) return true;
-                member.heldHand = new HeldHand(player, held.until, false);
-                return false;
-            });
+            var hand = members.get(at).owner().heldHand.hand(TransportLine.handPoint(at), now, alive, PlayerHand::intoInventory);
+            if (hand != null) return hand;
         }
         return null;
-    }
-
-    private static final int HAND_LAPSE_TICKS = BeltEndBlockEntity.HAND_LAPSE_TICKS;
-
-    private record HeldHand(ServerPlayer player, long until, boolean taking) {
     }
 
     public void lineChanged() {

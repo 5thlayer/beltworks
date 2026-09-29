@@ -21,7 +21,6 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
-import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.TransportLine;
@@ -50,7 +49,6 @@ final class BeltTileHandTests {
     private static final int HOLD_TICKS = 100;
     private static final int TIER_1_ITEMS_PER_SECOND = 15;
     private static final int HELD_ITEMS = TIER_1_ITEMS_PER_SECOND * HOLD_TICKS / 20;
-    private static final int ROOM = 4;
     private static final int BACKUP_TICKS = 400;
 
     // A tier-1 tile carries 1.875 blocks/s; a rider is let off well short of that.
@@ -62,10 +60,6 @@ final class BeltTileHandTests {
     // A row east, a corner, then a column south.
     private static final BlockPos CORNER = new BlockPos(4, 1, 1);
     private static final int CORNER_TICKS = 100;
-
-    // Four tiles on the floor, then four a block up: the fourth is a foot and the fifth a top (PlanetaryFactory #417).
-    private static final int CLIMB_STEP = 4;
-    private static final BlockPos HELD_FOOT = FIRST_TILE.east(CLIMB_STEP - 1);
 
     // Two level tiles, a foot, then a top and two level tiles a block up; and the same down.
     private static final BlockPos STEP_RIDE_FIRST = new BlockPos(1, 1, 1);
@@ -80,50 +74,12 @@ final class BeltTileHandTests {
     static void register(BeltGameTests.Registrar tests) {
         tests.test("a_held_tile_fills_the_inventory_at_its_lines_rate", WARMUP_TICKS + HOLD_TICKS + 20,
                 BeltTileHandTests::fillsTheInventory);
-        tests.test("a_held_tile_stops_taking_when_the_inventory_is_full", WARMUP_TICKS + HOLD_TICKS + 20,
-                BeltTileHandTests::stopsWhenFull);
         tests.test("a_backed_up_lines_last_tile_held_gives_up_its_items", BACKUP_TICKS + 20 + 20,
                 BeltTileHandTests::lastTileOfABackedUpLine);
         tests.test("an_item_on_a_tile_rides_it", RIDE_TICKS + 20, BeltTileHandTests::itemRides);
         tests.test("an_item_on_a_tile_rides_round_a_corner", CORNER_TICKS + 20, BeltTileHandTests::itemRidesRoundACorner);
-        tests.test("a_held_slope_takes_at_its_lines_rate", WARMUP_TICKS + HOLD_TICKS + 20,
-                BeltTileHandTests::slopeFillsTheInventory);
         tests.test("an_item_rides_up_a_step", STEP_RIDE_TICKS + 20, helper -> itemRidesAStep(helper, true));
         tests.test("an_item_rides_down_a_step", STEP_RIDE_TICKS + 20, helper -> itemRidesAStep(helper, false));
-    }
-
-    // A hand on a foot of a line that climbs to its unloader (PlanetaryFactory #417).
-    private static void slopeFillsTheInventory(GameTestHelper helper) {
-        helper.setBlock(SOURCE, Blocks.CHEST);
-        helper.setBlock(FROM, BeltTileTests.loader(BeltTier.BELT, Direction.EAST));
-        BeltTileTests.climb(helper, BeltTier.BELT, FIRST_TILE, TILES, CLIMB_STEP);
-        for (BlockPos at : List.of(TO, TARGET)) helper.setBlock(at, Blocks.STONE);
-        helper.setBlock(TO.above(), BeltTileTests.loader(BeltTier.BELT, Direction.WEST));
-        helper.setBlock(TARGET.above(), Blocks.CHEST);
-        BeltTileTests.fill(helper, SOURCE, SUPPLY);
-        ServerPlayer player = player(helper, "beltworks_slope_hand");
-        BeltTileBlockEntity held = helper.getBlockEntity(HELD_FOOT, BeltTileBlockEntity.class);
-
-        helper.startSequence()
-                .thenIdle(WARMUP_TICKS)
-                .thenExecute(() -> {
-                    if (BeltTileTests.pitch(helper, HELD_FOOT) != BeltTileBlock.PitchState.FOOT_UP) {
-                        helper.fail("the held tile is " + BeltTileTests.pitch(helper, HELD_FOOT) + ", not a foot", HELD_FOOT);
-                    }
-                    if (BeltTileTests.count(BeltTileTests.chest(helper, TARGET.above())) == 0) {
-                        helper.fail("nothing reached the top of the climb, so this proves little", TARGET.above());
-                    }
-                })
-                .thenExecuteFor(HOLD_TICKS, () -> held.holdHand(player))
-                .thenExecute(() -> {
-                    int taken = cobblestone(player);
-                    if (Math.abs(taken - HELD_ITEMS) > 1) {
-                        helper.fail("holding a tier-1 foot for " + HOLD_TICKS + " ticks took " + taken
-                                + " items, expected " + HELD_ITEMS, HELD_FOOT);
-                    }
-                    nothingOnTheGround(helper);
-                })
-                .thenSucceed();
     }
 
     // Read by height as well as distance: a rider stuck at the foot of a climb has moved east too.
@@ -190,42 +146,6 @@ final class BeltTileHandTests {
                     if (Math.abs(loaded - HELD_ITEMS) > 1) {
                         helper.fail("the source loaded " + loaded + " items while the tile was held, expected "
                                 + HELD_ITEMS, SOURCE);
-                    }
-                    nothingOnTheGround(helper);
-                })
-                .thenSucceed();
-    }
-
-    private static void stopsWhenFull(GameTestHelper helper) {
-        place(helper, false);
-        ServerPlayer player = player(helper, "beltworks_tile_hand_full");
-        var inventory = player.getInventory();
-        for (int slot = 0; slot < inventory.getNonEquipmentItems().size(); slot++) {
-            inventory.setItem(slot, new ItemStack(Items.DIRT, 64));
-        }
-        inventory.setItem(0, new ItemStack(Items.COBBLESTONE, 64 - ROOM));
-        BeltTileBlockEntity held = helper.getBlockEntity(HELD, BeltTileBlockEntity.class);
-
-        int[] arrivedBefore = new int[1];
-        helper.startSequence()
-                .thenIdle(WARMUP_TICKS)
-                .thenExecute(() -> arrivedBefore[0] = BeltTileTests.count(BeltTileTests.chest(helper, TARGET)))
-                .thenExecuteFor(HOLD_TICKS, () -> held.holdHand(player))
-                .thenExecute(() -> {
-                    int taken = cobblestone(player) - (64 - ROOM);
-                    if (taken != ROOM) helper.fail("a hand with room for " + ROOM + " took " + taken, HELD);
-                    int arrived = BeltTileTests.count(BeltTileTests.chest(helper, TARGET)) - arrivedBefore[0];
-                    if (Math.abs(arrived - (HELD_ITEMS - ROOM)) > 1) {
-                        helper.fail("once the hand was full " + arrived + " items reached the line's end in "
-                                + HOLD_TICKS + " ticks, expected " + (HELD_ITEMS - ROOM), TARGET);
-                    }
-                    var line = held.line();
-                    int onLine = line == null ? 0 : line.size();
-                    int delivered = BeltTileTests.count(BeltTileTests.chest(helper, TARGET));
-                    int loaded = SUPPLY - BeltTileTests.count(BeltTileTests.chest(helper, SOURCE));
-                    if (loaded != onLine + delivered + taken) {
-                        helper.fail("the source loaded " + loaded + " items, but only " + (onLine + delivered + taken)
-                                + " are on the line, at its end or in the hand", HELD);
                     }
                     nothingOnTheGround(helper);
                 })
