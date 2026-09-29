@@ -38,13 +38,12 @@ public final class Join {
      *
      * @return whether any item passed
      */
-    public static <T> boolean pass(Splitter.Handoff<T> in, Splitter.@Nullable Handoff<T> out) {
+    public static <T> boolean pass(Splitter.Handoff<T> in, @Nullable Outlet<T> out) {
         var passed = false;
         var held = in.hand() == null ? -1 : in.hand().point();
-        while (out != null && in.belt().endReady(in.length(), in.speed(), held)) {
-            var at = in.belt().overshoot(in.length(), in.speed()) - out.pending();
-            if (!out.belt().canOffer(out.length(), at, out.hand())) break;
-            out.belt().offer(in.belt().takeEnd(), out.length(), at, out.hand());
+        while (out != null && in.belt().endReady(in.length(), in.speed(), held)
+                 && out.offer(in.belt().end(), in.belt().overshoot(in.length(), in.speed()))) {
+            in.belt().takeEnd();
             passed = true;
         }
         return passed;

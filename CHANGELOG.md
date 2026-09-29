@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Splitters placed back to back pass items on, as with a tile between them; each passes no more than its own tier (5thlayer/beltworks#85).
+
 ## 0.3.10
 
 - A feeder moves items one at a time from the inventory behind it to the one in front, at 1.5 items a second (5thlayer/beltworks#67).

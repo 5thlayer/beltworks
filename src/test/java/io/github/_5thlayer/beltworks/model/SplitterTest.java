@@ -323,8 +323,8 @@ class SplitterTest {
             return belt;
         }
 
-        private static Splitter.Handoff<String> handoff(Belt belt) {
-            return belt == null ? null : new Splitter.Handoff<>(belt.contents, belt.length(), belt.speed());
+        private static Outlet<String> handoff(Belt belt) {
+            return belt == null ? null : Outlet.entry(new Splitter.Handoff<>(belt.contents, belt.length(), belt.speed()));
         }
     }
 

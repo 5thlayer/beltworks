@@ -86,7 +86,7 @@ public class BeltTileBlockEntity extends BlockEntity {
         registerRide();
         var line = membership.tick(world);
         if (line == null) return;
-        if (line.tick(this::takeFromLoader, this::giveToLoader, hand())) lineChanged();
+        if (line.tick(this::takeFromLoader, this::handOn, hand())) lineChanged();
         movedAt = level.getGameTime();
         var changes = line.contents().drainChanges();
         if (!changes.isEmpty()) send(new TileLineUpdate(worldPosition, List.of(), List.of(), tiers(), line.ring(), false, changes));
@@ -315,37 +315,18 @@ public class BeltTileBlockEntity extends BlockEntity {
         return loader == null ? null : loader.extractOne();
     }
 
-    /** The loader past the last tile, which faces back along the line, or the side of a line there. */
-    private boolean giveToLoader(ItemStack item) {
+    /** Hands the item at the line's end to the piece past its last tile, if one takes it. */
+    private boolean handOn(ItemStack item) {
         var line = membership.headed();
         if (line == null || membership.members().isEmpty()) return false;
-        var last = pos(membership.tiles().getLast());
         var travel = membership.members().getLast().owner().travel();
-        var loader = loaderAt(last.relative(travel), travel.getOpposite());
-        if (loader != null) return loader.acceptFromLine(item);
-        var half = splitterAt(last.relative(travel), travel);
-        if (half != null) return half.offerFromLine(item, line.contents().overshoot(line.length(), line.speed()));
-        return sideLoad(last.relative(travel), travel, item);
+        var outlet = BeltOutlet.pastLineEnd(level, pos(membership.tiles().getLast()).relative(travel), travel, this);
+        return outlet != null && outlet.offer(item, line.contents().overshoot(line.length(), line.speed()));
     }
 
-    // Only into the side of a straight, level tile: a corner's side is its entry, head-on is no
-    // feed (#409), and a slope takes no side-load (#417).
-    private boolean sideLoad(BlockPos pos, Direction travel, ItemStack item) {
-        var fed = tileAt(pos).orElse(null);
-        if (fed == null || fed.shape() != TileShape.STRAIGHT || fed.pitch() != Pitch.LEVEL || fed.travel().getAxis() == travel.getAxis()) return false;
-        var holding = fed.membership.holder();
-        if (holding == null || holding == membership) return false;
-        var line = holding.headed();
-        var index = fed.membership.index();
-        if (line == null || index >= line.tileCount() || !line.sideLoad(item, index)) return false;
-        fed.lineChanged();
-        return true;
-    }
-
-    private @Nullable BeltEndBlockEntity splitterAt(BlockPos pos, Direction travel) {
-        if (level == null || !level.isLoaded(pos)) return null;
-        var half = level.getBlockEntity(pos, BlockEntitiesContent.BELT_END.get()).orElse(null);
-        return half != null && half.isSplitter() && half.getOwnFacing() == travel ? half : null;
+    /** Merges an item from the end of the line {@code from} heads into this tile's line here. */
+    boolean sideLoadFrom(BeltTileBlockEntity from, ItemStack item) {
+        return membership.sideLoad(item, from.membership, world);
     }
 
     private @Nullable BeltEndBlockEntity loaderAt(BlockPos pos, Direction facing) {

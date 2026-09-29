@@ -182,10 +182,10 @@ public final class Splitter<T> {
     }
 
     /**
-     * A half with the belt leaving it, null when there is none, and a player's hand on it at a
+     * A half with what it hands on to, null when there is none, and a player's hand on it at a
      * point along the whole half.
      */
-    public record Side<T>(Half<T> half, @Nullable Handoff<T> out, BeltContents.@Nullable Hand<T> hand) {
+    public record Side<T>(Half<T> half, @Nullable Outlet<T> out, BeltContents.@Nullable Hand<T> hand) {
 
         private BeltContents.@Nullable Hand<T> hand(boolean pastMidline) {
             return onSegment(hand, pastMidline);

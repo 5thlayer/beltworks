@@ -72,7 +72,7 @@ class BeltSyncTest {
         in.drainChanges();
         var passed = in.entries().getFirst().id();
 
-        Join.pass(new Splitter.Handoff<>(in, 1, TIER_1), Splitter.entering(half, TIER_1, null, 0));
+        Join.pass(new Splitter.Handoff<>(in, 1, TIER_1), Outlet.entry(Splitter.entering(half, TIER_1, null, 0)));
 
         assertEquals(List.of(passed), in.drainChanges().removed());
         assertEquals(List.of("item"), half.entering().drainChanges().added().stream().map(BeltContents.Added::payload).toList());

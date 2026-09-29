@@ -151,6 +151,19 @@ public final class LineMembership {
             return inChunks;
         }
 
+        /**
+         * Merges an item from the end of the line {@code from} heads into this tile's line at this
+         * tile, answering whether it went. A line never side-loads itself.
+         */
+        public boolean sideLoad(T payload, Member<T, O> from, World<T, O> world) {
+            var holding = holder();
+            if (holding == null || holding == from) return false;
+            var fed = holding.line;
+            if (fed == null || index >= fed.tileCount() || !fed.sideLoad(payload, index)) return false;
+            lineChanged(world);
+            return true;
+        }
+
         /** Marks every chunk of this tile's line as changed, since each saves its own tiles' items. */
         public void lineChanged(World<T, O> world) {
             var holding = holder();

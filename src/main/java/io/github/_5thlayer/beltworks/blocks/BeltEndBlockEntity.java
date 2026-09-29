@@ -44,7 +44,6 @@ import io.github._5thlayer.beltworks.model.TransportLine;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 /** A belt end that is a block: a loader or a splitter half. */
 public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker<BeltEndBlockEntity> {
@@ -177,24 +176,17 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
         if (splitterModel.tick(level.getGameTime(), side(level), right.get().side(level))) {
             setChanged();
             right.get().setChanged();
-            for (var half : List.of(this, right.get())) half.tileAhead().ifPresent(BeltTileBlockEntity::lineChanged);
         }
         halfMovedAt = right.get().halfMovedAt = level.getGameTime();
     }
 
     private Splitter.Side<ItemStack> side(Level level) {
-        return new Splitter.Side<>(half, outgoingHandoff(), hand(level));
+        return new Splitter.Side<>(half, outlet(), hand(level));
     }
 
-    private @Nullable Splitter.Handoff<ItemStack> outgoingHandoff() {
-        return tileAhead().map(tile -> tile.entryHandoff(getOwnFacing())).orElse(null);
-    }
-
-    // A half feeds the tile line in front of it, where that line starts (#394).
-    private Optional<BeltTileBlockEntity> tileAhead() {
-        var ahead = worldPosition.relative(getOwnFacing());
-        if (!level.isLoaded(ahead)) return Optional.empty();
-        return level.getBlockEntity(ahead, BlockEntitiesContent.BELT_TILE.get());
+    // A half hands on to what stands in front of it, a tile line's head or another half (#85).
+    private @Nullable BeltOutlet outlet() {
+        return BeltOutlet.aheadOfHalf(level, worldPosition.relative(getOwnFacing()), getOwnFacing());
     }
 
     /**
@@ -214,10 +206,10 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
     }
 
     /**
-     * Takes the item at the end of a tile line whose last tile faces into this half's back, at the
-     * line's {@link BeltContents#overshoot} (#394).
+     * Takes the item at the end of a tile line or splitter half facing into this half's back, at
+     * the sender's {@link BeltContents#overshoot} (#394, #85).
      */
-    public boolean offerFromLine(ItemStack item, double overshoot) {
+    public boolean offerAtBack(ItemStack item, double overshoot) {
         if (!splitter || !Join.offer(item, overshoot, enteringHandoff())) return false;
         setChanged();
         return true;
