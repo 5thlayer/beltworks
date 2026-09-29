@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "#": "beltworks:express_belt_tile",
+    "m": "minecraft:diamond"
+  },
+  "pattern": [
+    "###",
+    "#m#",
+    "###"
+  ],
+  "result": {
+    "count": 8,
+    "id": "beltworks:turbo_belt_tile"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "#": "beltworks:belt_tile",
+    "m": "minecraft:iron_ingot"
+  },
+  "pattern": [
+    "###",
+    "#m#",
+    "###"
+  ],
+  "result": {
+    "count": 8,
+    "id": "beltworks:improved_belt_tile"
+  }
+}

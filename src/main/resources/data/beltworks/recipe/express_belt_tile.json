@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "#": "beltworks:improved_belt_tile",
+    "m": "minecraft:gold_ingot"
+  },
+  "pattern": [
+    "###",
+    "#m#",
+    "###"
+  ],
+  "result": {
+    "count": 8,
+    "id": "beltworks:express_belt_tile"
+  }
+}

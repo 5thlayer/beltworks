@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "beltworks:belt_tile",
+    "beltworks:belt_tile",
+    "minecraft:comparator",
+    "minecraft:copper_ingot"
+  ],
+  "result": {
+    "count": 1,
+    "id": "beltworks:splitter"
+  }
+}

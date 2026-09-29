@@ -2,16 +2,15 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "i": "minecraft:copper_ingot",
-    "p": "#minecraft:planks"
+    "k": "minecraft:dried_kelp",
+    "c": "minecraft:copper_ingot"
   },
   "pattern": [
-    "pip",
-    "p p",
-    "   "
+    "kkk",
+    "ccc"
   ],
   "result": {
     "count": 16,
-    "id": "beltworks:loader"
+    "id": "beltworks:belt_tile"
   }
 }

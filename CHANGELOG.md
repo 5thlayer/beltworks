@@ -4,6 +4,7 @@
 
 - Splitters placed back to back pass items on, as with a tile between them; each passes no more than its own tier (5thlayer/beltworks#85).
 - A splitter half hands items straight into a loader facing it and side-loads a tile line it faces, and a loader loads straight into a splitter half, with no tile between (5thlayer/beltworks#89).
+- Every belt tile, loader and splitter crafts from vanilla ingredients. Tier 1 belt tiles come 16 at a time from dried kelp or leather over copper; each higher tier is an upgrade of the tier below with iron, gold or diamond. Loaders start from a hopper, splitters from a comparator, and the smoker turns rotten flesh into leather. Each recipe shows in the recipe book once its ingredient is in hand (5thlayer/beltworks#17).
 
 ## 0.3.10
 
