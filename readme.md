@@ -12,6 +12,7 @@ Beltworks adds Factorio-style belts to Minecraft, laid block by block on the gri
 - **Tiers.** Transport belts, splitters and loaders come in four tiers, carrying 15, 30, 45 and 60 items a second. Each piece caps only its own flow, so a line of mixed tiers runs at its slowest piece.
 - **Splitters.** A splitter takes two belts in and sends two belts out, splitting evenly and sending everything to one side when the other backs up. Build balancers from them.
 - **Works with any tech mod, through the loader.** A loader set against any inventory, vanilla or modded, pulls items from it onto the belt or pushes them into it. Right-click a loader with an item to filter what it moves; FTB Filters' smart filters work too.
+- **Feeders, one belt for a row of machines.** A feeder moves items one at a time from what its head reaches to what its tail reaches: a chest, a machine, or any level tile along a line, which runs on past it. Its head also picks up items lying on the ground, and its tail never drops items loose: with nowhere to put them, it waits. Each arm reaches one, two or three blocks, over whatever stands between; press Head Reach (`H`) or Tail Reach (`J`) on a held feeder or while aiming at a placed one, and the tail can turn left or right. Feeders come in the four tiers, moving 1.5, 3, 4.5 and 6 items a second, and take a filter the way a loader does.
 - **Dismantle.** Sneak-click a line's tile with a wrench or a pickaxe, then click another tile of the same line: everything between them comes up with its items.
 
 ## Dependencies
