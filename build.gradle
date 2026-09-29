@@ -101,7 +101,7 @@ def syncClientMods = tasks.register('syncClientMods', Sync) {
 tasks.named('runClient') { dependsOn syncClientMods }
 
 // The Groundworks versions the Mod nests and, through neoforge.mods.toml, accepts at load.
-def groundworksRange = '[0.4,0.5)'
+def groundworksRange = '[0.5,0.6)'
 
 // A checkout outside the range still builds, and is refused at load: the composite substitutes it
 // whatever the range says. So -PsiblingBuilds (settings.gradle) checks it here.
@@ -127,7 +127,7 @@ dependencies {
     jarJar(implementation('io.github.5thlayer:groundworks')) {
         version {
             strictly groundworksRange
-            prefer '0.4.6'
+            prefer '0.5.0'
         }
     }
 

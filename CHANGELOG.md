@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Nests Groundworks 0.5.0.
+
 ## 0.3.11
 
 - Splitters placed back to back pass items on, as with a tile between them; each passes no more than its own tier (5thlayer/beltworks#85).

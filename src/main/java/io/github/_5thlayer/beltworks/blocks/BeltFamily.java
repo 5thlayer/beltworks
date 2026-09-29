@@ -34,6 +34,9 @@ import io.github._5thlayer.beltworks.model.LineScan;
  */
 public final class BeltFamily implements DismantleFamily {
 
+    /** The one belt family, registered with Groundworks and asked which tools it takes. */
+    public static final BeltFamily INSTANCE = new BeltFamily();
+
     public enum Reason implements Refusal {
         /** The end is not a tile of the start's line. */
         OFF_LINE

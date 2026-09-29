@@ -68,7 +68,7 @@ public final class Beltworks {
         // Rotate in Place turns the Mod's own blocks and never another mod's, each answering for itself.
         Rotate.turnsInPlace(OURS);
         // Groundworks runs the Dismantle, and the Mod supplies the belt's part (ADR 0011).
-        Dismantles.register(new BeltFamily());
+        Dismantles.register(BeltFamily.INSTANCE);
         // Groundworks runs the Stretch too, and the Mod builds a belt's legs (ADR 0011).
         Stretches.register(new BeltLegs());
         modBus.addListener(Beltworks::registerCapabilities);

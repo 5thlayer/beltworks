@@ -14,6 +14,8 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import org.jetbrains.annotations.Nullable;
+import io.github._5thlayer.beltworks.BlockContent;
+import io.github._5thlayer.beltworks.blocks.BeltFamily;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.collision.BeltCollisionRegistry;
 import io.github._5thlayer.beltworks.items.BeltTileItem;
@@ -60,7 +62,7 @@ public final class BeltHandClient {
         var held = player.getMainHandItem().getItem();
         if (held instanceof SplitterItem || held instanceof BeltTileItem) return null;
         var stack = player.getMainHandItem();
-        if (Dismantles.isTool(stack) && (player.isShiftKeyDown() || Dismantles.liveStart(minecraft.level, stack) != null)) return null;
+        if (BeltFamily.INSTANCE.acceptsTool(stack, BlockContent.BELT_TILE.get().defaultBlockState()) && (player.isShiftKeyDown() || Dismantles.liveStart(minecraft.level, stack) != null)) return null;
         var eye = player.getEyePosition();
         // A tile is aimed as a whole block, since its surface is too thin to aim at reliably (#396).
         if (minecraft.hitResult instanceof BlockHitResult block && block.getType() == HitResult.Type.BLOCK
