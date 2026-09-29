@@ -90,7 +90,7 @@ A belt end set against an inventory: it pulls onto the belt from the inventory b
 _Avoid_: chute (Upstream's name), inserter, funnel
 
 **Splitter**:
-A block two wide whose halves are each a block of belt of its tier: each holds eight items and carries them, and whatever stands on it, at its tier's speed. It joins two belts in to two belts out at its midline, splitting evenly, merging, and sending everything to one side when the other backs up. It draws no power. Placed across a straight tile line running its way, it takes the tile's place, refunds it and keeps its items (ADR 0007).
+A block two wide whose halves are each a block of belt of its tier: each holds eight items and carries them, and whatever stands on it, at its tier's speed. It joins two belts in to two belts out at its midline, splitting evenly, merging, and sending everything to one side when the other backs up. Splitters chain directly, a half handing to the half in front of it as to a tile, with items moving as on a belt. It draws no power. Placed across a straight tile line running its way, it takes the tile's place, refunds it and keeps its items (ADR 0007).
 _Avoid_: merger, tunnel
 
 **Feeder**:
