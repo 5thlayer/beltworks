@@ -16,6 +16,8 @@
 #   CurseForge  $CURSEFORGE_TOKEN (an upload API token), curseforge_project_id
 #               ($CURSEFORGE_PROJECT_ID), curseforge_dependencies
 # Only a site with a project is uploaded to; with none, the script refuses before contacting either.
+# upload_release_type in gradle.properties sends every version as release, beta or alpha; left empty,
+# a version below 1.0 is a beta and one from 1.0 a release.
 # $MAVEN_REPO_LOCAL reads somewhere other than ~/.m2/repository, and $MODRINTH_API_URL,
 # $CURSEFORGE_UPLOAD_URL and $CURSEFORGE_API_URL send somewhere other than the sites, to try the
 # script out. --dry-run prints the requests it would make and contacts nothing. The rules it keeps
@@ -44,6 +46,8 @@ CURSEFORGE_API = "https://www.curseforge.com"
 LICENSING = ["LICENSE", "NOTICE", "LICENSES/MIT.txt", "LICENSES/CC-BY-4.0.txt"]
 CREDITED = ["Rearth", "malcolmriley"]
 SECRET_HEADERS = {"Authorization", "X-Api-Token"}
+# What upload_release_type may name; both sites call the three types alike.
+RELEASE_TYPES = ["release", "beta", "alpha"]
 
 
 class Refused(Exception):
@@ -71,6 +75,15 @@ def project_of(site, props):
 def dependencies(site, props):
     """The required dependencies gradle.properties names for the site, comma separated."""
     return [d.strip() for d in props.get(f"{site}_dependencies", "").split(",") if d.strip()]
+
+
+def release_type(version, props):
+    """upload_release_type's type for every version, else beta below 1.0 and release from it."""
+    chosen = props.get("upload_release_type", "")
+    if chosen and chosen not in RELEASE_TYPES:
+        fail(f"gradle.properties sets upload_release_type = {chosen}; it is empty or one of "
+             f"{', '.join(RELEASE_TYPES)}.")
+    return chosen or ("beta" if version.startswith("0.") else "release")
 
 
 def changelog(version):
@@ -159,7 +172,7 @@ class Release:
         self.props = props = properties()
         self.name = f"{props['mod_name']} {version}"
         self.minecraft = props["minecraft_version"]
-        self.beta = version.startswith("0.")
+        self.release_type = release_type(version, props)
         self.agent = f"5thlayer/{props['archives_name']}/{version}"
         artifact = props["archives_name"]
         repo = Path(os.environ.get("MAVEN_REPO_LOCAL") or Path.home() / ".m2/repository")
@@ -189,7 +202,7 @@ class Release:
             "dependencies": [{"project_id": d, "dependency_type": "required"}
                              for d in dependencies("modrinth", self.props)],
             "game_versions": [self.minecraft],
-            "version_type": "beta" if self.beta else "release",
+            "version_type": self.release_type,
             "loaders": ["neoforge"],
             "featured": True,
             "project_id": project,
@@ -222,7 +235,7 @@ class Release:
             "changelog": self.notes,
             "changelogType": "markdown",
             "displayName": self.name,
-            "releaseType": "beta" if self.beta else "release",
+            "releaseType": self.release_type,
         }
         required = dependencies("curseforge", self.props)
         if required:
