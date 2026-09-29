@@ -25,6 +25,7 @@ import io.github._5thlayer.beltworks.TileLineUpdate;
 import io.github._5thlayer.beltworks.collision.BeltCollisionRegistry;
 import io.github._5thlayer.beltworks.model.BeltContents;
 import io.github._5thlayer.beltworks.model.BeltTier;
+import io.github._5thlayer.beltworks.model.LineMembership;
 import io.github._5thlayer.beltworks.model.LineScan;
 import io.github._5thlayer.beltworks.model.Pitch;
 import io.github._5thlayer.beltworks.model.Splitter;
@@ -32,7 +33,6 @@ import io.github._5thlayer.beltworks.model.TileShape;
 import io.github._5thlayer.beltworks.model.TransportLine;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -49,27 +49,12 @@ public class BeltTileBlockEntity extends BlockEntity {
 
     private final BeltTier tier;
 
-    // Only the head of a line holds one; every other tile of the run ticks nothing.
-    private @Nullable TransportLine<ItemStack> line;
-    private List<BeltTileBlockEntity> members = List.of();
-    private List<BlockPos> tiles = List.of();
-    // One tile in each chunk the line crosses.
-    private List<BlockPos> inChunks = List.of();
-    private @Nullable List<List<TransportLine.Share<ItemStack>>> shares;
+    private final LineMembership.Member<ItemStack, BeltTileBlockEntity> membership;
+    private final LineMembership.World<ItemStack, BeltTileBlockEntity> world = new LevelLines();
 
-    private @Nullable BeltTileBlockEntity holder;
-    private int index;
-
-    private @Nullable BlockPos head;
-    private boolean rescan = true;
     // The game time the line this tile holds last moved, so a splitter handing it an item knows
     // whether the line is still to move this tick (#394).
     private long movedAt = Long.MIN_VALUE;
-    // Saved and about to be removed with its chunk, so no line counts it any more (#395).
-    private boolean unloaded;
-
-    // This tile's own share of the items while no line holds them.
-    private List<TransportLine.Share<ItemStack>> carried = new ArrayList<>();
 
     // On the tile rather than the line, so a rebuilt line keeps it (#396).
     private @Nullable HeldHand heldHand;
@@ -77,6 +62,7 @@ public class BeltTileBlockEntity extends BlockEntity {
     public BeltTileBlockEntity(BlockPos pos, BlockState state) {
         super(BlockEntitiesContent.BELT_TILE.get(), pos, state);
         tier = ((BeltTileBlock) state.getBlock()).tier();
+        membership = new LineMembership.Member<>(spot(pos), tier, this);
     }
 
     public BeltTier tier() {
@@ -97,9 +83,9 @@ public class BeltTileBlockEntity extends BlockEntity {
     }
 
     public void tick() {
-        if (unloaded) return;
+        if (membership.unloaded()) return;
         registerRide();
-        if (rescan) rebuild();
+        var line = membership.tick(world);
         if (line == null) return;
         if (line.tick(this::takeFromLoader, this::giveToLoader, hand())) lineChanged();
         movedAt = level.getGameTime();
@@ -150,8 +136,9 @@ public class BeltTileBlockEntity extends BlockEntity {
 
     // The first live hand on the line's tiles; the line has one end, so it takes one hand.
     private BeltContents.@Nullable Hand<ItemStack> hand() {
+        var members = membership.members();
         for (var at = 0; at < members.size(); at++) {
-            var member = members.get(at);
+            var member = members.get(at).owner();
             var held = member.heldHand;
             if (held == null) continue;
             var player = held.player;
@@ -175,11 +162,7 @@ public class BeltTileBlockEntity extends BlockEntity {
     }
 
     public void lineChanged() {
-        var holding = holder();
-        if (holding == null || level == null) return;
-        holding.shares = null;
-        // Every chunk, since each saves its own tiles' items and a chunk not marked is skipped.
-        for (var tile : holding.inChunks) level.blockEntityChanged(tile);
+        if (level != null) membership.lineChanged(world);
     }
 
     /**
@@ -187,6 +170,7 @@ public class BeltTileBlockEntity extends BlockEntity {
      * tile is not a line's head entered from {@code travel} (#394).
      */
     public Splitter.@Nullable Handoff<ItemStack> entryHandoff(Direction travel) {
+        var line = membership.headed();
         if (line == null || line.ring() || !shape().entry(BeltTileBlock.travel(travel())).equals(BeltTileBlock.travel(travel))) return null;
         var pending = movedAt == level.getGameTime() ? 0 : line.speed();
         return new Splitter.Handoff<>(line.contents(), line.length(), line.speed(), null, pending);
@@ -194,178 +178,61 @@ public class BeltTileBlockEntity extends BlockEntity {
 
     /** Tells this tile its run has changed under it, so it scans again on its next tick. */
     public void invalidate() {
-        rescan = true;
-    }
-
-    private void invalidate(@Nullable BlockPos pos) {
-        if (pos == null) return;
-        tileAt(pos).ifPresent(BeltTileBlockEntity::invalidate);
-    }
-
-    // Beside it, and a block up or down beside it, where a slope's other end is (#417).
-    private void invalidateAround(BlockPos pos) {
-        for (var side : Direction.Plane.HORIZONTAL) {
-            var beside = pos.relative(side);
-            invalidate(beside);
-            invalidate(beside.above());
-            invalidate(beside.below());
-        }
-    }
-
-    // Asked of loaded chunks only: a line stops at a chunk's edge rather than pulling the next
-    // chunk in, and resumes when that chunk loads and its tiles scan.
-    private Optional<BeltTileBlockEntity> tileAt(BlockPos pos) {
-        if (level == null || !level.isLoaded(pos)) return Optional.empty();
-        return level.getBlockEntity(pos, BlockEntitiesContent.BELT_TILE.get()).filter(tile -> !tile.unloaded);
-    }
-
-    private void rebuild() {
-        rescan = false;
-        if (level == null) return;
-        // A tile placed against a run brings the whole run's heads and tails into question.
-        var first = head == null;
-        var scan = LineScan.through(spot(worldPosition), this::pieceAt);
-        if (scan.spots().isEmpty()) return;
-        var run = scan.spots().stream().map(BeltTileBlockEntity::pos).toList();
-        var scannedHead = run.getFirst();
-        if (!scannedHead.equals(head)) invalidate(head);
-        head = scannedHead;
-        if (first) invalidateAround(worldPosition);
-
-        if (!head.equals(worldPosition)) {
-            var handedOver = line != null && !line.contents().isEmpty();
-            release();
-            // Not when the head's line is this run already: every tile of a run scans when its
-            // chunk loads, and a nudge each would rebuild the line once per tile.
-            var headTile = tileAt(head).orElse(null);
-            if (headTile != null && (handedOver || !carried.isEmpty() || !headTile.tiles.equals(run))) {
-                headTile.invalidate();
-            }
-            return;
-        }
-        buildLine(run, scan.ring());
-    }
-
-    private void buildLine(List<BlockPos> run, boolean ring) {
-        var tierList = new ArrayList<BeltTier>(run.size());
-        var found = new ArrayList<BeltTileBlockEntity>(run.size());
-        for (var pos : run) {
-            var tile = tileAt(pos).orElse(null);
-            // The run was scanned from the block entities, so a missing one means the world moved
-            // under the scan; the next tick scans again.
-            if (tile == null) {
-                rescan = true;
-                return;
-            }
-            tierList.add(tile.tier);
-            found.add(tile);
-        }
-
-        // Every member lets go before any is drained: a tile joining two runs makes one of their
-        // heads a member, and block entities tick in an order nothing here decides, so a member
-        // still holding a line would otherwise strand its items where nothing looks again.
-        for (var member : found) member.release();
-
-        var held = new ArrayList<List<TransportLine.Share<ItemStack>>>(found.size());
-        var crossed = new LinkedHashMap<ChunkPos, BlockPos>();
-        for (var at = 0; at < found.size(); at++) {
-            var member = found.get(at);
-            held.add(member.carried);
-            member.carried = new ArrayList<>();
-            member.holder = this;
-            member.index = at;
-            member.head = worldPosition;
-            member.setChanged();
-            crossed.putIfAbsent(ChunkPos.containing(member.worldPosition), member.worldPosition);
-        }
-
-        members = List.copyOf(found);
-        tiles = run;
-        inChunks = List.copyOf(crossed.values());
-        line = new TransportLine<>(tierList, ring);
-        shares = null;
-        for (var spilled : line.restoreShares(held)) drop(spilled);
-        line.contents().drainChanges();
-        send(wholeLine());
-        setChanged();
-    }
-
-    /** Hands this line's items back to its tiles and stops ticking it. */
-    private void release() {
-        if (line == null) return;
-        var held = line.shares();
-        for (var at = 0; at < members.size(); at++) {
-            var member = members.get(at);
-            if (member.holder == this) member.holder = null;
-            // An unloaded tile has just saved its own share, and loads it again with its chunk.
-            if (member.unloaded) continue;
-            if (member.isRemoved()) {
-                for (var share : held.get(at)) drop(share.payload());
-                continue;
-            }
-            member.carried.addAll(held.get(at));
-            member.setChanged();
-        }
-        send(TileLineUpdate.gone(worldPosition));
-        line = null;
-        members = List.of();
-        tiles = List.of();
-        inChunks = List.of();
-        shares = null;
-        setChanged();
+        membership.invalidate();
     }
 
     /**
      * Lets go of the tiles of a chunk that has just been saved, with each tile's share in it, and
-     * is about to unload. Every tile is flagged before any line is released, so no line hands a
-     * share to a tile that is going and would lose it.
+     * is about to unload.
      */
     public static void chunkUnloading(Iterable<BlockEntity> blockEntities) {
-        var going = new ArrayList<BeltTileBlockEntity>();
+        var going = new ArrayList<LineMembership.Member<ItemStack, BeltTileBlockEntity>>();
+        LineMembership.@Nullable World<ItemStack, BeltTileBlockEntity> world = null;
         for (var blockEntity : blockEntities) {
             if (blockEntity instanceof BeltTileBlockEntity tile) {
-                tile.unloaded = true;
-                going.add(tile);
+                going.add(tile.membership);
+                world = tile.world;
             }
         }
-        for (var tile : going) {
-            var holding = tile.holder();
-            if (holding == null) continue;
-            var former = holding.members;
-            holding.release();
-            for (var member : former) if (!member.unloaded) member.rescan = true;
-        }
+        if (world != null) LineMembership.Member.chunkUnloading(going, world);
     }
 
     private TileLineUpdate wholeLine() {
+        var line = membership.headed();
+        var members = owners();
         return new TileLineUpdate(worldPosition, members.stream().map(BeltTileBlockEntity::travel).toList(),
           members.stream().map(member -> member.pitch().fed()).toList(), tiers(), line.ring(), true,
           new BeltContents.Changes<>(List.of(), line.contents().snapshot()));
     }
 
+    private List<BeltTileBlockEntity> owners() {
+        return membership.members().stream().map(LineMembership.Member::owner).toList();
+    }
+
     private List<BeltTier> tiers() {
-        return members.stream().map(BeltTileBlockEntity::tier).toList();
+        return membership.members().stream().map(LineMembership.Member::tier).toList();
     }
 
     private void send(TileLineUpdate update) {
+        var inChunks = membership.inChunks();
         if (!(level instanceof ServerLevel serverLevel) || inChunks.isEmpty()) return;
-        BeltSync.sendLine(serverLevel, inChunks.stream().map(ChunkPos::containing).toList(), update);
+        BeltSync.sendLine(serverLevel, inChunks.stream().map(spot -> ChunkPos.containing(pos(spot))).toList(), update);
     }
 
     /** The whole line this tile belongs to, for a player who has just been sent one of its chunks. */
     public @Nullable TileLineUpdate lineUpdate() {
         var holding = holder();
-        return holding == null || holding.line == null ? null : holding.wholeLine();
+        return holding == null ? null : holding.wholeLine();
     }
 
     /** The tile holding this tile's line, if a line holds it. */
     public @Nullable BeltTileBlockEntity holder() {
-        return line != null ? this : holder;
+        var holding = membership.holder();
+        return holding == null ? null : holding.owner();
     }
 
     private void drop(ItemStack stack) {
-        if (level == null || level.isClientSide()) return;
-        drop(level, worldPosition, stack);
+        world.drop(membership.spot(), stack);
     }
 
     private static void drop(Level level, BlockPos pos, ItemStack stack) {
@@ -373,11 +240,64 @@ public class BeltTileBlockEntity extends BlockEntity {
         level.addFreshEntity(new ItemEntity(level, at.x, at.y, at.z, stack));
     }
 
-    private LineScan.@Nullable Piece pieceAt(LineScan.Spot spot) {
-        return tileAt(pos(spot)).map(tile -> {
-            var travel = BeltTileBlock.travel(tile.travel());
-            return new LineScan.Piece(travel, tile.shape().entry(travel), tile.pitch());
-        }).orElse(null);
+    // Asked of loaded chunks only: a line stops at a chunk's edge rather than pulling the next
+    // chunk in, and resumes when that chunk loads and its tiles scan.
+    private Optional<BeltTileBlockEntity> tileAt(BlockPos pos) {
+        if (level == null || !level.isLoaded(pos)) return Optional.empty();
+        return level.getBlockEntity(pos, BlockEntitiesContent.BELT_TILE.get()).filter(tile -> !tile.membership.unloaded());
+    }
+
+    /** The level as the line lifecycle sees it. */
+    private final class LevelLines implements LineMembership.World<ItemStack, BeltTileBlockEntity> {
+
+        @Override
+        public LineMembership.@Nullable Member<ItemStack, BeltTileBlockEntity> at(LineScan.Spot spot) {
+            return tileAt(pos(spot)).map(tile -> tile.membership).orElse(null);
+        }
+
+        @Override
+        public LineScan.@Nullable Piece pieceAt(LineScan.Spot spot) {
+            return tileAt(pos(spot)).map(tile -> {
+                var travel = BeltTileBlock.travel(tile.travel());
+                return new LineScan.Piece(travel, tile.shape().entry(travel), tile.pitch());
+            }).orElse(null);
+        }
+
+        @Override
+        public Object chunk(LineScan.Spot spot) {
+            return ChunkPos.containing(pos(spot));
+        }
+
+        @Override
+        public boolean removed(LineMembership.Member<ItemStack, BeltTileBlockEntity> member) {
+            return member.owner().isRemoved();
+        }
+
+        @Override
+        public void drop(LineScan.Spot at, ItemStack item) {
+            if (level == null || level.isClientSide()) return;
+            BeltTileBlockEntity.drop(level, pos(at), item);
+        }
+
+        @Override
+        public void changed(LineMembership.Member<ItemStack, BeltTileBlockEntity> member) {
+            member.owner().setChanged();
+        }
+
+        @Override
+        public void chunkChanged(LineScan.Spot spot) {
+            if (level != null) level.blockEntityChanged(pos(spot));
+        }
+
+        @Override
+        public void lineBuilt(LineMembership.Member<ItemStack, BeltTileBlockEntity> head) {
+            head.owner().send(head.owner().wholeLine());
+        }
+
+        @Override
+        public void lineGone(LineMembership.Member<ItemStack, BeltTileBlockEntity> head) {
+            head.owner().send(TileLineUpdate.gone(head.owner().worldPosition));
+        }
     }
 
     private static LineScan.Spot spot(BlockPos pos) {
@@ -398,9 +318,10 @@ public class BeltTileBlockEntity extends BlockEntity {
 
     /** The loader past the last tile, which faces back along the line, or the side of a line there. */
     private boolean giveToLoader(ItemStack item) {
-        if (members.isEmpty()) return false;
-        var last = tiles.getLast();
-        var travel = members.getLast().travel();
+        var line = membership.headed();
+        if (line == null || membership.members().isEmpty()) return false;
+        var last = pos(membership.tiles().getLast());
+        var travel = membership.members().getLast().owner().travel();
         var loader = loaderAt(last.relative(travel), travel.getOpposite());
         if (loader != null) return loader.acceptFromLine(item);
         var half = splitterAt(last.relative(travel), travel);
@@ -413,11 +334,12 @@ public class BeltTileBlockEntity extends BlockEntity {
     private boolean sideLoad(BlockPos pos, Direction travel, ItemStack item) {
         var fed = tileAt(pos).orElse(null);
         if (fed == null || fed.shape() != TileShape.STRAIGHT || fed.pitch() != Pitch.LEVEL || fed.travel().getAxis() == travel.getAxis()) return false;
-        var holding = fed.holder();
-        if (holding == null || holding == this || holding.line == null || fed.index >= holding.line.tileCount()) return false;
-        if (!holding.line.sideLoad(item, fed.index)) return false;
-        holding.shares = null;
-        for (var tile : holding.inChunks) level.blockEntityChanged(tile);
+        var holding = fed.membership.holder();
+        if (holding == null || holding == membership) return false;
+        var line = holding.headed();
+        var index = fed.membership.index();
+        if (line == null || index >= line.tileCount() || !line.sideLoad(item, index)) return false;
+        fed.lineChanged();
         return true;
     }
 
@@ -428,7 +350,7 @@ public class BeltTileBlockEntity extends BlockEntity {
     public BeltContents.@Nullable Entry<ItemStack> feederTake(Predicate<ItemStack> wanted) {
         var holding = feederLine();
         if (holding == null) return null;
-        var taken = holding.line.take(index, wanted);
+        var taken = holding.take(membership.index(), wanted);
         if (taken != null) lineChanged();
         return taken;
     }
@@ -438,32 +360,32 @@ public class BeltTileBlockEntity extends BlockEntity {
         var holding = feederLine();
         // With no line to take it, the tile keeps it as its own share, so nothing is lost.
         if (holding == null) {
-            carry(List.of(new TransportLine.Share<>(Math.clamp(taken.position() - index, 0, 1 - BeltContents.SPACING), taken.payload())));
+            carry(List.of(new TransportLine.Share<>(Math.clamp(taken.position() - membership.index(), 0, 1 - BeltContents.SPACING), taken.payload())));
             return;
         }
-        holding.line.contents().place(taken.payload(), taken.position());
+        holding.contents().place(taken.payload(), taken.position());
         lineChanged();
     }
 
     /** Whether a feeder's tail could drop an item at this level tile's midpoint now. */
     public boolean feederCanDrop() {
         var holding = feederLine();
-        return holding != null && holding.line.canDrop(index);
+        return holding != null && holding.canDrop(membership.index());
     }
 
     /** Drops an item at this level tile's midpoint for a feeder's tail, when its line has a gap there. */
     public boolean feederDrop(ItemStack item) {
         var holding = feederLine();
-        if (holding == null || !holding.line.drop(item, index)) return false;
+        if (holding == null || !holding.drop(item, membership.index())) return false;
         lineChanged();
         return true;
     }
 
     // A slope is never a feeder's end (CONTEXT.md).
-    private @Nullable BeltTileBlockEntity feederLine() {
+    private @Nullable TransportLine<ItemStack> feederLine() {
         if (pitch() != Pitch.LEVEL) return null;
-        var holding = holder();
-        return holding == null || holding.line == null || index >= holding.line.tileCount() ? null : holding;
+        var line = membership.line();
+        return line == null || membership.index() >= line.tileCount() ? null : line;
     }
 
     private @Nullable BeltEndBlockEntity splitterAt(BlockPos pos, Direction travel) {
@@ -481,30 +403,21 @@ public class BeltTileBlockEntity extends BlockEntity {
 
     /** The line this tile belongs to, whichever tile of the run holds it. */
     public @Nullable TransportLine<ItemStack> line() {
-        var holding = holder();
-        return holding == null ? null : holding.line;
+        return membership.line();
     }
 
     /** What this tile itself carries, and where in the tile, whether or not a line holds it. */
     public List<TransportLine.Share<ItemStack>> held() {
-        var holding = holder();
-        if (holding == null || holding.line == null) return List.copyOf(carried);
-        if (holding.shares == null) holding.shares = holding.line.shares();
-        return index < holding.shares.size() ? holding.shares.get(index) : List.of();
+        return membership.held();
     }
 
     /** Lets go of what this tile carries without dropping it, for the tile replacing it to {@link #carry} (#393). */
     public List<TransportLine.Share<ItemStack>> takeCarried() {
-        var holding = holder();
-        if (holding != null) holding.release();
-        var taken = carried;
-        carried = new ArrayList<>();
-        return taken;
+        return membership.takeCarried(world);
     }
 
     public void carry(List<TransportLine.Share<ItemStack>> shares) {
-        carried.addAll(shares);
-        setChanged();
+        membership.carry(shares, world);
     }
 
     /** What this tile itself carries, for a tooltip (#398). */
@@ -518,11 +431,9 @@ public class BeltTileBlockEntity extends BlockEntity {
         var before = getBlockState();
         super.setBlockState(state);
         if (level == null || level.isClientSide() || before.equals(state)) return;
-        var holding = holder();
-        if (holding != null) holding.release();
+        membership.releaseLine(world);
         invalidate();
-        invalidate(head);
-        invalidateAround(worldPosition);
+        membership.invalidateAround(world);
     }
 
     // Catches every removal, so a break, an explosion or a command leaves the run scanning again.
@@ -531,13 +442,10 @@ public class BeltTileBlockEntity extends BlockEntity {
         super.preRemoveSideEffects(pos, state);
         // Through the holder, so every tile of the run holds its own share before the run is cut:
         // the tiles past this one keep their items and run dry rather than losing them (#383).
-        var holding = holder();
-        if (holding != null) holding.release();
+        var carried = membership.takeCarried(world);
         if (level != null && level.getBlockState(pos).getBlock() instanceof BeltTileBlock) handOver(level, pos, carried);
         else for (var share : carried) drop(share.payload());
-        carried = new ArrayList<>();
-        invalidate(head);
-        invalidateAround(pos);
+        membership.invalidateAround(world);
     }
 
     /** What a tile swapped for one of another tier hands the tile replacing it, which takes it as it joins the level. */
@@ -579,18 +487,11 @@ public class BeltTileBlockEntity extends BlockEntity {
     @Override
     protected void loadAdditional(ValueInput input) {
         super.loadAdditional(input);
-        carried = new ArrayList<>();
+        var carried = new ArrayList<TransportLine.Share<ItemStack>>();
         for (var child : input.childrenListOrEmpty("carried")) {
             carried.add(new TransportLine.Share<>(child.getDoubleOr("offset", 0),
               child.read("stack", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY)));
         }
-        line = null;
-        members = List.of();
-        tiles = List.of();
-        inChunks = List.of();
-        shares = null;
-        holder = null;
-        head = null;
-        rescan = true;
+        membership.loaded(carried);
     }
 }
