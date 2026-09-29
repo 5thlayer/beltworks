@@ -49,7 +49,7 @@ The colour a belt tier is painted in, yellow, red, blue and green in tier order,
 _Avoid_: stripe colour, tier tint
 
 **Belt hand**:
-Holding the use key on a belt piece with anything but a belt piece in hand: the holder takes the items reaching the aimed point at the belt's rate, while what was already past it runs on. On a tile the whole tile is aimed at. A full inventory stops taking and lets the belt run on, losing nothing.
+Holding the use key on a belt piece with anything but a belt piece in hand: the holder takes the items reaching the aimed point at the belt's rate, while what was already past it runs on. On a tile the whole tile is aimed at. A full inventory stops taking and lets the belt run on, losing nothing. The hand is one holder's at a time: the latest holder takes it over, and it ends when they let go or leave.
 _Avoid_: grab, pick up from belt
 
 ### Climbing
