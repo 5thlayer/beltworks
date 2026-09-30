@@ -324,6 +324,14 @@ public class BeltTileBlockEntity extends BlockEntity {
         return level != null && membership.insert(item, offset, world);
     }
 
+    /**
+     * How far, in blocks, the items under a loose item {@code offset} of the way along this tile
+     * moved in the last tick, or NaN where no line holds the tile (#92).
+     */
+    public double movedAt(double offset) {
+        return membership.movedAt(offset);
+    }
+
     private @Nullable BeltEndBlockEntity loaderAt(BlockPos pos, Direction facing) {
         if (level == null || !level.isLoaded(pos)) return null;
         var loader = level.getBlockEntity(pos, BlockEntitiesContent.BELT_END.get()).orElse(null);

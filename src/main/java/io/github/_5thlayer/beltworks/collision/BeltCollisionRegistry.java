@@ -8,6 +8,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.material.PushReaction;
@@ -17,6 +18,7 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.beltworks.blocks.BeltEndBlockEntity;
+import io.github._5thlayer.beltworks.blocks.BeltLanding;
 import io.github._5thlayer.beltworks.util.SplineUtil;
 
 import java.util.ArrayList;
@@ -53,7 +55,7 @@ public final class BeltCollisionRegistry {
         var half = entity.getHalf();
         if (beltData == null || half == null) return;
         register(entity.getLevel(), entity.getBlockPos(), beltData, t -> SplineUtil.getPositionOnSpline(beltData, t), beltData.totalLength(),
-          half.speed() * 20);
+          half.speed() * 20, false);
     }
 
     /**
@@ -63,14 +65,15 @@ public final class BeltCollisionRegistry {
      * @param source compared by equality, so an unchanged tile does not rebuild the index
      */
     public static void registerTile(Level level, BlockPos pos, Object source, DoubleFunction<Vec3> path, double speed) {
-        register(level, pos, source, path, 1, speed);
+        register(level, pos, source, path, 1, speed, true);
     }
 
     public static void unregisterTile(Level level, BlockPos pos) {
         unregister(level, pos);
     }
 
-    private static void register(@Nullable Level level, BlockPos pos, Object source, DoubleFunction<Vec3> path, double length, double speed) {
+    private static void register(@Nullable Level level, BlockPos pos, Object source, DoubleFunction<Vec3> path, double length, double speed,
+                                 boolean tile) {
         if (level == null) return;
 
         var levelData = LEVEL_DATA.computeIfAbsent(level, ignored -> new LevelCollisionData());
@@ -78,7 +81,7 @@ public final class BeltCollisionRegistry {
         var current = levelData.belts.get(key);
         if (current != null && current.source.equals(source) && current.speed == speed) return;
 
-        levelData.belts.put(key, createCollision(source, path, length, speed));
+        levelData.belts.put(key, createCollision(source, path, length, speed, tile));
         levelData.rebuildSectionIndex();
     }
 
@@ -112,10 +115,12 @@ public final class BeltCollisionRegistry {
         if (levelData == null) return;
 
         var contacts = new IdentityHashMap<Entity, BeltContact>();
-        for (var belt : levelData.belts.values()) {
+        for (var entry : levelData.belts.entrySet()) {
+            var belt = entry.getValue();
             for (var entity : level.getEntities((Entity) null, belt.bounds.inflate(0.5, 0.4, 0.5), BeltCollisionRegistry::canBeMoved)) {
-                var contact = belt.findContact(entity);
-                if (contact == null) continue;
+                var found = belt.findContact(entity);
+                if (found == null) continue;
+                var contact = found.on(entry.getKey(), belt.tile);
 
                 var previous = contacts.get(entity);
                 if (previous == null || contact.distanceSquared < previous.distanceSquared) {
@@ -130,8 +135,23 @@ public final class BeltCollisionRegistry {
     public static void moveLocalPlayer(Level level, Player player) {
         if (!level.isClientSide() || player.isSpectator()) return;
 
+        var closest = closestContact(level, player);
+        if (closest != null) applyPlayerVelocity(player, closest);
+    }
+
+    /**
+     * How fast, in blocks a second, a belt under the player carries them, or NaN when none does.
+     * It is the belt's own speed, whatever its line's items are doing; game tests read it, since a
+     * player is carried by their client and the server never moves one.
+     */
+    public static double carrySpeed(Level level, Player player) {
+        var contact = closestContact(level, player);
+        return contact == null ? Double.NaN : contact.speed;
+    }
+
+    private static @Nullable BeltContact closestContact(Level level, Player player) {
         var levelData = LEVEL_DATA.get(level);
-        if (levelData == null) return;
+        if (levelData == null) return null;
 
         BeltContact closest = null;
         for (var belt : levelData.belts.values()) {
@@ -142,8 +162,7 @@ public final class BeltCollisionRegistry {
                 closest = contact;
             }
         }
-
-        if (closest != null) applyPlayerVelocity(player, closest);
+        return closest;
     }
 
     /** The nearest belt a ray from {@code from} to {@code to} meets, and where along its curve. */
@@ -184,7 +203,18 @@ public final class BeltCollisionRegistry {
     // Each slab of a rising belt stands a little higher than the last, and an item cannot step
     // up, so a rider stopped by one is lifted over it; one still stopped met a wall, and stays (#417).
     private static void moveEntity(Entity entity, BeltContact contact) {
-        var step = contact.tangent.scale(contact.speed / 20d);
+        var speed = contact.speed;
+        // An item on a tile is part of its line, or rests on the line's items: it joins, or is
+        // carried as far as they moved, and never at the tile's own speed (#92).
+        if (contact.tile && entity instanceof ItemEntity item) {
+            var carried = BeltLanding.land(item.level(), contact.pos, item, contact.speed / 20d);
+            if (carried.isEmpty()) return;
+            speed = carried.getAsDouble() * 20;
+        }
+        entity.resetFallDistance();
+        if (speed <= 0) return;
+
+        var step = contact.tangent.scale(speed / 20d);
         var start = entity.position();
         entity.move(MoverType.SELF, step);
         if (entity.horizontalCollision) {
@@ -193,7 +223,6 @@ public final class BeltCollisionRegistry {
             entity.move(MoverType.SELF, new Vec3(start.x + step.x - stopped.x, 0, start.z + step.z - stopped.z));
             if (entity.horizontalCollision) entity.setPos(stopped);
         }
-        entity.resetFallDistance();
     }
 
     private static void applyPlayerVelocity(Player player, BeltContact contact) {
@@ -206,7 +235,7 @@ public final class BeltCollisionRegistry {
         player.resetFallDistance();
     }
 
-    private static BeltCollision createCollision(Object source, DoubleFunction<Vec3> path, double length, double speed) {
+    private static BeltCollision createCollision(Object source, DoubleFunction<Vec3> path, double length, double speed, boolean tile) {
         var segmentCount = Math.max(1, (int) Math.ceil(length / SAMPLE_LENGTH));
         var segments = new ArrayList<PathSegment>(segmentCount);
         var slabs = new ArrayList<CollisionSlab>(segmentCount);
@@ -239,7 +268,7 @@ public final class BeltCollisionRegistry {
             bounds = new AABB(point, point).inflate(BELT_HALF_WIDTH, BELT_THICKNESS, BELT_HALF_WIDTH);
         }
 
-        return new BeltCollision(source, speed, List.copyOf(segments), List.copyOf(slabs), bounds);
+        return new BeltCollision(source, speed, tile, List.copyOf(segments), List.copyOf(slabs), bounds);
     }
 
     private static Vec3 surfacePoint(Vec3 point) {
@@ -299,20 +328,32 @@ public final class BeltCollisionRegistry {
         }
     }
 
-    private record BeltContact(Vec3 tangent, double speed, double distanceSquared) {
+    // The belt's position and whether it is a tile are filled in by the registry, which knows them.
+    private record BeltContact(Vec3 tangent, double speed, double distanceSquared, @Nullable BlockPos pos, boolean tile) {
+
+        private BeltContact(Vec3 tangent, double speed, double distanceSquared) {
+            this(tangent, speed, distanceSquared, null, false);
+        }
+
+        private BeltContact on(BlockPos pos, boolean tile) {
+            return new BeltContact(tangent, speed, distanceSquared, pos, tile);
+        }
     }
 
     private static final class BeltCollision {
         private final Object source;
         private final double speed;
+        // A belt tile, whose line an item on it joins or rides with, rather than a splitter half (#92).
+        private final boolean tile;
         private final List<PathSegment> segments;
         private final List<CollisionSlab> slabs;
         private final AABB bounds;
 
-        private BeltCollision(Object source, double speed, List<PathSegment> segments,
+        private BeltCollision(Object source, double speed, boolean tile, List<PathSegment> segments,
                               List<CollisionSlab> slabs, AABB bounds) {
             this.source = source;
             this.speed = speed;
+            this.tile = tile;
             this.segments = segments;
             this.slabs = slabs;
             this.bounds = bounds;

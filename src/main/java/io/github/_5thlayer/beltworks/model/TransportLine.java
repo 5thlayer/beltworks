@@ -107,6 +107,22 @@ public final class TransportLine<T> {
     }
 
     /**
+     * How far, in blocks, the items under an item at {@code offset} along this tile moved in the
+     * line's last tick: the line's own {@link #speed} where they run, zero where they are backed
+     * up, and less where one was stopped short by the one ahead. It is how far an item resting on
+     * the line without being in it is carried (#92).
+     *
+     * <p>{@code offset} reads as {@link #insert}'s does, and is held to the tile the same way. A
+     * point {@link #insert} would take has nothing under it and reports the line's step: nothing
+     * holds an item there back, and it would join.
+     */
+    public double movedAt(int tile, double offset) {
+        var upper = Math.min(tile + 1, length()) - BeltContents.SPACING;
+        var at = Math.clamp(tile + offset - BeltContents.SPACING / 2, tile, upper);
+        return contents.movedAt(at, length(), ring, speed);
+    }
+
+    /**
      * Takes the frontmost item on this tile of the line that {@code wanted} accepts, for a feeder's
      * head; the line runs on past the gap it leaves.
      */

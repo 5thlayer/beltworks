@@ -26,9 +26,10 @@ import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.TransportLine;
 
 /**
- * The belt hand and riding on tiles (PlanetaryFactory #396). A hand held on a tile takes whatever is on it at the
- * line's rate, fed once a tick as the client resends it; an item entity standing on a tile is
- * carried along it, round a corner and up and down a step (PlanetaryFactory #417). Rates are typed.
+ * The belt hand and items on tiles (PlanetaryFactory #396). A hand held on a tile takes whatever is on it at the
+ * line's rate, fed once a tick as the client resends it; an item entity put on a tile joins its
+ * line and is carried along it to the far chest, round a corner and up and down a step
+ * (PlanetaryFactory #417, #92). Rates are typed.
  */
 final class BeltTileHandTests {
 
@@ -51,22 +52,21 @@ final class BeltTileHandTests {
     private static final int HELD_ITEMS = TIER_1_ITEMS_PER_SECOND * HOLD_TICKS / 20;
     private static final int BACKUP_TICKS = 400;
 
-    // A tier-1 tile carries 1.875 blocks/s; a rider is let off well short of that.
+    // A tier-1 tile's line carries an item 0.09375 blocks a tick: six tiles, a loader and a chest take
+    // it 64 ticks, and a corner or a step takes a little longer; these leave a wide margin.
     private static final BlockPos RIDE_FIRST = new BlockPos(1, 1, 1);
     private static final int RIDE_TILES = 6;
-    private static final int RIDE_TICKS = 40;
-    private static final double RIDE_AT_LEAST = 1.0;
+    private static final int RIDE_TICKS = 120;
 
     // A row east, a corner, then a column south.
     private static final BlockPos CORNER = new BlockPos(4, 1, 1);
-    private static final int CORNER_TICKS = 100;
+    private static final int CORNER_TICKS = 140;
 
     // Two level tiles, a foot, then a top and two level tiles a block up; and the same down.
     private static final BlockPos STEP_RIDE_FIRST = new BlockPos(1, 1, 1);
     private static final int STEP_RIDE_TILES = 6;
     private static final int STEP_RIDE_AT = 3;
-    // Past the step, and short of the line's end, at a tier-1 tile's 1.875 blocks/s.
-    private static final int STEP_RIDE_TICKS = 45;
+    private static final int STEP_RIDE_TICKS = 120;
 
     private BeltTileHandTests() {
     }
@@ -76,14 +76,48 @@ final class BeltTileHandTests {
                 BeltTileHandTests::fillsTheInventory);
         tests.test("a_backed_up_lines_last_tile_held_gives_up_its_items", BACKUP_TICKS + 20 + 20,
                 BeltTileHandTests::lastTileOfABackedUpLine);
-        tests.test("an_item_on_a_tile_rides_it", RIDE_TICKS + 20, BeltTileHandTests::itemRides);
-        tests.test("an_item_on_a_tile_rides_round_a_corner", CORNER_TICKS + 20, BeltTileHandTests::itemRidesRoundACorner);
-        tests.test("an_item_rides_up_a_step", STEP_RIDE_TICKS + 20, helper -> itemRidesAStep(helper, true));
-        tests.test("an_item_rides_down_a_step", STEP_RIDE_TICKS + 20, helper -> itemRidesAStep(helper, false));
+        tests.test("an_item_placed_on_a_tile_joins_its_line_and_reaches_the_far_chest", RIDE_TICKS + 40,
+                BeltTileHandTests::itemJoinsAndArrives);
+        tests.test("an_item_placed_on_a_tile_joins_its_line_and_reaches_the_far_chest_round_a_corner", CORNER_TICKS + 40,
+                BeltTileHandTests::itemJoinsAndArrivesRoundACorner);
+        tests.test("an_item_placed_on_a_tile_joins_its_line_and_reaches_the_far_chest_up_a_step", STEP_RIDE_TICKS + 40,
+                helper -> itemJoinsAndArrivesOverAStep(helper, true));
+        tests.test("an_item_placed_on_a_tile_joins_its_line_and_reaches_the_far_chest_down_a_step", STEP_RIDE_TICKS + 40,
+                helper -> itemJoinsAndArrivesOverAStep(helper, false));
     }
 
-    // Read by height as well as distance: a rider stuck at the foot of a climb has moved east too.
-    private static void itemRidesAStep(GameTestHelper helper, boolean up) {
+    // A line is built on the tick after its tiles are placed, and its head on the one after.
+    private static final int SETTLE_TICKS = 5;
+    // The item is dropped from a little above the tile and joins as it lands.
+    private static final int FALL_TICKS = 15;
+
+    // The item is put on once the line is built. It is gone from the world as soon as the line takes it, and is in
+    // the far chest, alone, when it gets there.
+    private static void arrives(GameTestHelper helper, BlockPos at, BlockPos first, BlockPos chest, int ticks) {
+        ItemEntity[] placed = new ItemEntity[1];
+        helper.startSequence()
+                .thenIdle(SETTLE_TICKS)
+                .thenExecute(() -> placed[0] = rider(helper, at))
+                .thenIdle(FALL_TICKS)
+                .thenExecute(() -> {
+                    ItemEntity item = placed[0];
+                    if (!item.isRemoved()) helper.fail("an item put on a tile is still in the world and did not join its line", first);
+                    var line = helper.getBlockEntity(first, BeltTileBlockEntity.class).line();
+                    if (line == null || line.size() != 1) helper.fail("the tile's line holds " + (line == null ? "no line" : line.size() + " items") + " after the item landed, expected 1", first);
+                })
+                .thenIdle(ticks)
+                .thenExecute(() -> {
+                    int arrived = BeltTileTests.count(BeltTileTests.chest(helper, chest));
+                    if (arrived != 1) helper.fail("the far chest holds " + arrived + " items, expected the 1 that was put on the tile", chest);
+                    var line = helper.getBlockEntity(first, BeltTileBlockEntity.class).line();
+                    if (line != null && line.size() != 0) helper.fail("the line still holds " + line.size() + " items", first);
+                    nothingOnTheGround(helper);
+                })
+                .thenSucceed();
+    }
+
+    // Up or down a step, the item is put on the row's first tile and the row's last tile feeds a loader.
+    private static void itemJoinsAndArrivesOverAStep(GameTestHelper helper, boolean up) {
         List<BlockPos> tiles = new ArrayList<>();
         for (int tile = 0; tile < STEP_RIDE_TILES; tile++) {
             BlockPos at = STEP_RIDE_FIRST.east(tile);
@@ -94,24 +128,10 @@ final class BeltTileHandTests {
             helper.setBlock(at, BeltTileTests.tile(BeltTier.BELT, Direction.EAST));
             tiles.add(at);
         }
-        ItemEntity item = rider(helper, tiles.getFirst());
-        BlockPos last = tiles.getLast();
-        Vec3 end = helper.absoluteVec(last.getBottomCenter());
-        helper.startSequence()
-                .thenIdle(STEP_RIDE_TICKS)
-                .thenExecute(() -> {
-                    Vec3 step = helper.absoluteVec(tiles.get(STEP_RIDE_AT).getBottomCenter());
-                    if (item.getX() < step.x) {
-                        helper.fail("an item riding " + (up ? "up" : "down") + " a step is at x " + item.getX()
-                                + ", short of the step's far side at " + step.x, tiles.get(STEP_RIDE_AT));
-                    }
-                    if (item.getY() < end.y || item.getY() > end.y + 0.6) {
-                        helper.fail("an item ridden " + (up ? "up" : "down") + " a step is at y " + item.getY()
-                                + ", expected on the tiles past it at " + end.y, last);
-                    }
-                    if (Math.abs(item.getZ() - end.z) > 0.2) helper.fail("the rider drifted off the line", last);
-                })
-                .thenSucceed();
+        BlockPos loader = tiles.getLast().east();
+        helper.setBlock(loader, BeltTileTests.loader(BeltTier.BELT, Direction.WEST));
+        helper.setBlock(loader.east(), Blocks.CHEST);
+        arrives(helper, tiles.getFirst(), tiles.getFirst(), loader.east(), STEP_RIDE_TICKS);
     }
 
     private static void fillsTheInventory(GameTestHelper helper) {
@@ -178,27 +198,18 @@ final class BeltTileHandTests {
                 .thenSucceed();
     }
 
-    private static void itemRides(GameTestHelper helper) {
+    private static void itemJoinsAndArrives(GameTestHelper helper) {
         for (int tile = 0; tile < RIDE_TILES; tile++) {
             helper.setBlock(RIDE_FIRST.east(tile), BeltTileTests.tile(BeltTier.BELT, Direction.EAST));
         }
-        ItemEntity item = rider(helper, RIDE_FIRST);
-        double startX = item.getX();
-        double startZ = item.getZ();
-        helper.startSequence()
-                .thenIdle(RIDE_TICKS)
-                .thenExecute(() -> {
-                    double moved = item.getX() - startX;
-                    if (moved < RIDE_AT_LEAST) {
-                        helper.fail("an item on a tier-1 tile moved " + moved + " blocks east in " + RIDE_TICKS
-                                + " ticks, expected at least " + RIDE_AT_LEAST, RIDE_FIRST);
-                    }
-                    if (Math.abs(item.getZ() - startZ) > 0.2) helper.fail("the rider drifted off the line", RIDE_FIRST);
-                })
-                .thenSucceed();
+        BlockPos loader = RIDE_FIRST.east(RIDE_TILES);
+        helper.setBlock(loader, BeltTileTests.loader(BeltTier.BELT, Direction.WEST));
+        helper.setBlock(loader.east(), Blocks.CHEST);
+        arrives(helper, RIDE_FIRST, RIDE_FIRST, loader.east(), RIDE_TICKS);
     }
 
-    private static void itemRidesRoundACorner(GameTestHelper helper) {
+    // A row east, a corner turning south, and a column south that ends in a loader and a chest.
+    private static void itemJoinsAndArrivesRoundACorner(GameTestHelper helper) {
         // Downstream first, since a tile's shape is set when what feeds it is placed.
         for (int tile = 3; tile >= 1; tile--) {
             helper.setBlock(CORNER.south(tile), BeltTileTests.tile(BeltTier.BELT, Direction.SOUTH));
@@ -207,19 +218,9 @@ final class BeltTileHandTests {
         for (int tile = 1; tile <= 2; tile++) {
             helper.setBlock(CORNER.west(tile), BeltTileTests.tile(BeltTier.BELT, Direction.EAST));
         }
-        ItemEntity item = rider(helper, CORNER.west(2));
-        Vec3 corner = helper.absoluteVec(CORNER.getCenter());
-        helper.startSequence()
-                .thenIdle(CORNER_TICKS)
-                .thenExecute(() -> {
-                    if (item.getZ() < corner.z + 0.75) {
-                        helper.fail("an item ridden into a corner is at z " + item.getZ() + ", expected it past the corner southward", CORNER);
-                    }
-                    if (Math.abs(item.getX() - corner.x) > 0.3) {
-                        helper.fail("an item round the corner is at x " + item.getX() + ", off the column at " + corner.x, CORNER);
-                    }
-                })
-                .thenSucceed();
+        helper.setBlock(CORNER.south(4), BeltTileTests.loader(BeltTier.BELT, Direction.NORTH));
+        helper.setBlock(CORNER.south(5), Blocks.CHEST);
+        arrives(helper, CORNER.west(2), CORNER.west(2), CORNER.south(5), CORNER_TICKS);
     }
 
     private static ItemEntity rider(GameTestHelper helper, BlockPos tile) {
@@ -228,7 +229,8 @@ final class BeltTileHandTests {
         // Not cobblestone: tests run side by side, and a neighbour counts the cobblestone lying near it.
         ItemEntity item = new ItemEntity(helper.getLevel(), at.x, at.y, at.z, new ItemStack(Items.STICK));
         item.setDeltaMovement(Vec3.ZERO);
-        item.setNeverPickUp();
+        // Kept from any player nearby, but not never picked up, which a line leaves alone.
+        item.setPickUpDelay(Short.MAX_VALUE - 1);
         helper.getLevel().addFreshEntity(item);
         return item;
     }

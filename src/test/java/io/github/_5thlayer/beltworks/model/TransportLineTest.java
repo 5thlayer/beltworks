@@ -507,6 +507,130 @@ class TransportLineTest {
         assertTrue(Math.abs(taken[0] - 15 * 60) <= 1, "taken " + taken[0]);
     }
 
+    // The entries under a loose item carry it, so what they moved this tick is how far it goes (#92).
+    @ParameterizedTest
+    @CsvSource({"0, 0.01", "0, 0.5", "3, 0.5", "7, 0.99"})
+    void aBackedUpPointMovedNothing(int tile, double offset) {
+        var line = line(8, 1);
+        for (var tick = 0; tick < 20 * 20; tick++) line.tick(() -> "item", item -> false);
+
+        assertEquals(line.capacity(), line.size());
+        assertEquals(0, line.movedAt(tile, offset));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"1, 0, 0.01", "1, 3, 0.5", "2, 7, 0.99", "3, 4, 0.25", "4, 0, 0.5"})
+    void aPointOnAMovingFullLineMovedTheLinesStep(int tier, int tile, double offset) {
+        var line = line(8, tier);
+        for (var tick = 0; tick < 20 * 20; tick++) line.tick(() -> "item", item -> true);
+
+        assertEquals(line.speed(), line.movedAt(tile, offset), 1e-12);
+    }
+
+    // The line stops and runs again, and the point follows it tick by tick.
+    @Test
+    void aPointStopsWithABackedUpLineAndMovesAgainWhenItRuns() {
+        var line = line(8, 1);
+        for (var tick = 0; tick < 20 * 20; tick++) line.tick(() -> "item", item -> false);
+        assertEquals(0, line.movedAt(4, 0.5));
+
+        line.tick(() -> "item", item -> true);
+        assertEquals(line.speed(), line.movedAt(4, 0.5), 1e-12);
+        for (var tick = 0; tick < 20 * 20; tick++) line.tick(() -> "item", item -> false);
+        assertEquals(0, line.movedAt(4, 0.5));
+    }
+
+    // A point no entry overlaps has nothing to rest on, so it reports the line's step: it would join,
+    // and an item never asks this of a tile it could join.
+    @Test
+    void aPointWithNoEntriesUnderItReportsTheLinesStep() {
+        var empty = line(4, 2);
+        var loose = line(8, 1);
+        loose.insert("item", 0, 0.5);
+        for (var tick = 0; tick < 20 * 20; tick++) loose.tick(() -> null, item -> false);
+
+        assertEquals(empty.speed(), empty.movedAt(2, 0.5), 1e-12);
+        assertEquals(1, loose.size());
+        assertEquals(loose.speed(), loose.movedAt(5, 0.5), 1e-12);
+    }
+
+    // A hand is a second end for what is behind it: the entries past it run on, the ones behind back up.
+    @Test
+    void aPointBehindARefusingHandMovedNothingWhileOneThatRunsPastItMovedTheLinesStep() {
+        var line = line(8, 1);
+        for (var tick = 0; tick < 20 * 10; tick++) line.tick(() -> "item", item -> true);
+        var hand = new BeltContents.Hand<String>(TransportLine.handPoint(4), item -> false);
+
+        line.tick(() -> "item", item -> true, hand);
+        assertEquals(line.speed(), line.movedAt(6, 0.5), 1e-12);
+
+        for (var tick = 0; tick < 20 * 10; tick++) line.tick(() -> "item", item -> true, hand);
+        assertEquals(0, line.movedAt(2, 0.5));
+        assertEquals(0, line.movedAt(4, 0.5));
+    }
+
+    // The one ahead stops an entry short of a full step, and that is all an item on it moves.
+    @Test
+    void aPointOnAnEntryStoppedShortByTheOneAheadMovedOnlyTheDistanceItGained() {
+        var line = line(2, 1);
+        line.insert("ahead", 1, 1.0);
+        // 0.01 behind the spacing it will close to, in a tick that moves 0.03125.
+        var behind = 2 - 2 * BeltContents.SPACING - 0.01;
+        line.insert("behind", 1, behind + BeltContents.SPACING / 2 - 1);
+        line.tick(() -> null, item -> false);
+
+        assertNear(List.of(2 - 2 * BeltContents.SPACING, 2 - BeltContents.SPACING), positions(line));
+        assertEquals(0.01, line.movedAt(1, 0.8125), 1e-9);
+        assertEquals(0, line.movedAt(1, 1.0));
+    }
+
+    // An item resting on two entries goes no faster than the slower.
+    @Test
+    void aPointOverTwoEntriesMovedTheLeastOfThem() {
+        var line = line(2, 1);
+        line.insert("ahead", 1, 1.0);
+        line.insert("behind", 1, 1.7 + BeltContents.SPACING / 2 - 1);
+        line.tick(() -> null, item -> false);
+
+        // The one behind closed to a spacing from the one ahead, 0.05 on, and the one ahead sits at the end.
+        assertNear(List.of(2 - 2 * BeltContents.SPACING, 2 - BeltContents.SPACING), positions(line));
+        // 1.8 is within an item of both, and 1.65 of the one behind only.
+        assertEquals(0, line.movedAt(1, 1.8 + BeltContents.SPACING / 2 - 1));
+        assertEquals(0.05, line.movedAt(1, 1.65 + BeltContents.SPACING / 2 - 1), 1e-9);
+    }
+
+    // Held to the tile as an insert is, so an item at a tile's edge reads the entries on that tile.
+    @Test
+    void aPointAtATilesEdgeReadsTheEntriesOnThatTile() {
+        var line = line(4, 1);
+        for (var tick = 0; tick < 20 * 20; tick++) line.tick(() -> "item", item -> false);
+
+        assertEquals(0, line.movedAt(3, 1.0));
+        assertEquals(0, line.movedAt(3, 1.5));
+        assertEquals(0, line.movedAt(0, -0.5));
+    }
+
+    @Test
+    void aPointOnARingMovedTheLinesStepAtTheSeamToo() {
+        var line = new TransportLine<String>(Collections.nCopies(4, BeltTier.of(1)), true);
+        for (var slot = 0; slot < 8; slot++) assertTrue(line.insert("item", 2, slot / 8.0 + 0.0625));
+        line.tick(() -> null, item -> false);
+
+        assertEquals(line.speed(), line.movedAt(2, 0.5), 1e-12);
+        assertEquals(line.speed(), line.movedAt(0, 0.01), 1e-12);
+        assertEquals(line.speed(), line.movedAt(3, 0.99), 1e-12);
+    }
+
+    // What was placed this tick moved nothing in it, however fast the line runs.
+    @Test
+    void aJustInsertedEntryHasNotMoved() {
+        var line = line(4, 1);
+        for (var tick = 0; tick < 5; tick++) line.tick(() -> null, item -> false);
+        line.insert("item", 1, 0.5);
+
+        assertEquals(0, line.movedAt(1, 0.5));
+    }
+
     private static List<Double> positions(TransportLine<?> line) {
         return line.contents().entries().stream().map(BeltContents.Entry::position).sorted().toList();
     }

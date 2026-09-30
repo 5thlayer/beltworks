@@ -92,6 +92,7 @@ public final class BeltContents<T> {
             }
             var moved = Math.min(entry.position + speed, limit);
             changed |= moved != entry.position;
+            entry.moved = moved - entry.position;
             entry.position = moved;
             limit = moved - SPACING;
         }
@@ -101,7 +102,8 @@ public final class BeltContents<T> {
             if (at < 0 || at > length - SPACING) return changed;
             var payload = source.get();
             if (payload == null) return changed;
-            load(payload, at);
+            // Loaded as the line runs, so it counts as moved by the step that brings it on.
+            load(payload, at).moved = speed;
             changed = true;
         }
     }
@@ -113,7 +115,10 @@ public final class BeltContents<T> {
     public boolean cycle(double length, double speed) {
         if (entries.isEmpty()) return false;
         var moved = new ArrayList<>(entries);
-        for (var entry : moved) entry.position = (entry.position + speed) % length;
+        for (var entry : moved) {
+            entry.position = (entry.position + speed) % length;
+            entry.moved = speed;
+        }
         moved.sort(Comparator.comparingDouble(Entry::position));
         entries.clear();
         entries.addAll(moved);
@@ -233,9 +238,11 @@ public final class BeltContents<T> {
      * never looks past its window for room.
      */
     public double dropPlacement(double at, double lower, double upper, double length, boolean ring) {
-        var positions = positions(length, ring);
         var from = Math.max(lower, 0);
         var to = Math.min(upper, length - SPACING);
+        // Only the entries within an item of the window can fill it or abut a place in it, and a
+        // backed-up tile asks every tick it has a loose item on it (#92).
+        var positions = positions(length, ring, from - SPACING, to + SPACING);
         if (fits(at, from, to, positions)) return at;
         var placed = Double.NaN;
         for (var position : positions) {
@@ -244,6 +251,38 @@ public final class BeltContents<T> {
             }
         }
         return placed;
+    }
+
+    /**
+     * How far the entries under an item placed at {@code at} moved in the last {@link #tick}: the
+     * least of those it overlaps, so an item resting on entries never slides past one that
+     * stopped. An entry overlaps it when they are nearer than {@link #SPACING}, as {@link #insertAt}
+     * reads it, so a point where an item would fit overlaps none.
+     *
+     * @param fallback what a point no entry overlaps reports
+     */
+    public double movedAt(double at, double length, boolean ring, double fallback) {
+        var reach = SPACING - GAP_TOLERANCE;
+        var least = Double.POSITIVE_INFINITY;
+        if (ring) {
+            // Positions wrap, so one at a seam also lies a length either side.
+            for (var entry : entries) {
+                for (var position : new double[] {entry.position, entry.position - length, entry.position + length}) {
+                    if (Math.abs(position - at) < reach) least = Math.min(least, entry.moved);
+                }
+            }
+        } else if (!entries.isEmpty()) {
+            // From the nearer end, stopping once past the point, since the entries are in order.
+            var fromHead = at > (entries.peekFirst().position + entries.peekLast().position) / 2;
+            var iterator = fromHead ? entries.descendingIterator() : entries.iterator();
+            while (iterator.hasNext()) {
+                var entry = iterator.next();
+                var apart = entry.position - at;
+                if (fromHead ? apart <= -reach : apart >= reach) break;
+                if (Math.abs(apart) < reach) least = Math.min(least, entry.moved);
+            }
+        }
+        return least == Double.POSITIVE_INFINITY ? fallback : least;
     }
 
     /** Places an entry among the others at this position, as one gained mid-belt, which a copy places by position. */
@@ -275,12 +314,18 @@ public final class BeltContents<T> {
 
     // A ring's positions wrap, so each is also counted a length either side.
     private List<Double> positions(double length, boolean ring) {
+        return positions(length, ring, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
+    }
+
+    // Only the positions in [lower, upper], so a query about one tile does not copy a long line.
+    private List<Double> positions(double length, boolean ring, double lower, double upper) {
         var positions = new ArrayList<Double>();
         for (var entry : entries) {
-            positions.add(entry.position);
+            var position = entry.position;
+            if (position >= lower && position <= upper) positions.add(position);
             if (ring) {
-                positions.add(entry.position - length);
-                positions.add(entry.position + length);
+                if (position - length >= lower && position - length <= upper) positions.add(position - length);
+                if (position + length >= lower && position + length <= upper) positions.add(position + length);
             }
         }
         return positions;
@@ -397,10 +442,11 @@ public final class BeltContents<T> {
         for (var entry : snapshot) restore(entry.payload(), entry.position(), entry.id());
     }
 
-    private void load(T payload, double at) {
+    private Entry<T> load(T payload, double at) {
         var entry = new Entry<>(nextId++, payload, at);
         entries.addFirst(entry);
         added.put(entry.id, entry);
+        return entry;
     }
 
     private void removed(Entry<T> entry) {
@@ -464,6 +510,8 @@ public final class BeltContents<T> {
         private final int id;
         private final T payload;
         private double position;
+        // How far the last tick moved it, which is zero for one just placed.
+        private double moved;
 
         private Entry(int id, T payload, double position) {
             this.id = id;

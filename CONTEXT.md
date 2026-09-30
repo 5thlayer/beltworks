@@ -33,7 +33,7 @@ A run of tiles carrying items from one belt end to another, paid for at one belt
 _Avoid_: conveyor, belt segment, lane
 
 **Tile**:
-One block of belt, placed and broken on its own, facing the way items travel through it: the way the player looks when placing it, turned by any **Rotate the Plan**. It holds eight items and carries them at its tier's speed. A tile fed from exactly one side, with nothing feeding it from behind, is a **corner** and turns the line through one block; otherwise it is straight. Its shape and its **pitch** are derived from its neighbours, never chosen, and re-derived when a neighbour is placed, broken or turned; a corner is always level (ADR 0004).
+One block of belt, placed and broken on its own, facing the way items travel through it: the way the player looks when placing it, turned by any **Rotate the Plan**. It holds eight items and carries them at its tier's speed. An item that lands on a tile, thrown, spilled or dropped from above, joins the tile's line at the point under it when the line has room there, and while it has none rests on the line's items and is carried as far as they move, joining once the point has room and never looking to another tile; a player on a tile rides at the tile's speed. A tile fed from exactly one side, with nothing feeding it from behind, is a **corner** and turns the line through one block; otherwise it is straight. Its shape and its **pitch** are derived from its neighbours, never chosen, and re-derived when a neighbour is placed, broken or turned; a corner is always level (ADR 0004).
 _Avoid_: belt block, conveyor block, segment
 
 **Transport line**:

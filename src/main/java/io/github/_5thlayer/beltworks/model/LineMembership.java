@@ -177,6 +177,17 @@ public final class LineMembership {
             return true;
         }
 
+        /**
+         * How far the items under an item {@code offset} of the way along this tile moved in its
+         * line's last tick, or NaN where no line holds the tile (#92).
+         */
+        public double movedAt(double offset) {
+            var holding = holder();
+            var held = holding == null ? null : holding.line;
+            if (held == null || index >= held.tileCount()) return Double.NaN;
+            return held.movedAt(index, offset);
+        }
+
         /** Marks every chunk of this tile's line as changed, since each saves its own tiles' items. */
         public void lineChanged(World<T, O> world) {
             var holding = holder();

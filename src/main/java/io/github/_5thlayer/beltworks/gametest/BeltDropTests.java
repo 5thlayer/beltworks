@@ -30,6 +30,8 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.FakePlayer;
+import net.neoforged.neoforge.common.util.FakePlayerFactory;
+import io.github._5thlayer.beltworks.collision.BeltCollisionRegistry;
 import io.github._5thlayer.beltworks.blocks.BeltDrop;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
 import io.github._5thlayer.beltworks.model.BeltContents;
@@ -37,13 +39,14 @@ import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.TileShape;
 
 /**
- * Factorio's drop onto a belt, by vanilla's Q (#91). A fake player looks at a point of a tile and
+ * Factorio's drop onto a belt, by vanilla's Q (#91), and an item entity landing on a tile (#92). A fake player looks at a point of a tile and
  * drops through {@code ServerPlayer.drop}, the call both of vanilla's drop actions end in, so the
  * server's own look, range and hit are what decide where the item goes. Each test reads the line,
  * the world's item entities and the inventory before and after. The offsets are typed.
  *
  * <p>Items flow east along z = 1: a chest, a loader, three tiles, a loader and a chest. The player
- * stands south of the line, three blocks off it, looking at a point of a tile.
+ * stands south of the line, three blocks off it, looking at a point of a tile. An item entity
+ * landing is spawned just above a tile's top, at rest, and left to fall.
  */
 final class BeltDropTests {
 
@@ -79,6 +82,24 @@ final class BeltDropTests {
     private static final double ITEM_LENGTH = 0.125;
     // A look is cast in floats, so the point it reaches is this close to the point aimed at.
     private static final double AIM_ERROR = 0.01;
+
+    // Landing: an item entity spawned a hair above a tile's top joins, or rests, within a tick or two.
+    private static final double LANDING_HEIGHT = 0.05;
+    private static final int LANDING_TICKS = 3;
+    private static final int STACK = 5;
+    // A tile holds eight, and a stack of twelve lands with room for less than all of it at once.
+    private static final int LONG_STACK = 12;
+    private static final int LINE_CAPACITY = TILES * 8;
+    // Long enough for a full line to back up behind a full chest.
+    private static final int BACK_UP_TICKS = 150;
+    private static final int STILL_TICKS = 40;
+    private static final int SUPPLY = 27 * 64;
+    private static final int CARRIED_TICKS = 8;
+    // A tier-1 line moves 0.09375 blocks a tick, which is 1.875 blocks a second.
+    private static final double TILE_STEP = 0.09375;
+    private static final double TILE_SPEED = 1.875;
+    private static final double STILL_ERROR = 1e-3;
+    private static final double CARRIED_ERROR = 0.05;
 
     private BeltDropTests() {
     }
@@ -116,6 +137,20 @@ final class BeltDropTests {
                 SETTLE_TICKS + 20, BeltDropTests::throwsBehindABlock);
         tests.test("ctrl_q_aimed_at_a_tile_throws_the_whole_stack_as_vanilla_does",
                 SETTLE_TICKS + 20, BeltDropTests::controlQThrowsTheStack);
+        tests.test("an_item_entity_landed_on_a_tile_with_room_is_gone_within_a_tick_and_the_line_holds_it_until_it_reaches_the_chest",
+                LANDING_TICKS + ARRIVAL_TICKS + 20 + SETTLE_TICKS, BeltDropTests::landsOnAnEmptyTile);
+        tests.test("an_item_entity_nobody_may_pick_up_landed_on_a_tile_with_room_stays_an_entity",
+                SETTLE_TICKS + LANDING_TICKS + 20, BeltDropTests::neverPickedUpStaysAnEntity);
+        tests.test("a_stack_landed_on_a_tile_with_room_joins_the_line_as_one_entry_per_item_and_all_reach_the_chest",
+                SETTLE_TICKS + LANDING_TICKS + ARRIVAL_TICKS + 20, BeltDropTests::stackLandsOnAnEmptyTile);
+        tests.test("a_stack_landed_on_a_tile_with_room_for_part_of_it_rests_until_the_rest_joins_and_nothing_is_lost",
+                SETTLE_TICKS + ARRIVAL_TICKS + 20, BeltDropTests::longStackLandsOnAnEmptyTile);
+        tests.test("an_item_entity_landed_on_a_full_backed_up_line_stands_still_then_joins_once_the_chest_is_drained",
+                SETTLE_TICKS + BACK_UP_TICKS + STILL_TICKS + ARRIVAL_TICKS + 20, BeltDropTests::landsOnABackedUpLine);
+        tests.test("an_item_entity_landed_on_a_full_moving_line_is_carried_with_the_items_under_it",
+                SETTLE_TICKS + BACK_UP_TICKS + CARRIED_TICKS + 20, BeltDropTests::landsOnAMovingLine);
+        tests.test("a_player_on_a_tile_is_carried_at_the_tiles_speed_while_its_line_is_backed_up",
+                SETTLE_TICKS + BACK_UP_TICKS + 20, BeltDropTests::playerIsCarriedAtTheTilesSpeed);
     }
 
     // The middle tile's centre, then three items along a line fed by a loader from an empty chest.
@@ -403,6 +438,223 @@ final class BeltDropTests {
                     if (!player.actionBar.isEmpty()) helper.fail("Ctrl+Q said " + player.actionBar, MIDDLE);
                 })
                 .thenSucceed();
+    }
+
+    // One item spawned just above the middle tile: no room is needed beyond one gap, so it joins.
+    private static void landsOnAnEmptyTile(GameTestHelper helper) {
+        place(helper);
+        ItemEntity[] item = new ItemEntity[1];
+        helper.startSequence()
+                .thenIdle(SETTLE_TICKS)
+                .thenExecute(() -> {
+                    expectLine(helper, 0, "before the landing");
+                    expectItemEntities(helper, 0, "before the landing");
+                    item[0] = land(helper, MIDDLE, 0.5, 1);
+                })
+                .thenIdle(LANDING_TICKS)
+                .thenExecute(() -> {
+                    if (!item[0].isRemoved()) helper.fail("the item entity is still in the world " + LANDING_TICKS + " ticks after landing on a tile with room", MIDDLE);
+                    expectItemEntities(helper, 0, "after the landing");
+                    expectLine(helper, 1, "after the landing");
+                    expectCount(helper, TARGET, 0, "after the landing");
+                })
+                .thenExecuteFor(ARRIVAL_TICKS, () -> expectItemEntities(helper, 0, "while the item rode"))
+                .thenExecute(() -> {
+                    expectCount(helper, TARGET, 1, "after the ride");
+                    expectLine(helper, 0, "after the ride");
+                })
+                .thenSucceed();
+    }
+
+    // Joining a line is a pickup, so an item set never to be picked up, as /give's fake item is, is left alone.
+    private static void neverPickedUpStaysAnEntity(GameTestHelper helper) {
+        place(helper);
+        ItemEntity[] item = new ItemEntity[1];
+        helper.startSequence()
+                .thenIdle(SETTLE_TICKS)
+                .thenExecute(() -> {
+                    item[0] = land(helper, MIDDLE, 0.5, 1);
+                    item[0].setNeverPickUp();
+                })
+                .thenIdle(LANDING_TICKS)
+                .thenExecute(() -> {
+                    if (item[0].isRemoved()) helper.fail("an item nobody may pick up left the world on landing on a tile with room", MIDDLE);
+                    expectLine(helper, 0, "after an item nobody may pick up landed");
+                })
+                .thenSucceed();
+    }
+
+    // Five items on the ground become five entries, one item each, in the one tick there is room for them.
+    private static void stackLandsOnAnEmptyTile(GameTestHelper helper) {
+        place(helper);
+        helper.startSequence()
+                .thenIdle(SETTLE_TICKS)
+                .thenExecute(() -> land(helper, MIDDLE, 0.5, STACK))
+                .thenIdle(LANDING_TICKS)
+                .thenExecute(() -> {
+                    expectItemEntities(helper, 0, "after a stack of " + STACK + " landed");
+                    expectLine(helper, STACK, "after a stack of " + STACK + " landed");
+                    expectCount(helper, TARGET, 0, "after the landing");
+                })
+                .thenExecuteFor(ARRIVAL_TICKS, () -> expectItemEntities(helper, 0, "while the items rode"))
+                .thenExecute(() -> {
+                    expectCount(helper, TARGET, STACK, "after the ride");
+                    expectLine(helper, 0, "after the ride");
+                })
+                .thenSucceed();
+    }
+
+    // A tile holds eight, so what does not fit waits as an entity and joins as the line runs on and leaves room.
+    private static void longStackLandsOnAnEmptyTile(GameTestHelper helper) {
+        place(helper);
+        ItemEntity[] item = new ItemEntity[1];
+        boolean[] rested = new boolean[1];
+        helper.startSequence()
+                .thenIdle(SETTLE_TICKS)
+                .thenExecute(() -> item[0] = land(helper, MIDDLE, 0.5, LONG_STACK))
+                .thenIdle(1)
+                .thenExecute(() -> {
+                    if (item[0].isRemoved()) helper.fail("a stack of " + LONG_STACK + " landed on a tile that holds eight and all of it joined at once", MIDDLE);
+                    rested[0] = true;
+                })
+                .thenExecuteFor(ARRIVAL_TICKS, () -> {
+                    int held = helper.getBlockEntity(MIDDLE, BeltTileBlockEntity.class).line().size();
+                    int resting = itemEntities(helper).stream().mapToInt(entity -> entity.getItem().getCount()).sum();
+                    int arrived = BeltTileTests.count(BeltTileTests.chest(helper, TARGET));
+                    // The one handed on from the line's end to the chest can be in neither for a tick.
+                    int total = held + resting + arrived;
+                    if (total > LONG_STACK || total < LONG_STACK - 1) {
+                        helper.fail("the line holds " + held + ", " + resting + " lie and " + arrived + " arrived, " + total + " of the " + LONG_STACK, MIDDLE);
+                    }
+                })
+                .thenExecute(() -> {
+                    if (!rested[0]) helper.fail("the stack never rested", MIDDLE);
+                    expectItemEntities(helper, 0, "after the ride");
+                    expectCount(helper, TARGET, LONG_STACK, "after the ride");
+                    expectLine(helper, 0, "after the ride");
+                })
+                .thenSucceed();
+    }
+
+    // The source holds what fills the line exactly and the target is full, so the line backs up; once the
+    // target is emptied the line runs dry, and the room that leaves is where the waiting item joins.
+    private static void landsOnABackedUpLine(GameTestHelper helper) {
+        place(helper);
+        BeltTileTests.fill(helper, SOURCE, LINE_CAPACITY);
+        fillTarget(helper);
+        ItemEntity[] item = new ItemEntity[1];
+        double[] at = new double[2];
+        helper.startSequence()
+                .thenIdle(SETTLE_TICKS + BACK_UP_TICKS)
+                .thenExecute(() -> {
+                    expectLine(helper, LINE_CAPACITY, "when backed up");
+                    item[0] = land(helper, MIDDLE, 0.5, 1);
+                })
+                .thenIdle(LANDING_TICKS)
+                .thenExecute(() -> {
+                    if (item[0].isRemoved()) helper.fail("an item landed on a full line and joined it", MIDDLE);
+                    at[0] = item[0].getX();
+                    at[1] = item[0].getZ();
+                    expectLine(helper, LINE_CAPACITY, "after the landing");
+                })
+                .thenExecuteFor(STILL_TICKS, () -> {
+                    if (item[0].isRemoved()) helper.fail("an item resting on a backed-up line was taken while it was full", MIDDLE);
+                    if (Math.abs(item[0].getX() - at[0]) > STILL_ERROR || Math.abs(item[0].getZ() - at[1]) > STILL_ERROR) {
+                        helper.fail("an item resting on a backed-up line moved to " + item[0].getX() + ", " + item[0].getZ()
+                                + " from " + at[0] + ", " + at[1], MIDDLE);
+                    }
+                    expectLine(helper, LINE_CAPACITY, "while the line was stopped");
+                    expectItemEntities(helper, 1, "while the line was stopped");
+                })
+                .thenExecute(() -> {
+                    BeltTileTests.chest(helper, TARGET).clearContent();
+                    if (BeltTileTests.count(BeltTileTests.chest(helper, TARGET)) != 0) helper.fail("the chest was not drained", TARGET);
+                })
+                .thenExecuteFor(ARRIVAL_TICKS, () -> {
+                    if (itemEntities(helper).size() > 1) helper.fail("the landed item was duplicated", MIDDLE);
+                })
+                .thenExecute(() -> {
+                    expectItemEntities(helper, 0, "after the line cleared");
+                    expectLine(helper, 0, "after the line cleared");
+                    expectCount(helper, TARGET, LINE_CAPACITY + 1, "after the line cleared");
+                })
+                .thenSucceed();
+    }
+
+    // The source never runs dry and the target never fills, so the line is full and moving: there is
+    // never room to join, and the item rides as far as the items under it do.
+    private static void landsOnAMovingLine(GameTestHelper helper) {
+        place(helper);
+        BeltTileTests.fill(helper, SOURCE, SUPPLY);
+        ItemEntity[] item = new ItemEntity[1];
+        double[] at = new double[1];
+        helper.startSequence()
+                .thenIdle(SETTLE_TICKS + BACK_UP_TICKS)
+                .thenExecute(() -> {
+                    expectFull(helper, "when full and moving");
+                    item[0] = land(helper, MIDDLE, 0.05, 1);
+                })
+                .thenIdle(LANDING_TICKS)
+                .thenExecute(() -> at[0] = item[0].getX())
+                .thenIdle(CARRIED_TICKS)
+                .thenExecute(() -> {
+                    if (item[0].isRemoved()) helper.fail("an item landed on a full moving line and joined it", MIDDLE);
+                    double carried = item[0].getX() - at[0];
+                    double expected = CARRIED_TICKS * TILE_STEP;
+                    if (Math.abs(carried - expected) > CARRIED_ERROR) {
+                        helper.fail("an item on a full moving line was carried " + carried + " blocks in " + CARRIED_TICKS + " ticks, expected " + expected, MIDDLE);
+                    }
+                    expectFull(helper, "after the carry");
+                })
+                .thenSucceed();
+    }
+
+    // A player is carried by their own client at the tile's speed, never the line's: the registry's
+    // figure for a player on a backed-up line's tile is still the tile's.
+    private static void playerIsCarriedAtTheTilesSpeed(GameTestHelper helper) {
+        place(helper);
+        BeltTileTests.fill(helper, SOURCE, LINE_CAPACITY);
+        fillTarget(helper);
+        ServerPlayer player = FakePlayerFactory.get(helper.getLevel(), new GameProfile(UUID.randomUUID(), "beltworks_rider"));
+        player.setGameMode(GameType.SURVIVAL);
+        helper.startSequence()
+                .thenIdle(SETTLE_TICKS + BACK_UP_TICKS)
+                .thenExecute(() -> {
+                    expectLine(helper, LINE_CAPACITY, "when backed up");
+                    Vec3 at = helper.absoluteVec(onTile(MIDDLE, 0.5, 0.5));
+                    player.setPos(at.x, at.y, at.z);
+                    double local = helper.getBlockEntity(MIDDLE, BeltTileBlockEntity.class).movedAt(0.5);
+                    if (local != 0) helper.fail("the line's items under the player moved " + local + ", so the line is not stopped", MIDDLE);
+                    double speed = BeltCollisionRegistry.carrySpeed(helper.getLevel(), player);
+                    if (Double.isNaN(speed) || Math.abs(speed - TILE_SPEED) > 1e-9) {
+                        helper.fail("a belt under a player carries them at " + speed + " blocks a second, expected " + TILE_SPEED, MIDDLE);
+                    }
+                    expectLine(helper, LINE_CAPACITY, "with a player on the tile");
+                    expectItemEntities(helper, 0, "with a player on the tile");
+                })
+                .thenSucceed();
+    }
+
+    /** A stack of sticks spawned at rest just above a tile, {@code east} of the way across it, to fall onto it. */
+    private static ItemEntity land(GameTestHelper helper, BlockPos tile, double east, int count) {
+        Vec3 at = helper.absoluteVec(new Vec3(tile.getX() + east, TILE_TOP + LANDING_HEIGHT, tile.getZ() + 0.5));
+        ItemEntity item = new ItemEntity(helper.getLevel(), at.x, at.y, at.z, new ItemStack(Items.STICK, count));
+        item.setDeltaMovement(Vec3.ZERO);
+        // Kept from any player nearby, but not never picked up, which a line leaves alone.
+        item.setPickUpDelay(Short.MAX_VALUE - 1);
+        helper.getLevel().addFreshEntity(item);
+        return item;
+    }
+
+    // A moving line's head comes a tick after it loads, so it holds one item short of a backed-up line's.
+    private static void expectFull(GameTestHelper helper, String when) {
+        int held = helper.getBlockEntity(MIDDLE, BeltTileBlockEntity.class).line().size();
+        if (held < LINE_CAPACITY - 1) helper.fail("the line holds " + held + " items " + when + ", expected it full at " + LINE_CAPACITY, MIDDLE);
+    }
+
+    private static void fillTarget(GameTestHelper helper) {
+        var target = BeltTileTests.chest(helper, TARGET);
+        for (int slot = 0; slot < target.getContainerSize(); slot++) target.setItem(slot, new ItemStack(Items.DIRT, 64));
     }
 
     /** A chest behind an east-facing loader, three tiles, a west-facing loader and a chest, with nothing in the source. */
