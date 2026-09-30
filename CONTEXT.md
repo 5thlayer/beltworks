@@ -19,8 +19,8 @@ The library mod for mass placement and **Dismantle**, for the Mod and the Pack a
 _Avoid_: placementpreview (its old name), preview lib, the renderer, Groundwork
 
 **the Pack**:
-PlanetaryFactory, the modpack that is the Mod's first consumer. Its repo is adamico/planetary-factory, checked out at `~/curseforge/Instances/PlanetaryFactory`.
-_Avoid_: the modpack, PF
+FactoryWorks, the modpack that is the Mod's first consumer. Its repo is 5thlayer/factoryworks, checked out at `~/curseforge/Instances/FactoryWorks`. Formerly PlanetaryFactory, at adamico/planetary-factory, whose issue links still redirect.
+_Avoid_: the modpack, PF, PlanetaryFactory (its old name)
 
 **Proving set**:
 The inventories the Mod is checked against before a release to show that it works with any tech mod: vanilla's containers and each tech mod the Mod names. A tech mod joins once it ships a build for the Mod's Minecraft version.
