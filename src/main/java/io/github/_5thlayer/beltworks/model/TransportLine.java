@@ -94,6 +94,19 @@ public final class TransportLine<T> {
     }
 
     /**
+     * Takes an item dropped onto this tile of the line, {@code offset} of the way along it, or into
+     * the tile's nearest gap when that point is taken, and answers false when the tile has none. It
+     * never reaches another tile and never moves an entry, so the line's spacing holds (#91).
+     *
+     * <p>{@code offset} is where the item's centre is, as {@link TileShape#point} reads it, and a
+     * centred one, {@code 0.5}, is {@link #sideLoad}'s place. A side-load abuts an entry before it
+     * takes a free point, so that a ring loaded from its side fills, and a drop does not.
+     */
+    public boolean insert(T payload, int tile, double offset) {
+        return contents.insertAt(payload, tile, tile + offset - BeltContents.SPACING / 2, length(), ring);
+    }
+
+    /**
      * Takes the frontmost item on this tile of the line that {@code wanted} accepts, for a feeder's
      * head; the line runs on past the gap it leaves.
      */

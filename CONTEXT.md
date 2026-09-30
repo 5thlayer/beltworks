@@ -56,6 +56,10 @@ _Avoid_: upgrade item
 Holding the use key on a belt piece with anything but a belt piece in hand: the holder takes the items reaching the aimed point at the belt's rate, while what was already past it runs on. On a tile the whole tile is aimed at. A full inventory stops taking and lets the belt run on, losing nothing. The hand is one holder's at a time: the latest holder takes it over, and it ends when they let go or leave.
 _Avoid_: grab, pick up from belt
 
+**Drop onto a belt**:
+Vanilla's drop key, aimed at a **tile** within the player's own block interaction range: one item from the selected slot goes into the tile's **transport line** at the aimed point, projected along the tile's travel and onto the arc on a corner, and nothing is thrown. A point already taken goes to the nearest gap on the same tile, never another tile, and never moves an item already there. A tile with no gap refuses: the slot keeps its item and the action bar says why. Aimed at anything else, or dropping the whole stack, it is vanilla's throw. Factorio's `Z` onto a belt.
+_Avoid_: throw onto belt, belt insert
+
 ### Climbing
 
 **Pitch**:

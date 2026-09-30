@@ -316,6 +316,14 @@ public class BeltTileBlockEntity extends BlockEntity {
         return membership.sideLoad(item, from == null ? null : from.membership, world);
     }
 
+    /**
+     * Puts an item dropped onto this tile into its line, {@code offset} of the way along the tile or
+     * in the nearest gap on it, answering whether the tile had room (#91).
+     */
+    public boolean dropOnto(ItemStack item, double offset) {
+        return level != null && membership.insert(item, offset, world);
+    }
+
     private @Nullable BeltEndBlockEntity loaderAt(BlockPos pos, Direction facing) {
         if (level == null || !level.isLoaded(pos)) return null;
         var loader = level.getBlockEntity(pos, BlockEntitiesContent.BELT_END.get()).orElse(null);

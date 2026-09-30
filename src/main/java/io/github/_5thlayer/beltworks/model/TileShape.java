@@ -88,6 +88,22 @@ public enum TileShape {
           sin * travel.z() - cos * side.z());
     }
 
+    /**
+     * How far along a tile of this shape the point {@code (x, z)}, from the tile's centre, is: the
+     * inverse of {@link #point}, in {@code [0, 1]}. On a corner it is the point's angle about the
+     * block corner the arc turns about, so a point inside or outside the arc lands on the offset
+     * nearest it, and a point beyond the tile lands on its near end (#91).
+     */
+    public double project(double x, double z, LineScan.Travel travel) {
+        if (this == STRAIGHT) return Math.clamp(0.5 + x * travel.x() + z * travel.z(), 0, 1);
+        var side = this == FROM_LEFT ? left(travel) : right(travel);
+        var fromX = x - 0.5 * (side.x() + travel.x());
+        var fromZ = z - 0.5 * (side.z() + travel.z());
+        // The arc is at (-cos, -sin) of this radius on (travel, side), so the angle is that of the negated components.
+        var angle = Math.atan2(-(fromX * side.x() + fromZ * side.z()), -(fromX * travel.x() + fromZ * travel.z()));
+        return Math.clamp(angle / (Math.PI / 2), 0, 1);
+    }
+
     /** A point on a tile, from its centre, and the unit heading of an item there. */
     public record Point(double x, double z, double headingX, double headingZ) {
     }

@@ -279,6 +279,199 @@ class TransportLineTest {
         assertEquals(64, ring.size());
     }
 
+    // A drop onto a belt puts the item where it is aimed, which is centre of the item at the offset (#91).
+    @Test
+    void anInsertOntoAnEmptyTileLandsAtTheAim() {
+        var line = line(4, 1);
+
+        assertTrue(line.insert("dropped", 2, 0.75));
+
+        assertNear(List.of(2.75 - BeltContents.SPACING / 2), positions(line));
+    }
+
+    @Test
+    void anInsertAtTheMiddleIsWhereASideLoadLands() {
+        var inserted = line(4, 1);
+        var sideLoaded = line(4, 1);
+
+        assertTrue(inserted.insert("item", 2, 0.5));
+        assertTrue(sideLoaded.sideLoad("item", 2));
+
+        assertEquals(positions(sideLoaded), positions(inserted));
+    }
+
+    // Aimed past the edge of the tile, the item rests at the nearest place it is still on the tile.
+    @ParameterizedTest
+    @CsvSource({"0, 2.0", "0.03, 2.0", "1, 2.875", "0.97, 2.875"})
+    void anInsertAimedAtATilesEdgeRestsOnThatTile(double offset, double position) {
+        var line = line(4, 1);
+
+        assertTrue(line.insert("item", 2, offset));
+
+        assertNear(List.of(position), positions(line));
+    }
+
+    @Test
+    void anInsertAimedFurtherAlongLandsFurtherAlong() {
+        var upstream = line(4, 1);
+        var downstream = line(4, 1);
+
+        assertTrue(upstream.insert("item", 1, 0.25));
+        assertTrue(downstream.insert("item", 1, 0.75));
+
+        assertTrue(positions(downstream).getFirst() > positions(upstream).getFirst());
+    }
+
+    // The aimed point is taken, so the item goes to the nearest free place on the tile, abutting the entry.
+    @Test
+    void anInsertAimedAtATakenPointGoesToTheNearestGapOnTheTile() {
+        var line = line(4, 1);
+        assertTrue(line.insert("first", 2, 0.5));
+        var first = 2.5 - BeltContents.SPACING / 2;
+
+        assertTrue(line.insert("second", 2, 0.55));
+
+        assertNear(List.of(first, first + BeltContents.SPACING), positions(line));
+    }
+
+    @Test
+    void anInsertAimedJustBehindATakenPointGoesBehindIt() {
+        var line = line(4, 1);
+        assertTrue(line.insert("first", 2, 0.5));
+        var first = 2.5 - BeltContents.SPACING / 2;
+
+        assertTrue(line.insert("second", 2, 0.45));
+
+        assertNear(List.of(first - BeltContents.SPACING, first), positions(line));
+    }
+
+    @Test
+    void anInsertNeverMovesAnEntry() {
+        var line = line(4, 1);
+        for (var offset : new double[] {0.1, 0.3, 0.5, 0.52, 0.9}) line.insert("item", 2, offset);
+        var before = positions(line);
+
+        var inserted = line.insert("late", 2, 0.4);
+
+        assertTrue(inserted);
+        assertTrue(positions(line).containsAll(before), "an entry moved: " + before + " then " + positions(line));
+        assertEquals(before.size() + 1, line.size());
+    }
+
+    @Test
+    void anInsertNeverBreaksTheLinesSpacing() {
+        var line = line(4, 1);
+        for (var attempt = 0; attempt < 40; attempt++) line.insert("item", 2, attempt * 0.0251 % 1);
+
+        assertSpaced(positions(line));
+        assertEquals(8, line.size());
+    }
+
+    // A tile holds eight, and a tile with none of them free refuses rather than spill onto the next.
+    @Test
+    void anInsertIntoAFullTileIsRefusedAndAddsNothing() {
+        var line = line(4, 1);
+        for (var slot = 0; slot < 8; slot++) assertTrue(line.insert("item", 2, slot / 8.0 + 0.0625));
+        var before = positions(line);
+
+        assertEquals(8, line.size());
+        assertTrue(!line.insert("late", 2, 0.5));
+        assertTrue(!line.insert("late", 2, 0.01));
+        assertTrue(!line.insert("late", 2, 0.99));
+        assertEquals(before, positions(line));
+    }
+
+    // Loose entries packed across the tile can leave no room for a whole item between them.
+    @Test
+    void anInsertIntoATileWhoseGapsAreTooSmallIsRefused() {
+        var line = line(4, 1);
+        for (var position : new double[] {0.0, 0.2, 0.4, 0.6, 0.8}) {
+            assertTrue(line.insert("item", 2, position + BeltContents.SPACING / 2));
+        }
+        // Five entries 0.2 apart: every gap between them is 0.075, short of the 0.125 an item needs.
+        var before = positions(line);
+
+        assertNear(List.of(2.0, 2.2, 2.4, 2.6, 2.8), before);
+        assertTrue(!line.insert("late", 2, 0.5));
+        assertEquals(before, positions(line));
+    }
+
+    @Test
+    void anInsertNeverGoesToAnotherTile() {
+        var line = line(4, 1);
+        for (var slot = 0; slot < 8; slot++) assertTrue(line.insert("item", 2, slot / 8.0 + 0.0625));
+
+        assertTrue(!line.insert("late", 2, 0.99));
+        assertTrue(positions(line).stream().allMatch(position -> position >= 2 && position <= 2.875), positions(line).toString());
+    }
+
+    // An entry at the front edge of the next tile still takes the room an item's length behind it.
+    @Test
+    void anInsertKeepsASpacingFromAnEntryOnTheNextTile() {
+        var line = line(4, 1);
+        assertTrue(line.insert("next", 3, 0.0));
+
+        assertTrue(line.insert("late", 2, 1.0));
+        assertTrue(line.insert("later", 2, 1.0));
+
+        assertNear(List.of(3.0 - 2 * BeltContents.SPACING, 3.0 - BeltContents.SPACING, 3.0), positions(line));
+    }
+
+    @Test
+    void anInsertIntoABackedUpLineWithRoomOnTheTileLandsInTheRoom() {
+        var line = line(4, 1);
+        // Backed up against a blocked end, the line holds 32 and has no room anywhere.
+        for (var tick = 0; tick < 20 * 20; tick++) line.tick(() -> "item", item -> false);
+        assertEquals(32, line.size());
+        var taken = line.contents().take(2, 3, item -> true);
+        assertEquals(2.875, taken.position(), 1e-9);
+
+        assertTrue(line.insert("dropped", 2, 0.1));
+        assertEquals(32, line.size());
+        assertTrue(!line.insert("again", 2, 0.1));
+    }
+
+    @Test
+    void anInsertOnARingTakesTheAimAndNeverMovesAnEntry() {
+        var ring = new TransportLine<String>(Collections.nCopies(8, BeltTier.of(1)), true);
+        assertTrue(ring.insert("a", 3, 0.5));
+        var at = positions(ring);
+
+        assertNear(List.of(3.5 - BeltContents.SPACING / 2), at);
+        assertTrue(ring.insert("b", 3, 0.5));
+        assertTrue(positions(ring).containsAll(at));
+        assertEquals(2, ring.size());
+    }
+
+    @Test
+    void anInsertOnARingKeepsTheSpacingAndNeverExceedsEightATile() {
+        var ring = new TransportLine<Integer>(Collections.nCopies(8, BeltTier.of(1)), true);
+        var placed = 0;
+
+        for (var attempt = 0; attempt < 40; attempt++) {
+            if (ring.insert(attempt, 7, attempt * 0.0251 % 1)) placed++;
+        }
+
+        assertEquals(placed, ring.size());
+        assertTrue(placed <= 8);
+        assertSpacedOnARing(ring.contents().entries().stream().map(BeltContents.Entry::position).sorted().toList(), 8);
+    }
+
+    // The last tile of a ring sits beside its first, so entries wrap past the seam and count there.
+    @Test
+    void anInsertOnTheFirstTileOfARingKeepsASpacingFromTheLastTilesEntries() {
+        var ring = new TransportLine<String>(Collections.nCopies(8, BeltTier.of(1)), true);
+        assertTrue(ring.insert("last", 7, 1.0));
+        var last = 8 - BeltContents.SPACING;
+
+        assertTrue(ring.insert("first", 0, 0.0));
+
+        var positions = positions(ring);
+        assertNear(List.of(0.0, last), positions);
+        assertTrue(ring.insert("between", 0, 0.05));
+        assertNear(List.of(0.0, BeltContents.SPACING, last), positions(ring));
+    }
+
     // A hand on a tile takes whatever is on it, so its point is the tile's front (#396).
     @Test
     void aHandsPointIsItsTilesFront() {
@@ -312,6 +505,30 @@ class TransportLineTest {
         for (var tick = 0; tick < 20 * 60; tick++) line.tick(() -> "item", item -> false, hand);
 
         assertTrue(Math.abs(taken[0] - 15 * 60) <= 1, "taken " + taken[0]);
+    }
+
+    private static List<Double> positions(TransportLine<?> line) {
+        return line.contents().entries().stream().map(BeltContents.Entry::position).sorted().toList();
+    }
+
+    private static void assertNear(List<Double> expected, List<Double> actual) {
+        assertEquals(expected.size(), actual.size(), "expected " + expected + " but was " + actual);
+        for (var index = 0; index < expected.size(); index++) {
+            assertEquals(expected.get(index), actual.get(index), 1e-9, "expected " + expected + " but was " + actual);
+        }
+    }
+
+    private static void assertSpaced(List<Double> sorted) {
+        for (var index = 1; index < sorted.size(); index++) {
+            assertTrue(sorted.get(index) - sorted.get(index - 1) >= BeltContents.SPACING - 1e-9, "spacing broken in " + sorted);
+        }
+    }
+
+    private static void assertSpacedOnARing(List<Double> sorted, double length) {
+        assertSpaced(sorted);
+        if (sorted.size() > 1) {
+            assertTrue(sorted.getFirst() + length - sorted.getLast() >= BeltContents.SPACING - 1e-9, "seam spacing broken in " + sorted);
+        }
     }
 
     private static double positionOf(TransportLine<Integer> line, int payload) {

@@ -165,6 +165,18 @@ public final class LineMembership {
             return true;
         }
 
+        /**
+         * Puts an item dropped onto this tile into its line, {@code offset} of the way along the
+         * tile or in its nearest gap, answering whether the tile had one (#91).
+         */
+        public boolean insert(T payload, double offset, World<T, O> world) {
+            var holding = holder();
+            var fed = holding == null ? null : holding.line;
+            if (fed == null || index >= fed.tileCount() || !fed.insert(payload, index, offset)) return false;
+            lineChanged(world);
+            return true;
+        }
+
         /** Marks every chunk of this tile's line as changed, since each saves its own tiles' items. */
         public void lineChanged(World<T, O> world) {
             var holding = holder();

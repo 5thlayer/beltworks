@@ -7,6 +7,7 @@
   "message.beltworks.rotate_slope": "A belt on a slope cannot be turned: it would break the climb.",
   "message.beltworks.rotate_splitter": "A splitter cannot be turned in place.",
   "block.beltworks.belt_wedge": "Belt wedge",
+  "message.beltworks.drop_full": "That belt has no room there.",
   "message.beltworks.dismantle_off_line": "That is not a tile of the line the dismantle started on.",
   "message.beltworks.filter_set": "Item Filter Set",
   "message.beltworks.filter_reset": "Item Filter Reset",

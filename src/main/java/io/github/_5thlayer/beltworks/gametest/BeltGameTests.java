@@ -69,6 +69,7 @@ public final class BeltGameTests {
         BeltWedgeTests.register(tests);
         BeltTileSyncTests.register(tests);
         BeltTileHandTests.register(tests);
+        BeltDropTests.register(tests);
         BeltFilterTests.register(tests);
         LoaderMouthTests.register(tests);
         SplitterTileTests.register(tests);

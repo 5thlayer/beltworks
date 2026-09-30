@@ -8,7 +8,8 @@
   ],
   "mixins": [
     "EntityCollisionMixin",
-    "ServerLevelUpdateMixin"
+    "ServerLevelUpdateMixin",
+    "ServerPlayerDropMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -4,8 +4,11 @@
 package io.github._5thlayer.beltworks.model;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -355,5 +358,52 @@ class TileShapeTest {
         near(0, start.x());
         near(0.5, start.z());
         near(-1, start.headingZ());
+    }
+
+    // Where a drop is aimed, projected back onto the line: the inverse of point() (#91).
+    @Test
+    void aPointOnAStraightTileProjectsAlongItsTravel() {
+        near(0, TileShape.STRAIGHT.project(-0.5, 0.3, EAST));
+        near(0.25, TileShape.STRAIGHT.project(-0.25, -0.4, EAST));
+        near(1, TileShape.STRAIGHT.project(0.5, 0, EAST));
+        near(0.25, TileShape.STRAIGHT.project(0.25, 0.1, new LineScan.Travel(-1, 0)));
+        near(0.75, TileShape.STRAIGHT.project(0.3, 0.25, SOUTH));
+        near(0.75, TileShape.STRAIGHT.project(-0.1, -0.25, NORTH));
+    }
+
+    @Test
+    void aPointOutsideATileProjectsOntoItsEnds() {
+        near(0, TileShape.STRAIGHT.project(-2, 0, EAST));
+        near(1, TileShape.STRAIGHT.project(2, 0, EAST));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = TileShape.class, names = {"FROM_LEFT", "FROM_RIGHT"})
+    void aPointOnACornersArcProjectsToItsOwnOffset(TileShape corner) {
+        for (var travel : List.of(EAST, NORTH, SOUTH, new LineScan.Travel(-1, 0))) {
+            for (var offset = 0.0; offset <= 1.0; offset += 0.125) {
+                var on = corner.point(offset, travel);
+
+                near(offset, corner.project(on.x(), on.z(), travel));
+            }
+        }
+    }
+
+    // A corner's arc turns about the block's corner the line enters beside: aimed inside or outside the arc,
+    // along the same radius, the point is the same distance along the line.
+    @Test
+    void aPointOffACornersArcProjectsAlongItsRadius() {
+        var on = TileShape.FROM_LEFT.point(0.5, EAST);
+        // Its centre is (0.5, -0.5); push the point twice as far from it along the radius.
+        var x = 0.5 + (on.x() - 0.5) * 1.6;
+        var z = -0.5 + (on.z() + 0.5) * 1.6;
+
+        near(0.5, TileShape.FROM_LEFT.project(x, z, EAST));
+        near(0.5, TileShape.FROM_LEFT.project(0.5 + (on.x() - 0.5) * 0.3, -0.5 + (on.z() + 0.5) * 0.3, EAST));
+    }
+
+    @Test
+    void aPointAtACornersCentreProjectsToItsEntry() {
+        near(0, TileShape.FROM_LEFT.project(0.5, -0.5, EAST));
     }
 }

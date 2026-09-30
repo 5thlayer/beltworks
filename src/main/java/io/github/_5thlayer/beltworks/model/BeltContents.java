@@ -212,6 +212,22 @@ public final class BeltContents<T> {
     }
 
     /**
+     * Places an entry dropped onto a tile spanning {@code [from, from + 1)} at {@code at}, or at the
+     * nearest gap on the tile when that is taken, and never on another tile. Unlike {@link #insert}
+     * it keeps the point it is aimed at whenever there is room for it, and never moves an entry.
+     * A ring's positions wrap.
+     *
+     * @return whether the tile had a gap for it
+     */
+    public boolean insertAt(T payload, double from, double at, double length, boolean ring) {
+        var upper = Math.min(from + 1, length) - SPACING;
+        var placed = dropPlacement(Math.clamp(at, from, upper), from, upper, length, ring);
+        if (Double.isNaN(placed)) return false;
+        place(payload, placed);
+        return true;
+    }
+
+    /**
      * Where an entry dropped at {@code at} goes: there when it has room, else the nearest spot within
      * {@code [lower, upper]} abutting an entry, or NaN when there is no gap. Unlike {@link #insert}, it
      * never looks past its window for room.
