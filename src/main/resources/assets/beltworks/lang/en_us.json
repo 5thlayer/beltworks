@@ -86,5 +86,6 @@
   "screen.beltworks.splitter.left": "Left",
   "screen.beltworks.splitter.right": "Right",
   "screen.beltworks.splitter.side": "Output priority side",
-  "screen.beltworks.splitter.input_side": "Input priority side"
+  "screen.beltworks.splitter.input_side": "Input priority side",
+  "screen.beltworks.splitter.filter": "Filter"
 }

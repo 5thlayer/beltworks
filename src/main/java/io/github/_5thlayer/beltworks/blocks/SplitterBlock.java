@@ -7,8 +7,12 @@ package io.github._5thlayer.beltworks.blocks;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -34,7 +38,6 @@ import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.Support;
 
 import java.util.Locale;
-import java.util.function.Consumer;
 
 /**
  * One half of a splitter, two blocks wide across its {@link #FACING}, which is the way items flow.
@@ -46,12 +49,11 @@ public class SplitterBlock extends BeltEndBlock implements TurnsInPlace {
 
     public static final EnumProperty<Side> SIDE = EnumProperty.create("side", Side.class);
 
+    /** The title of a splitter's screen. */
+    public static final String TITLE = "screen.beltworks.splitter";
+
     /** Why a splitter half is not turned in place. */
     public static final String NOT_TURNED = "message.beltworks.rotate_splitter";
-
-    /** Opens a splitter's screen for the half at a position; set by the client, a no-op on a server. */
-    public static Consumer<BlockPos> openScreen = pos -> {
-    };
 
     // A tile's slab, with the divider on top (PlanetaryFactory #394).
     private static final VoxelShape SHAPE = Shapes.box(0, 0, 0, 1, 8 / 16d, 1);
@@ -136,8 +138,16 @@ public class SplitterBlock extends BeltEndBlock implements TurnsInPlace {
         if (!player.isShiftKeyDown() || !(level.getBlockState(pos).getBlock() instanceof SplitterBlock)) return InteractionResult.PASS;
         var tool = BeltFamily.INSTANCE.acceptsTool(held, BlockContent.BELT_TILE.get().defaultBlockState()) && !Dismantles.hasStored(held);
         if (!held.isEmpty() && !tool) return InteractionResult.PASS;
-        if (level.isClientSide()) openScreen.accept(pos);
+        // The server opens the menu, which brings the client's screen (#22).
+        if (player instanceof ServerPlayer server) {
+            server.openMenu(menuProvider(pos), data -> data.writeBlockPos(pos));
+        }
         return InteractionResult.SUCCESS;
+    }
+
+    /** The menu of the splitter one half of which is at {@code pos}. */
+    public static MenuProvider menuProvider(BlockPos pos) {
+        return new SimpleMenuProvider((id, inventory, who) -> new SplitterMenu(id, inventory, pos), Component.translatable(TITLE));
     }
 
     // The other half is removed without a player, which would drop its belts' refund on the ground (#346).

@@ -6,7 +6,7 @@ package io.github._5thlayer.beltworks.client;
 
 import io.github._5thlayer.beltworks.Beltworks;
 import io.github._5thlayer.beltworks.BlockEntitiesContent;
-import io.github._5thlayer.beltworks.blocks.SplitterBlock;
+import io.github._5thlayer.beltworks.MenuContent;
 import io.github._5thlayer.beltworks.client.renderers.BeltTileRenderer;
 import io.github._5thlayer.beltworks.client.renderers.FeederRenderer;
 import io.github._5thlayer.beltworks.collision.BeltCollisionRegistry;
@@ -20,6 +20,7 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
+import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
@@ -32,11 +33,11 @@ public final class BeltworksClient {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         eventBus.addListener(BeltworksClient::registerRenderers);
         eventBus.addListener(FeederReachKeys::onRegisterKeys);
+        eventBus.addListener(BeltworksClient::registerScreens);
         NeoForge.EVENT_BUS.addListener(FeederReachKeys::onClientTick);
         NeoForge.EVENT_BUS.addListener(BeltHandClient::tick);
         NeoForge.EVENT_BUS.addListener(BeltHandClient::interact);
         BeltPreviews.register();
-        SplitterBlock.openScreen = SplitterScreen::open;
     }
 
     /** Runs at the start of each client level tick, before its entities move. */
@@ -44,6 +45,10 @@ public final class BeltworksClient {
         var player = Minecraft.getInstance().player;
         if (player != null) BeltCollisionRegistry.moveLocalPlayer(level, player);
         TileLines.tick(level);
+    }
+
+    private static void registerScreens(RegisterMenuScreensEvent event) {
+        event.register(MenuContent.SPLITTER.get(), SplitterScreen::new);
     }
 
     private static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {

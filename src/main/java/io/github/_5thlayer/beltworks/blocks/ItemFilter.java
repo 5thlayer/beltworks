@@ -15,6 +15,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.neoforged.fml.ModList;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The item a loader or a feeder moves and nothing else: set by clicking it with the item, cleared
@@ -30,15 +31,24 @@ public final class ItemFilter {
     }
 
     public boolean matches(Level level, ItemStack stack) {
-        if (item.isEmpty()) return true;
+        return matches(level, item, stack);
+    }
 
-        if (ModList.get().isLoaded("ftbfiltersystem")) {
+    /**
+     * The one rule a loader's filter and a splitter's share: an empty filter matches everything, a
+     * smart filter matches what it does, and any other item matches its own item. With no level,
+     * as before a splitter's is loaded, a smart filter cannot be asked and matches by item.
+     */
+    public static boolean matches(@Nullable Level level, ItemStack filter, ItemStack stack) {
+        if (filter.isEmpty()) return true;
+
+        if (level != null && ModList.get().isLoaded("ftbfiltersystem")) {
             var filterAPI = FTBFilterSystemAPI.api();
-            if (filterAPI.isFilterItem(item))
-                return filterAPI.doesFilterMatch(item, stack, level.registryAccess());
+            if (filterAPI.isFilterItem(filter))
+                return filterAPI.doesFilterMatch(filter, stack, level.registryAccess());
         }
 
-        return stack.getItem().equals(item.getItem());
+        return stack.getItem().equals(filter.getItem());
     }
 
     /** Sets the filter to the stack, or clears it when the stack is empty, and tells the player. */

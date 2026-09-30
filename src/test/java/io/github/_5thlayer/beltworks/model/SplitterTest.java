@@ -167,6 +167,93 @@ class SplitterTest {
         assertEquals(0, right.delivered);
     }
 
+    @Test
+    void aFilterSendsWhatItMatchesToThePrioritySideAndTheRestToTheOther() {
+        var line = new Line();
+        var a = line.fedAt(BeltTier.BELT, 5.0 / 20);
+        var b = line.fedAt(BeltTier.BELT, 5.0 / 20);
+        var left = line.drained(BeltTier.BELT);
+        var right = line.drained(BeltTier.BELT);
+        var splitter = line.splitter(BeltTier.BELT, a, b, left, right).splitter;
+        splitter.outputPriority(Splitter.Priority.LEFT);
+        splitter.filter("0"::equals);
+
+        line.run(MINUTE);
+        line.resetCounts();
+        line.run(MINUTE);
+
+        assertEquals(5 * 60, left.from("0"), 1);
+        assertEquals(0, left.from("1"));
+        assertEquals(5 * 60, right.from("1"), 1);
+        assertEquals(0, right.from("0"));
+    }
+
+    @Test
+    void aFilteredItemWaitsWhenItsSideIsBackedUp() {
+        var line = new Line();
+        var in = line.fed(BeltTier.BELT);
+        var blocked = line.blocked(BeltTier.BELT);
+        var free = line.drained(BeltTier.BELT);
+        var splitter = line.splitter(BeltTier.BELT, in, null, blocked, free).splitter;
+        splitter.outputPriority(Splitter.Priority.LEFT);
+        splitter.filter("0"::equals);
+
+        line.run(2 * MINUTE);
+
+        assertEquals(0, free.delivered);
+    }
+
+    @Test
+    void anUnfilteredItemWaitsWhenTheOtherSideIsBackedUp() {
+        var line = new Line();
+        var in = line.fed(BeltTier.BELT);
+        var free = line.drained(BeltTier.BELT);
+        var blocked = line.blocked(BeltTier.BELT);
+        var splitter = line.splitter(BeltTier.BELT, in, null, free, blocked).splitter;
+        splitter.outputPriority(Splitter.Priority.LEFT);
+        splitter.filter("other"::equals);
+
+        line.run(2 * MINUTE);
+
+        assertEquals(0, free.delivered);
+    }
+
+    @Test
+    void aBlockedHeadHoldsItsLaneWhileTheOtherInputStillFlows() {
+        var line = new Line();
+        var stuck = line.fed(BeltTier.BELT);
+        var flowing = line.fed(BeltTier.BELT);
+        var blocked = line.blocked(BeltTier.BELT);
+        var free = line.drained(BeltTier.BELT);
+        var splitter = line.splitter(BeltTier.BELT, stuck, flowing, blocked, free).splitter;
+        splitter.outputPriority(Splitter.Priority.LEFT);
+        splitter.inputPriority(Splitter.Priority.LEFT);
+        splitter.filter("0"::equals);
+
+        line.run(MINUTE);
+        line.resetCounts();
+        line.run(MINUTE);
+
+        assertEquals(TIER_1_PER_MINUTE, free.from("1"), 1);
+        assertEquals(0, free.from("0"));
+    }
+
+    @Test
+    void aFilterIsIgnoredWithoutAnOutputPriority() {
+        var line = new Line();
+        var in = line.fed(BeltTier.BELT);
+        var left = line.drained(BeltTier.BELT);
+        var right = line.drained(BeltTier.BELT);
+        line.splitter(BeltTier.BELT, in, null, left, right).splitter.filter("0"::equals);
+
+        line.run(MINUTE);
+        line.resetCounts();
+        line.run(MINUTE);
+
+        assertEquals(TIER_1_PER_MINUTE / 2, left.delivered, 1);
+        assertEquals(TIER_1_PER_MINUTE / 2, right.delivered, 1);
+    }
+
     // A loader at a half's back loads it as it loads a line's first tile (#89).
     @Test
     void aSourceAtAHalfsBackFillsItAtItsTier() {

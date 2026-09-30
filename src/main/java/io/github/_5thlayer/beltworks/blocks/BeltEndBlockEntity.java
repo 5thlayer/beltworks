@@ -41,7 +41,6 @@ import io.github._5thlayer.beltworks.model.HeldHand;
 import io.github._5thlayer.beltworks.model.Join;
 import io.github._5thlayer.beltworks.model.LoaderEnergy;
 import io.github._5thlayer.beltworks.model.Splitter;
-import io.github._5thlayer.beltworks.model.SplitterSettings;
 import io.github._5thlayer.beltworks.model.TransportLine;
 
 import java.util.ArrayList;
@@ -225,6 +224,19 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
         level.sendBlockUpdated(left.worldPosition, left.getBlockState(), left.getBlockState(), Block.UPDATE_CLIENTS);
     }
 
+    /**
+     * Sets the splitter's filter from either half, or clears it with an empty stack. A filter set with
+     * no output priority sets it to {@code side}, the side the screen's switch shows: a filter never
+     * exists without one.
+     */
+    public void setSplitterFilter(ItemStack stack, Splitter.Priority side) {
+        var left = leftHalf();
+        if (left == null || level == null || level.isClientSide()) return;
+        left.applySettings(left.settings.withFilter(stack, side));
+        left.setChanged();
+        level.sendBlockUpdated(left.worldPosition, left.getBlockState(), left.getBlockState(), Block.UPDATE_CLIENTS);
+    }
+
     /** Sets the splitter's input priority from either half, as {@link #setOutputPriority} sets the output's. */
     public void setInputPriority(Splitter.Priority priority) {
         var left = leftHalf();
@@ -238,6 +250,8 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
         this.settings = settings;
         if (splitterModel != null) splitterModel.inputPriority(settings.inputPriority());
         if (splitterModel != null) splitterModel.outputPriority(settings.outputPriority());
+        var filterItem = settings.filter();
+        if (splitterModel != null) splitterModel.filter(filterItem.isEmpty() ? null : stack -> ItemFilter.matches(level, filterItem, stack));
     }
 
     private @Nullable BeltEndBlockEntity leftHalf() {
@@ -346,6 +360,7 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
             saveEntries(output, "half_leaving", half.leaving());
             if (settings.inputPriority() != Splitter.Priority.NONE) output.putString("input_priority", settings.inputPriority().name());
             if (settings.outputPriority() != Splitter.Priority.NONE) output.putString("output_priority", settings.outputPriority().name());
+            if (!settings.filter().isEmpty()) output.store("splitter_filter", ItemStack.CODEC, settings.filter());
         }
     }
 
@@ -377,7 +392,8 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
             loadEntries(input, "half_entering", half.entering());
             loadEntries(input, "half_leaving", half.leaving());
             applySettings(new SplitterSettings(priority(input.getStringOr("input_priority", "")),
-              priority(input.getStringOr("output_priority", ""))));
+              priority(input.getStringOr("output_priority", "")),
+              input.read("splitter_filter", ItemStack.CODEC).orElse(ItemStack.EMPTY)));
         }
     }
     
@@ -435,7 +451,16 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
     }
 
     public ItemStack filteredItem() {
+        if (splitter) return shownSplitterFilter();
         return filter.item();
+    }
+
+    // Drawn on the half of the output priority side only, where what it matches goes.
+    private ItemStack shownSplitterFilter() {
+        var settings = splitterSettings();
+        if (settings.filter().isEmpty()) return ItemStack.EMPTY;
+        var side = getBlockState().getValue(SplitterBlock.SIDE) == SplitterBlock.Side.LEFT ? Splitter.Priority.LEFT : Splitter.Priority.RIGHT;
+        return settings.outputPriority() == side ? settings.filter() : ItemStack.EMPTY;
     }
 
     public void assignFilterItem(ItemStack stack, Player player) {

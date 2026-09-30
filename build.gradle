@@ -31,9 +31,9 @@ repositories {
         forRepository { maven { url = 'https://api.modrinth.com/maven' } }
         filter { includeGroup 'maven.modrinth' }
     }
-    maven { // EMI
-        name = 'TerraformersMC'
-        url = 'https://maven.terraformersmc.com/'
+    exclusiveContent { // JEI
+        forRepository { maven { url = 'https://maven.blamejared.com' } }
+        filter { includeGroup 'mezz.jei' }
     }
 }
 
@@ -100,6 +100,9 @@ def syncClientMods = tasks.register('syncClientMods', Sync) {
 
 tasks.named('runClient') { dependsOn syncClientMods }
 
+// The last JEI for 26.1.2 that loads on gradle.properties' neoforge_version; later ones need 26.1.2.81 or more.
+def jeiVersion = '29.20.0.53'
+
 // The Groundworks versions the Mod nests and, through neoforge.mods.toml, accepts at load.
 def groundworksRange = '[0.5,0.6)'
 
@@ -134,10 +137,13 @@ dependencies {
     clientMods 'curse.maven:jade-324717:8651070'
     // Its Creative Battery Box powers feeders and loaders with loadersNeedPower on (5thlayer/beltworks#80).
     clientMods 'maven.modrinth:energized-power:3.0.1+26.1.x-neoforge'
+    clientMods "mezz.jei:jei-26.1.2-neoforge:$jeiVersion"
 
     compileOnly 'curse.maven:ftb-filter-system-943925:8300190'
     // Jade finds the tile's tooltip plugin by its annotation, so the Mod runs without it.
     compileOnly 'curse.maven:jade-324717:8651070'
+    // JEI finds the splitter screen's drop target by its annotation, so the Mod runs without it.
+    compileOnly "mezz.jei:jei-26.1.2-neoforge-api:$jeiVersion"
 
     testImplementation platform('org.junit:junit-bom:5.10.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'

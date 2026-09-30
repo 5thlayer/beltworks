@@ -82,6 +82,7 @@ public class BeltEndRenderer implements BlockEntityRenderer<BeltEndBlockEntity, 
 
         state.items.clear();
         state.filter = null;
+        state.filterOnSplitter = false;
         state.support = List.of();
 
         var level = entity.getLevel();
@@ -103,6 +104,7 @@ public class BeltEndRenderer implements BlockEntityRenderer<BeltEndBlockEntity, 
             );
             state.filter = filterState;
             state.filterFacing = entity.getOwnFacing();
+            state.filterOnSplitter = entity.isSplitter();
         }
     }
 
@@ -177,10 +179,12 @@ public class BeltEndRenderer implements BlockEntityRenderer<BeltEndBlockEntity, 
         }
 
         // On the slate above the mouth, outside the housing, which is solid (PlanetaryFactory #408).
+        // A splitter half has no housing, and its front is a belt: its filter hovers over the midline instead.
         if (state.filter != null) {
             var facing = state.filterFacing;
             poseStack.pushPose();
-            poseStack.translate(0.5 + facing.getStepX() * 0.52, 14 / 16d, 0.5 + facing.getStepZ() * 0.52);
+            if (state.filterOnSplitter) poseStack.translate(0.5, 0.85, 0.5);
+            else poseStack.translate(0.5 + facing.getStepX() * 0.52, 14 / 16d, 0.5 + facing.getStepZ() * 0.52);
             poseStack.mulPose(Axis.YP.rotationDegrees(180 - facing.toYRot()));
             poseStack.scale(0.3f, 0.3f, 0.3f);
             state.filter.submit(poseStack, collector, state.lightCoords, OverlayTexture.NO_OVERLAY, 0);
@@ -323,6 +327,7 @@ public class BeltEndRenderer implements BlockEntityRenderer<BeltEndBlockEntity, 
         private final List<RenderedItem> items = new ArrayList<>();
         private ItemStackRenderState filter;
         private Direction filterFacing = Direction.NORTH;
+        private boolean filterOnSplitter;
         private List<SupportRenderer.Box> support = List.of();
     }
 }

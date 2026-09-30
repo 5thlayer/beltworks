@@ -25,7 +25,7 @@ import io.github._5thlayer.beltworks.gametest.BeltGameTests;
 import io.github._5thlayer.beltworks.items.BeltLegs;
 import io.github._5thlayer.beltworks.neoforge.BeltChangesPayload;
 import io.github._5thlayer.beltworks.neoforge.BeltHandPayload;
-import io.github._5thlayer.beltworks.neoforge.SplitterSettingsPayload;
+import io.github._5thlayer.beltworks.neoforge.SplitterFilterPayload;
 import io.github._5thlayer.beltworks.neoforge.FeederReachPayload;
 import io.github._5thlayer.beltworks.neoforge.FeederSuckedPayload;
 import io.github._5thlayer.beltworks.neoforge.BeltLinePayload;
@@ -87,6 +87,7 @@ public final class Beltworks {
         DataComponentsContent.TYPES.register(modBus);
         BlockEntitiesContent.TYPES.register(modBus);
         ItemGroupContent.GROUPS.register(modBus);
+        MenuContent.TYPES.register(modBus);
         NeoForge.EVENT_BUS.addListener(LevelTickEvent.Pre.class, event -> {
             if (!event.getLevel().isClientSide()) BeltCollisionRegistry.moveServerEntities(event.getLevel());
         });
@@ -108,10 +109,10 @@ public final class Beltworks {
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
-        event.registrar("5")
+        event.registrar("6")
           .playToServer(BeltHandPayload.TYPE, BeltHandPayload.STREAM_CODEC, BeltHandPayload::handle)
           .playToServer(FeederReachPayload.TYPE, FeederReachPayload.STREAM_CODEC, FeederReachPayload::handle)
-          .playToServer(SplitterSettingsPayload.TYPE, SplitterSettingsPayload.STREAM_CODEC, SplitterSettingsPayload::handle)
+          .playToServer(SplitterFilterPayload.TYPE, SplitterFilterPayload.STREAM_CODEC, SplitterFilterPayload::handle)
           .playToClient(BeltChangesPayload.TYPE, BeltChangesPayload.STREAM_CODEC, BeltChangesPayload::handle)
           .playToClient(BeltLinePayload.TYPE, BeltLinePayload.STREAM_CODEC, BeltLinePayload::handle)
           .playToClient(FeederSuckedPayload.TYPE, FeederSuckedPayload.STREAM_CODEC, FeederSuckedPayload::handle);

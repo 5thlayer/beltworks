@@ -19,6 +19,7 @@ import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -37,10 +38,11 @@ import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
 import io.github._5thlayer.beltworks.blocks.BeltEndBlockEntity;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
+import io.github._5thlayer.beltworks.blocks.SplitterMenu;
 import io.github._5thlayer.beltworks.items.SplitterItem;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.Splitter;
-import io.github._5thlayer.beltworks.model.SplitterSettings;
+import io.github._5thlayer.beltworks.blocks.SplitterSettings;
 
 /**
  * A splitter between belt tiles (PlanetaryFactory #394): its split, fallback, cap and break, and a splitter placed
@@ -117,6 +119,20 @@ final class SplitterTileTests {
                 SplitterTileTests::priorityOverflows);
         tests.test("splitter_input_priority_empties_its_chest_before_the_other_gives_more_than_its_share",
                 WARMUP_TICKS + 20, SplitterTileTests::inputPriorityEmptiesFirst);
+        tests.test("splitter_filter_sorts_a_mixed_chest_into_two_chests_with_none_crossing", WARMUP_TICKS + 20,
+                SplitterTileTests::filterSorts);
+        tests.test("a_filter_set_with_no_output_priority_sets_it_to_the_switch_side", 20,
+                SplitterTileTests::filterSetsPriority);
+        tests.test("clearing_a_splitters_output_priority_clears_its_filter", 20,
+                SplitterTileTests::clearingPriorityClearsFilter);
+        tests.test("a_click_on_the_splitter_menus_filter_slot_sets_the_filter_from_the_cursor_and_takes_nothing", 20,
+                SplitterTileTests::menuClickSetsFilter);
+        tests.test("the_splitter_menus_buttons_set_the_priorities_and_their_sides", 20,
+                SplitterTileTests::menuButtonsSetPriorities);
+        tests.test("a_splitter_menu_is_valid_only_while_the_splitter_stands_within_reach", 20,
+                SplitterTileTests::menuStaysValid);
+        tests.test("a_sneak_use_on_a_splitter_half_opens_its_menu_on_the_server", 20,
+                SplitterTileTests::sneakOpensMenu);
         tests.test("splitter_settings_survive_a_save_and_load_of_the_halves", 20,
                 SplitterTileTests::settingsSurviveSaveAndLoad);
         tests.test("a_broken_and_replaced_splitter_is_plain", 20, SplitterTileTests::replacedIsPlain);
@@ -187,10 +203,219 @@ final class SplitterTileTests {
                 .thenSucceed();
     }
 
+    // Cobblestone and dirt alternate slot by slot in one chest; the filter sends cobblestone left.
+    private static void filterSorts(GameTestHelper helper) {
+        placeSplitter(helper, BeltTier.BELT);
+        feed(helper, SOURCE, FROM, BeltTier.BELT);
+        var source = BeltTileTests.chest(helper, SOURCE);
+        source.clearContent();
+        for (int slot = 0; slot < 6; slot++) {
+            source.setItem(slot, new ItemStack(slot % 2 == 0 ? Items.COBBLESTONE : Items.DIRT, 16));
+        }
+        outputs(helper, BeltTier.BELT, LEFT.getX() + 1, true, true);
+        helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).setSplitterFilter(new ItemStack(Items.COBBLESTONE), Splitter.Priority.LEFT);
+        helper.startSequence()
+                .thenIdle(WARMUP_TICKS)
+                .thenExecute(() -> {
+                    var left = BeltTileTests.chest(helper, LEFT_END.east());
+                    var right = BeltTileTests.chest(helper, RIGHT_END.east());
+                    if (count(left, Items.COBBLESTONE) != 48 || count(right, Items.DIRT) != 48) {
+                        helper.fail("the filter sorted " + count(left, Items.COBBLESTONE) + " cobblestone left and "
+                                + count(right, Items.DIRT) + " dirt right, expected 48 each", LEFT);
+                    }
+                    if (count(left, Items.DIRT) != 0 || count(right, Items.COBBLESTONE) != 0) {
+                        helper.fail("the filter let " + count(left, Items.DIRT) + " dirt left and "
+                                + count(right, Items.COBBLESTONE) + " cobblestone right cross", LEFT);
+                    }
+                })
+                .thenSucceed();
+    }
+
+    private static int count(net.minecraft.world.Container chest, net.minecraft.world.item.Item item) {
+        int total = 0;
+        for (int slot = 0; slot < chest.getContainerSize(); slot++) {
+            if (chest.getItem(slot).is(item)) total += chest.getItem(slot).getCount();
+        }
+        return total;
+    }
+
+    private static void filterSetsPriority(GameTestHelper helper) {
+        placeSplitter(helper, BeltTier.BELT);
+        // From the left half, with a stack of five: the record holds one, on the side given.
+        helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).setSplitterFilter(new ItemStack(Items.DIRT, 5), Splitter.Priority.RIGHT);
+        for (BlockPos half : new BlockPos[] {LEFT, RIGHT}) {
+            var settings = helper.getBlockEntity(half, BeltEndBlockEntity.class).splitterSettings();
+            if (settings.outputPriority() != Splitter.Priority.RIGHT || !settings.filter().is(Items.DIRT) || settings.filter().getCount() != 1) {
+                helper.fail("a filter set with no output priority left " + settings + ", expected output RIGHT and one dirt", half);
+            }
+        }
+        // With a priority already set the filter keeps it, whatever side is given.
+        helper.getBlockEntity(RIGHT, BeltEndBlockEntity.class).setOutputPriority(Splitter.Priority.LEFT);
+        helper.getBlockEntity(RIGHT, BeltEndBlockEntity.class).setSplitterFilter(new ItemStack(Items.STONE), Splitter.Priority.RIGHT);
+        var settings = helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).splitterSettings();
+        if (settings.outputPriority() != Splitter.Priority.LEFT || !settings.filter().is(Items.STONE)) {
+            helper.fail("a filter set beside an output priority left " + settings + ", expected output LEFT and stone", LEFT);
+        }
+        // A belt or splitter item is a filter like any other.
+        helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).setSplitterFilter(new ItemStack(ItemContent.SPLITTER.get()), Splitter.Priority.LEFT);
+        if (!helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).splitterSettings().filter().is(ItemContent.SPLITTER.get())) {
+            helper.fail("a splitter item was not accepted as a filter", LEFT);
+        }
+        helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).setSplitterFilter(ItemStack.EMPTY, Splitter.Priority.LEFT);
+        settings = helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).splitterSettings();
+        if (!settings.filter().isEmpty() || settings.outputPriority() != Splitter.Priority.LEFT) {
+            helper.fail("an empty filter left " + settings + ", expected no filter and output priority kept", LEFT);
+        }
+        helper.succeed();
+    }
+
+    private static void clearingPriorityClearsFilter(GameTestHelper helper) {
+        placeSplitter(helper, BeltTier.BELT);
+        helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).setInputPriority(Splitter.Priority.RIGHT);
+        helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).setSplitterFilter(new ItemStack(Items.DIRT), Splitter.Priority.LEFT);
+        helper.getBlockEntity(RIGHT, BeltEndBlockEntity.class).setOutputPriority(Splitter.Priority.NONE);
+        var settings = helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).splitterSettings();
+        if (!settings.filter().isEmpty() || settings.outputPriority() != Splitter.Priority.NONE
+              || settings.inputPriority() != Splitter.Priority.RIGHT) {
+            helper.fail("clearing output priority left " + settings + ", expected no filter, no output priority and input RIGHT", LEFT);
+        }
+        helper.succeed();
+    }
+
+    private static SplitterMenu menu(GameTestHelper helper, ServerPlayer player) {
+        return new SplitterMenu(1, player.getInventory(), helper.absolutePos(LEFT));
+    }
+
+    // The cursor stack is the server's own, and a click reads it without taking it (#22).
+    private static void menuClickSetsFilter(GameTestHelper helper) {
+        placeSplitter(helper, BeltTier.BELT);
+        ServerPlayer player = player(helper, "beltworks_splitter_menu_click");
+        var menu = menu(helper, player);
+        var settings = helper.getBlockEntity(RIGHT, BeltEndBlockEntity.class);
+
+        menu.setCarried(new ItemStack(Items.DIRT, 5));
+        menu.clicked(SplitterMenu.FILTER_SLOT, 0, ContainerInput.PICKUP, player);
+        if (!settings.splitterSettings().filter().is(Items.DIRT) || settings.splitterSettings().filter().getCount() != 1) {
+            helper.fail("a click with dirt on the cursor left " + settings.splitterSettings() + ", expected a filter of one dirt", RIGHT);
+        }
+        if (settings.splitterSettings().outputPriority() != Splitter.Priority.LEFT) {
+            helper.fail("a filter set with no output priority left " + settings.splitterSettings() + ", expected output LEFT, the side shown", RIGHT);
+        }
+        if (!menu.getCarried().is(Items.DIRT) || menu.getCarried().getCount() != 5) {
+            helper.fail("the click took from the cursor: it holds " + menu.getCarried(), RIGHT);
+        }
+        if (!menu.filter().is(Items.DIRT)) helper.fail("the menu's slot shows " + menu.filter() + ", expected dirt", RIGHT);
+
+        // A right click sets it too, with any item: a splitter item is a filter like any other.
+        menu.setCarried(new ItemStack(ItemContent.SPLITTER.get(), 3));
+        menu.clicked(SplitterMenu.FILTER_SLOT, 1, ContainerInput.PICKUP, player);
+        if (!settings.splitterSettings().filter().is(ItemContent.SPLITTER.get()) || menu.getCarried().getCount() != 3) {
+            helper.fail("a click with a splitter item left " + settings.splitterSettings() + " and cursor " + menu.getCarried(), RIGHT);
+        }
+
+        // Nothing else done to the slot changes it, or lands an item in it.
+        menu.setCarried(new ItemStack(Items.STONE));
+        menu.clicked(SplitterMenu.FILTER_SLOT, 0, ContainerInput.QUICK_MOVE, player);
+        menu.clicked(SplitterMenu.FILTER_SLOT, 0, ContainerInput.PICKUP_ALL, player);
+        if (!settings.splitterSettings().filter().is(ItemContent.SPLITTER.get()) || !menu.getCarried().is(Items.STONE)) {
+            helper.fail("a shift-click or a double-click changed the filter to " + settings.splitterSettings().filter(), RIGHT);
+        }
+        player.getInventory().setItem(9, new ItemStack(Items.COBBLESTONE, 7));
+        if (!menu.quickMoveStack(player, 1 + 9).isEmpty() || !menu.filter().is(ItemContent.SPLITTER.get())
+              || player.getInventory().getItem(9).getCount() != 7) {
+            helper.fail("a shift-click on an inventory slot moved an item into the ghost slot", RIGHT);
+        }
+
+        // An empty cursor clears the filter and leaves the priority.
+        menu.setCarried(ItemStack.EMPTY);
+        menu.clicked(SplitterMenu.FILTER_SLOT, 0, ContainerInput.PICKUP, player);
+        if (!settings.splitterSettings().filter().isEmpty() || settings.splitterSettings().outputPriority() != Splitter.Priority.LEFT
+              || !menu.filter().isEmpty()) {
+            helper.fail("a click with an empty cursor left " + settings.splitterSettings() + ", expected no filter and output LEFT", RIGHT);
+        }
+
+        // Turned off and flipped to the right, the switch shows RIGHT, and a filter set now turns it on there.
+        menu.clickMenuButton(player, SplitterMenu.OUTPUT_TOGGLE);
+        menu.clickMenuButton(player, SplitterMenu.OUTPUT_FLIP);
+        menu.setCarried(new ItemStack(Items.STONE));
+        menu.clicked(SplitterMenu.FILTER_SLOT, 0, ContainerInput.PICKUP, player);
+        if (settings.splitterSettings().outputPriority() != Splitter.Priority.RIGHT || !settings.splitterSettings().filter().is(Items.STONE)) {
+            helper.fail("a filter set beside a switch at RIGHT left " + settings.splitterSettings() + ", expected output RIGHT and stone", RIGHT);
+        }
+        helper.succeed();
+    }
+
+    private static void menuButtonsSetPriorities(GameTestHelper helper) {
+        placeSplitter(helper, BeltTier.BELT);
+        ServerPlayer player = player(helper, "beltworks_splitter_menu_buttons");
+        var menu = menu(helper, player);
+        var splitter = helper.getBlockEntity(LEFT, BeltEndBlockEntity.class);
+
+        menu.clickMenuButton(player, SplitterMenu.INPUT_TOGGLE);
+        if (splitter.splitterSettings().inputPriority() != Splitter.Priority.LEFT || menu.inputPriority() != Splitter.Priority.LEFT) {
+            helper.fail("turning input priority on left " + splitter.splitterSettings() + ", expected LEFT", LEFT);
+        }
+        menu.clickMenuButton(player, SplitterMenu.INPUT_FLIP);
+        if (splitter.splitterSettings().inputPriority() != Splitter.Priority.RIGHT || menu.inputSide() != Splitter.Priority.RIGHT) {
+            helper.fail("flipping an input priority that is on left " + splitter.splitterSettings() + ", expected RIGHT", LEFT);
+        }
+        menu.clickMenuButton(player, SplitterMenu.INPUT_TOGGLE);
+        menu.clickMenuButton(player, SplitterMenu.INPUT_FLIP);
+        if (splitter.splitterSettings().inputPriority() != Splitter.Priority.NONE || menu.inputSide() != Splitter.Priority.LEFT) {
+            helper.fail("flipping an input priority that is off left " + splitter.splitterSettings() + ", expected it off and the switch at LEFT", LEFT);
+        }
+
+        menu.clickMenuButton(player, SplitterMenu.OUTPUT_TOGGLE);
+        menu.setCarried(new ItemStack(Items.DIRT));
+        menu.clicked(SplitterMenu.FILTER_SLOT, 0, ContainerInput.PICKUP, player);
+        menu.clickMenuButton(player, SplitterMenu.OUTPUT_TOGGLE);
+        if (splitter.splitterSettings().outputPriority() != Splitter.Priority.NONE || !splitter.splitterSettings().filter().isEmpty()) {
+            helper.fail("turning output priority off left " + splitter.splitterSettings() + ", expected no output priority and no filter", LEFT);
+        }
+        if (menu.clickMenuButton(player, 99)) helper.fail("an unknown button was accepted", LEFT);
+        helper.succeed();
+    }
+
+    private static void menuStaysValid(GameTestHelper helper) {
+        placeSplitter(helper, BeltTier.BELT);
+        ServerPlayer player = player(helper, "beltworks_splitter_menu_valid");
+        var menu = menu(helper, player);
+        if (!menu.stillValid(player)) helper.fail("a menu opened beside its splitter was not valid", LEFT);
+        var at = player.position();
+        var far = helper.absoluteVec(STANDING.getBottomCenter().add(0, 0, -40));
+        player.setPos(far.x, far.y, far.z);
+        if (menu.stillValid(player)) helper.fail("a menu was valid for a player 40 blocks away", LEFT);
+        player.setPos(at.x, at.y, at.z);
+        helper.setBlock(LEFT, Blocks.AIR);
+        if (menu.stillValid(player)) helper.fail("a menu was valid after its splitter half was broken", LEFT);
+        helper.succeed();
+    }
+
+    // The server opens the menu, whose provider names the half used; the client's screen follows from the packet.
+    // A fake player has no connection to open one on, so the test reads what it would open.
+    private static void sneakOpensMenu(GameTestHelper helper) {
+        placeSplitter(helper, BeltTier.BELT);
+        ServerPlayer player = player(helper, "beltworks_splitter_open");
+        player.setShiftKeyDown(true);
+        var result = SplitterBlock.useOn(player, ItemStack.EMPTY, helper.absolutePos(RIGHT));
+        if (!result.consumesAction()) helper.fail("a sneak-use on a splitter half was not taken: " + result, RIGHT);
+        var provider = SplitterBlock.menuProvider(helper.absolutePos(RIGHT));
+        if (!(provider.createMenu(2, player.getInventory(), player) instanceof SplitterMenu menu)
+              || !menu.half().equals(helper.absolutePos(RIGHT)) || menu.containerId != 2) {
+            helper.fail("the provider did not create a menu on the half used", RIGHT);
+        }
+        player.setShiftKeyDown(false);
+        if (SplitterBlock.useOn(player, ItemStack.EMPTY, helper.absolutePos(RIGHT)).consumesAction()) {
+            helper.fail("a plain use on a splitter half opened its menu", RIGHT);
+        }
+        helper.succeed();
+    }
+
     private static void settingsSurviveSaveAndLoad(GameTestHelper helper) {
         placeSplitter(helper, BeltTier.BELT);
         helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).setOutputPriority(Splitter.Priority.RIGHT);
         helper.getBlockEntity(RIGHT, BeltEndBlockEntity.class).setInputPriority(Splitter.Priority.LEFT);
+        helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).setSplitterFilter(new ItemStack(Items.COBBLESTONE), Splitter.Priority.RIGHT);
         var registries = helper.getLevel().registryAccess();
         var saved = new CompoundTag[2];
         var halves = new BlockPos[] {LEFT, RIGHT};
@@ -201,6 +426,9 @@ final class SplitterTileTests {
         }
         if (!update.getStringOr("input_priority", "").equals(Splitter.Priority.LEFT.name())) {
             helper.fail("the splitter's update tag carries no input priority", LEFT);
+        }
+        if (update.read("splitter_filter", ItemStack.CODEC).filter(stack -> stack.is(Items.COBBLESTONE)).isEmpty()) {
+            helper.fail("the splitter's update tag carries no filter", LEFT);
         }
 
         helper.setBlock(LEFT, Blocks.AIR);
@@ -214,6 +442,12 @@ final class SplitterTileTests {
             if (settings.outputPriority() != Splitter.Priority.RIGHT || settings.inputPriority() != Splitter.Priority.LEFT) {
                 helper.fail("after a save and load the half reads " + settings + ", expected input LEFT and output RIGHT", half);
             }
+            if (!settings.filter().is(Items.COBBLESTONE)) helper.fail("after a save and load the half reads filter " + settings.filter(), half);
+        }
+        // Drawn on the priority half only.
+        if (!helper.getBlockEntity(RIGHT, BeltEndBlockEntity.class).filteredItem().is(Items.COBBLESTONE)
+              || !helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).filteredItem().isEmpty()) {
+            helper.fail("the filter item is not shown on the output priority half alone", RIGHT);
         }
         helper.succeed();
     }
@@ -222,6 +456,7 @@ final class SplitterTileTests {
         placeSplitter(helper, BeltTier.BELT);
         helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).setOutputPriority(Splitter.Priority.LEFT);
         helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).setInputPriority(Splitter.Priority.RIGHT);
+        helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).setSplitterFilter(new ItemStack(Items.DIRT), Splitter.Priority.LEFT);
         ServerPlayer player = player(helper, "beltworks_splitter_replacer");
         player.gameMode.destroyBlock(helper.absolutePos(LEFT));
         var dropped = helper.getLevel().getEntities(EntityType.ITEM, area(helper), e -> true).stream()

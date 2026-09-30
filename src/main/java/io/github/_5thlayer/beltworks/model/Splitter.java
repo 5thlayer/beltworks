@@ -23,7 +23,8 @@ import java.util.function.Supplier;
  * that side has nothing ready, so a stuck priority side never holds up the merge.
  *
  * <p>An output priority sends everything to its side, and to the other only when that side cannot
- * move, as Factorio's does. With none, the outputs alternate.
+ * move, as Factorio's does. With none, the outputs alternate. A filter narrows that: what it
+ * matches goes only to the priority side and the rest only to the other, each waiting, never overflowing.
  */
 public final class Splitter<T> {
 
@@ -37,6 +38,7 @@ public final class Splitter<T> {
     private int nextOutput;
     private Priority outputPriority = Priority.NONE;
     private Priority inputPriority = Priority.NONE;
+    private @Nullable Predicate<T> filter;
 
     public Splitter(BeltTier tier) {
         speed = tier.blocksPerTick();
@@ -56,6 +58,16 @@ public final class Splitter<T> {
      */
     public void inputPriority(Priority priority) {
         inputPriority = priority;
+    }
+
+    /**
+     * Sets what goes only to the output priority side, everything else going only to the other; or
+     * null for none. Either side waits when it is backed up, never overflowing, so a head that
+     * cannot pass holds its input lane while the other input still passes. Ignored without an
+     * output priority.
+     */
+    public void filter(@Nullable Predicate<T> filter) {
+        this.filter = filter;
     }
 
     /**
@@ -112,11 +124,14 @@ public final class Splitter<T> {
                   || !inputLimits[in].ready(gameTime)) continue;
             var at = input.overshoot(MIDLINE, speed);
             var preferred = outputPriority == Priority.NONE ? -1 : outputPriority.ordinal() - 1;
-            for (int o = 0; o < 2; o++) {
-                var out = ((preferred < 0 ? nextOutput : preferred) + o) % 2;
+            // A filtered head has one side only: nothing overflows, so it waits there.
+            var only = -1;
+            if (preferred >= 0 && filter != null) only = filter.test(input.peekEnd()) ? preferred : 1 - preferred;
+            for (int o = 0; o < (only >= 0 ? 1 : 2); o++) {
+                var out = only >= 0 ? only : ((preferred < 0 ? nextOutput : preferred) + o) % 2;
                 // Past a preferred side with no room only when it is backed up, its items not moving:
                 // one still moving has room again in a tick or two.
-                if (preferred >= 0 && out != preferred && !backedUp[preferred]) continue;
+                if (only < 0 && preferred >= 0 && out != preferred && !backedUp[preferred]) continue;
                 var output = sides.get(out).half.leaving;
                 var outHand = sides.get(out).hand(true);
                 if (!output.canOffer(MIDLINE, at, outHand) || !outputLimits[out].ready(gameTime)) continue;

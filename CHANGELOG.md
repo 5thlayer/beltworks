@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A splitter's screen has a filter slot beside output priority: click it with an item on the cursor to set the filter, which copies the item and takes nothing, click it with an empty cursor to clear it, or drag an item onto it from JEI's list. The screen shows your inventory below the settings, so any item can be picked up and used. What the filter matches, as a loader's does, goes only to the output-priority side and everything else only to the other, each waiting when its side backs up, so a blocked item holds its lane. Setting a filter turns output priority on for the side shown, turning it off clears the filter, and the filter item is drawn on the priority half (5thlayer/beltworks#22).
 - A splitter's screen also sets an input priority, above output priority: the splitter takes from that side first, and from the other whenever that side has nothing to pass. Breaking the splitter clears it (5thlayer/beltworks#21).
 - A splitter has a screen, opened by sneaking and using either half with an empty hand. Its output priority sends everything to one side, and to the other only when that side backs up. Breaking the splitter clears it (5thlayer/beltworks#20).
 

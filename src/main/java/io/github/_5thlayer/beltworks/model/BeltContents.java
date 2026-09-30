@@ -149,6 +149,11 @@ public final class BeltContents<T> {
         return entries.peekLast().payload;
     }
 
+    /** The entry at the end, after {@link #endReady} said there is one. */
+    public T peekEnd() {
+        return entries.peekLast().payload;
+    }
+
     /** Removes the entry at the end, after {@link #endReady} said there is one. */
     public T takeEnd() {
         var entry = entries.pollLast();
