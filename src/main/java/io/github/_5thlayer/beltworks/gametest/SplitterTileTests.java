@@ -66,6 +66,7 @@ final class SplitterTileTests {
     private static final int WINDOW_TICKS = 200;
     private static final int WARMUP_TICKS = 200;
     private static final int SUPPLY = 27 * 64;
+    private static final int PRIORITY_SUPPLY = 40;
     private static final int HAND_TICKS = 40;
     // Two blocks of belt, one per half.
     private static final int BACKED_UP = 16;
@@ -114,6 +115,8 @@ final class SplitterTileTests {
                 SplitterTileTests::priorityFillsItsSide);
         tests.test("splitter_output_priority_overflows_when_its_side_backs_up", WARMUP_TICKS + WINDOW_TICKS + 20,
                 SplitterTileTests::priorityOverflows);
+        tests.test("splitter_input_priority_empties_its_chest_before_the_other_gives_more_than_its_share",
+                WARMUP_TICKS + 20, SplitterTileTests::inputPriorityEmptiesFirst);
         tests.test("splitter_settings_survive_a_save_and_load_of_the_halves", 20,
                 SplitterTileTests::settingsSurviveSaveAndLoad);
         tests.test("a_broken_and_replaced_splitter_is_plain", 20, SplitterTileTests::replacedIsPlain);
@@ -161,9 +164,33 @@ final class SplitterTileTests {
         });
     }
 
+    // Two chests feed the halves into one output. Without a priority the left chest would give about half
+    // of what has left the two, so its 40 items would not be gone by now.
+    private static void inputPriorityEmptiesFirst(GameTestHelper helper) {
+        placeSplitter(helper, BeltTier.BELT);
+        feed(helper, SOURCE, FROM, BeltTier.BELT);
+        feed(helper, SOURCE_RIGHT, FROM_RIGHT, BeltTier.BELT);
+        BeltTileTests.chest(helper, SOURCE).clearContent();
+        BeltTileTests.fill(helper, SOURCE, PRIORITY_SUPPLY);
+        outputs(helper, BeltTier.BELT, LEFT.getX() + 1, true, false);
+        helper.getBlockEntity(RIGHT, BeltEndBlockEntity.class).setInputPriority(Splitter.Priority.LEFT);
+        int[] rightBefore = new int[1];
+        helper.startSequence()
+                .thenExecute(() -> rightBefore[0] = BeltTileTests.count(BeltTileTests.chest(helper, SOURCE_RIGHT)))
+                .thenIdle(WARMUP_TICKS)
+                .thenExecute(() -> {
+                    int left = BeltTileTests.count(BeltTileTests.chest(helper, SOURCE));
+                    int gave = rightBefore[0] - BeltTileTests.count(BeltTileTests.chest(helper, SOURCE_RIGHT));
+                    if (left != 0) helper.fail("the priority chest still holds " + left + " items", SOURCE);
+                    if (gave <= 0) helper.fail("the other chest gave nothing once the priority chest was empty", SOURCE_RIGHT);
+                })
+                .thenSucceed();
+    }
+
     private static void settingsSurviveSaveAndLoad(GameTestHelper helper) {
         placeSplitter(helper, BeltTier.BELT);
         helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).setOutputPriority(Splitter.Priority.RIGHT);
+        helper.getBlockEntity(RIGHT, BeltEndBlockEntity.class).setInputPriority(Splitter.Priority.LEFT);
         var registries = helper.getLevel().registryAccess();
         var saved = new CompoundTag[2];
         var halves = new BlockPos[] {LEFT, RIGHT};
@@ -171,6 +198,9 @@ final class SplitterTileTests {
         var update = helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).getUpdateTag(registries);
         if (!update.getStringOr("output_priority", "").equals(Splitter.Priority.RIGHT.name())) {
             helper.fail("the splitter's update tag carries no output priority", LEFT);
+        }
+        if (!update.getStringOr("input_priority", "").equals(Splitter.Priority.LEFT.name())) {
+            helper.fail("the splitter's update tag carries no input priority", LEFT);
         }
 
         helper.setBlock(LEFT, Blocks.AIR);
@@ -180,9 +210,9 @@ final class SplitterTileTests {
                     .loadWithComponents(TagValueInput.create(ProblemReporter.DISCARDING, registries, saved[i]));
         }
         for (BlockPos half : halves) {
-            var priority = helper.getBlockEntity(half, BeltEndBlockEntity.class).splitterSettings().outputPriority();
-            if (priority != Splitter.Priority.RIGHT) {
-                helper.fail("after a save and load the half reads output priority " + priority + ", expected RIGHT", half);
+            var settings = helper.getBlockEntity(half, BeltEndBlockEntity.class).splitterSettings();
+            if (settings.outputPriority() != Splitter.Priority.RIGHT || settings.inputPriority() != Splitter.Priority.LEFT) {
+                helper.fail("after a save and load the half reads " + settings + ", expected input LEFT and output RIGHT", half);
             }
         }
         helper.succeed();
@@ -191,6 +221,7 @@ final class SplitterTileTests {
     private static void replacedIsPlain(GameTestHelper helper) {
         placeSplitter(helper, BeltTier.BELT);
         helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).setOutputPriority(Splitter.Priority.LEFT);
+        helper.getBlockEntity(LEFT, BeltEndBlockEntity.class).setInputPriority(Splitter.Priority.RIGHT);
         ServerPlayer player = player(helper, "beltworks_splitter_replacer");
         player.gameMode.destroyBlock(helper.absolutePos(LEFT));
         var dropped = helper.getLevel().getEntities(EntityType.ITEM, area(helper), e -> true).stream()

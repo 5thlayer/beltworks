@@ -225,8 +225,18 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
         level.sendBlockUpdated(left.worldPosition, left.getBlockState(), left.getBlockState(), Block.UPDATE_CLIENTS);
     }
 
+    /** Sets the splitter's input priority from either half, as {@link #setOutputPriority} sets the output's. */
+    public void setInputPriority(Splitter.Priority priority) {
+        var left = leftHalf();
+        if (left == null || level == null || level.isClientSide()) return;
+        left.applySettings(left.settings.withInputPriority(priority));
+        left.setChanged();
+        level.sendBlockUpdated(left.worldPosition, left.getBlockState(), left.getBlockState(), Block.UPDATE_CLIENTS);
+    }
+
     private void applySettings(SplitterSettings settings) {
         this.settings = settings;
+        if (splitterModel != null) splitterModel.inputPriority(settings.inputPriority());
         if (splitterModel != null) splitterModel.outputPriority(settings.outputPriority());
     }
 
@@ -334,7 +344,8 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
         if (half != null) {
             saveEntries(output, "half_entering", half.entering());
             saveEntries(output, "half_leaving", half.leaving());
-            if (!settings.equals(SplitterSettings.NONE)) output.putString("output_priority", settings.outputPriority().name());
+            if (settings.inputPriority() != Splitter.Priority.NONE) output.putString("input_priority", settings.inputPriority().name());
+            if (settings.outputPriority() != Splitter.Priority.NONE) output.putString("output_priority", settings.outputPriority().name());
         }
     }
 
@@ -365,7 +376,8 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
         if (half != null) {
             loadEntries(input, "half_entering", half.entering());
             loadEntries(input, "half_leaving", half.leaving());
-            applySettings(new SplitterSettings(priority(input.getStringOr("output_priority", ""))));
+            applySettings(new SplitterSettings(priority(input.getStringOr("input_priority", "")),
+              priority(input.getStringOr("output_priority", ""))));
         }
     }
     

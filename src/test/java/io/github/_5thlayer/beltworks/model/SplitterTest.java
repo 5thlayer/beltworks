@@ -57,6 +57,54 @@ class SplitterTest {
     }
 
     @Test
+    void anInputPriorityDrainsItsSideFirst() {
+        var line = new Line();
+        var left = line.fed(BeltTier.BELT);
+        var right = line.fed(BeltTier.BELT);
+        var out = line.drained(BeltTier.BELT);
+        line.splitter(BeltTier.BELT, left, right, out, null).splitter.inputPriority(Splitter.Priority.RIGHT);
+
+        line.run(MINUTE);
+        line.resetCounts();
+        line.run(MINUTE);
+
+        assertEquals(TIER_1_PER_MINUTE, out.from("1"), 1);
+        assertEquals(0, out.from("0"));
+    }
+
+    @Test
+    void anInputPriorityPassesTheOtherSideWhenItsSideIsEmpty() {
+        var line = new Line();
+        var right = line.fed(BeltTier.BELT);
+        var out = line.drained(BeltTier.BELT);
+        line.splitter(BeltTier.BELT, null, right, out, null).splitter.inputPriority(Splitter.Priority.LEFT);
+
+        line.run(MINUTE);
+        line.resetCounts();
+        line.run(MINUTE);
+
+        assertEquals(TIER_1_PER_MINUTE, out.delivered, 1);
+    }
+
+    // A head that is not at the midline yet does not hold the other side back: the other fills the gaps.
+    @Test
+    void anInputPriorityPassesTheOtherSideWhenItsHeadIsNotReady() {
+        var line = new Line();
+        var slow = line.fedAt(BeltTier.BELT, 5.0 / 20);
+        var fast = line.fed(BeltTier.BELT);
+        var out = line.drained(BeltTier.BELT);
+        line.splitter(BeltTier.BELT, slow, fast, out, null).splitter.inputPriority(Splitter.Priority.LEFT);
+
+        line.run(MINUTE);
+        line.resetCounts();
+        line.run(MINUTE);
+
+        assertEquals(TIER_1_PER_MINUTE, out.delivered, 1);
+        assertEquals(5 * 60, out.from("0"), 1);
+        assertEquals(TIER_1_PER_MINUTE - 5 * 60, out.from("1"), 1);
+    }
+
+    @Test
     void aBackedUpOutputSendsEverythingToTheOther() {
         var line = new Line();
         var in = line.fed(BeltTier.BELT);

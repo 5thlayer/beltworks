@@ -19,6 +19,9 @@ import java.util.function.Supplier;
  * evenly; a side that cannot move is skipped, so a backed-up output sends everything to the other.
  * Each side passes no more than the splitter's own tier.
  *
+ * <p>An input priority takes from its side first, and from the other in the same tick whenever
+ * that side has nothing ready, so a stuck priority side never holds up the merge.
+ *
  * <p>An output priority sends everything to its side, and to the other only when that side cannot
  * move, as Factorio's does. With none, the outputs alternate.
  */
@@ -33,6 +36,7 @@ public final class Splitter<T> {
     private int nextInput;
     private int nextOutput;
     private Priority outputPriority = Priority.NONE;
+    private Priority inputPriority = Priority.NONE;
 
     public Splitter(BeltTier tier) {
         speed = tier.blocksPerTick();
@@ -44,6 +48,14 @@ public final class Splitter<T> {
     /** Sets the side every item goes to first, or none to alternate. */
     public void outputPriority(Priority priority) {
         outputPriority = priority;
+    }
+
+    /**
+     * Sets the side taken from first, or none to alternate. Unlike an output priority it never waits:
+     * the other side passes at once whenever that side's head cannot move this tick.
+     */
+    public void inputPriority(Priority priority) {
+        inputPriority = priority;
     }
 
     /**
@@ -90,8 +102,9 @@ public final class Splitter<T> {
     }
 
     private boolean passOne(long gameTime, List<Side<T>> sides, boolean[] backedUp) {
+        var first = inputPriority == Priority.NONE ? nextInput : inputPriority.ordinal() - 1;
         for (int i = 0; i < 2; i++) {
-            var in = (nextInput + i) % 2;
+            var in = (first + i) % 2;
             var input = sides.get(in).half.entering;
             // Not an entry a hand holds back: the hand takes it next tick.
             var hand = sides.get(in).hand(false);

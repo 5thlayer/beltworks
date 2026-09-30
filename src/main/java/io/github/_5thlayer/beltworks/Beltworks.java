@@ -108,7 +108,7 @@ public final class Beltworks {
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
-        event.registrar("4")
+        event.registrar("5")
           .playToServer(BeltHandPayload.TYPE, BeltHandPayload.STREAM_CODEC, BeltHandPayload::handle)
           .playToServer(FeederReachPayload.TYPE, FeederReachPayload.STREAM_CODEC, FeederReachPayload::handle)
           .playToServer(SplitterSettingsPayload.TYPE, SplitterSettingsPayload.STREAM_CODEC, SplitterSettingsPayload::handle)

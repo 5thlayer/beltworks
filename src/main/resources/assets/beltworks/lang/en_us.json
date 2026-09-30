@@ -81,8 +81,10 @@
   "key.beltworks.head_reach": "Head Reach",
   "key.beltworks.tail_reach": "Tail Reach",
   "screen.beltworks.splitter": "Splitter",
+  "screen.beltworks.splitter.input_priority": "Input priority",
   "screen.beltworks.splitter.output_priority": "Output priority",
   "screen.beltworks.splitter.left": "Left",
   "screen.beltworks.splitter.right": "Right",
-  "screen.beltworks.splitter.side": "Output priority side"
+  "screen.beltworks.splitter.side": "Output priority side",
+  "screen.beltworks.splitter.input_side": "Input priority side"
 }

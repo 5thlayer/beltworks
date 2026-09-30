@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A splitter's screen also sets an input priority, above output priority: the splitter takes from that side first, and from the other whenever that side has nothing to pass. Breaking the splitter clears it (5thlayer/beltworks#21).
 - A splitter has a screen, opened by sneaking and using either half with an empty hand. Its output priority sends everything to one side, and to the other only when that side backs up. Breaking the splitter clears it (5thlayer/beltworks#20).
 
 ## 0.3.12
