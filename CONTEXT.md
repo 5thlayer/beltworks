@@ -98,7 +98,7 @@ A belt end set against an inventory: it pulls onto the belt from the inventory b
 _Avoid_: chute (Upstream's name), inserter, funnel
 
 **Splitter**:
-A block two wide whose halves are each a block of belt of its tier: each holds eight items and carries them, and whatever stands on it, at its tier's speed. It joins two belts in to two belts out at its midline, splitting evenly, merging, and sending everything to one side when the other backs up. Splitters chain directly, a half handing to the half in front of it as to a tile, with items moving as on a belt; a half likewise side-loads a straight tile and hands to or takes from a loader at its front or back. It draws no power. Placed across a straight tile line running its way, it takes the tile's place, refunds it and keeps its items (ADR 0007).
+A block two wide whose halves are each a block of belt of its tier: each holds eight items and carries them, and whatever stands on it, at its tier's speed. It joins two belts in to two belts out at its midline, splitting evenly, merging, and sending everything to one side when the other backs up. Splitters chain directly, a half handing to the half in front of it as to a tile, with items moving as on a belt; a half likewise side-loads a straight tile and hands to or takes from a loader at its front or back. It draws no power. Placed across a straight tile line running its way, it takes the tile's place, refunds it and keeps its items (ADR 0007), by the rules a **Fast Replace** keeps: drawn in the replace tint, refused with its reason when the refunded tiles have no room, and placed beside on a sneak-click.
 _Avoid_: merger, tunnel
 
 **Feeder**:
@@ -114,7 +114,7 @@ The end of a feeder that drops, at the end of its **arm**, one to three blocks i
 _Avoid_: dropper, output, drop
 
 **Arm**:
-What a feeder is drawn reaching out with to its head or its tail, one arm each. An arm's reach, one to three blocks, is set on the held feeder before placing, with the **Placement Preview** drawing the arms at it, and changed on a placed feeder with the same keys. An arm passes over whatever stands between, collides with nothing, and moves at the same rate at any reach.
+What a feeder is drawn reaching out with to its head or its tail, one arm each. An arm's reach, one to three blocks, is set on the held feeder before placing, with the **Placement Preview** drawing the arms at it, and changed on a placed feeder with the same keys. A feeder put in another's place by a **tier swap** keeps the old one's reach, and the held reach stays on the stack. An arm passes over whatever stands between, collides with nothing, and moves at the same rate at any reach.
 _Avoid_: reach (the distance, not the thing), boom, extension, pipe
 
 **Head Reach** / **Tail Reach**:
@@ -161,7 +161,7 @@ A placed tile, splitter, loader or feeder taking the place of one of the same ki
 _Avoid_: fast replace (the gesture that makes one), upgrade (it goes down as well), retier
 
 **Fast Replace**:
-Groundworks' plain click that puts the held block in the place of a placed one it may replace, charging one held item and handing the replaced block back into the slot that item freed, or refusing with its reason when there is no room; a sneak-click places beside instead. Each consumer states which of its blocks replace which: the Mod's replace one of the same kind and another tier, a splitter both its halves. Its plan names what it replaces, and the **Placement Preview** draws that in a tint of its own.
+Groundworks' plain click that puts the held block in the place of a placed one it may replace, charging one held item and handing the replaced block back into the slot that item freed, or refusing with its reason when there is no room; a sneak-click places beside instead, and with a **stretch**'s start stored the click lays the stretch. A tile keeps its shape, its pitch and its wedge, unless a **Rotate the Plan** turn is held. Each consumer states which of its blocks replace which: the Mod's replace one of the same kind and another tier, a splitter both its halves. Its plan names what it replaces, and the **Placement Preview** draws that in a tint of its own.
 _Avoid_: upgrade, swap (alone), replace (for an ordinary placement into grass or air)
 
 **Dismantle**:
