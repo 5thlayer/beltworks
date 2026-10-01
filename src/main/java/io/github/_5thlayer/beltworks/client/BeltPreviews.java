@@ -76,7 +76,7 @@ final class BeltPreviews {
     /**
      * A planned feeder's arms, at the reach the held stack's next placement takes (ADR 0013), so a
      * press of Head Reach or Tail Reach redraws them. They are a placed feeder's, in the plan's tint.
-     * A feeder a Fast Replace swaps keeps its own reach, so its arms are drawn at that (#94).
+     * A Fast Replace makes a tier swap, in which a feeder keeps its own reach, so its arms are drawn at that (#94).
      */
     private static void feederArms(PlacementPreviewEvent.Overlay event) {
         var held = FeederReach.held(event.getStack());

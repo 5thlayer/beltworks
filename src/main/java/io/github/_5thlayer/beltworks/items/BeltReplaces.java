@@ -47,19 +47,26 @@ public final class BeltReplaces {
 
     /** States the groups, at mod construction on both sides, as the preview asks on the client and the click on the server. */
     public static void register() {
-        FastReplace.group(Beltworks.id("tiles"), block -> block instanceof BeltTileBlock, new Kept());
-        FastReplace.group(Beltworks.id("splitters"), block -> block instanceof SplitterBlock, new Splitter());
+        FastReplace.group(Beltworks.id("tiles"), block -> block instanceof BeltTileBlock, new Tile());
+        FastReplace.group(Beltworks.id("splitters"), block -> block instanceof SplitterBlock, new Halves());
         // A loader's facing is its only property, which the library copies.
         FastReplace.group(Beltworks.id("loaders"), block -> block instanceof BeltEndBlock && !(block instanceof SplitterBlock));
-        FastReplace.group(Beltworks.id("feeders"), block -> block instanceof FeederBlock, new Kept());
+        FastReplace.group(Beltworks.id("feeders"), block -> block instanceof FeederBlock, new Feeder());
     }
 
     /** The held item's block, where it is another tier of the aimed {@code old} block's kind, or null. */
-    private static @Nullable Block another(ItemStack held, BlockState old) {
+    private static @Nullable Block heldOfAnotherTier(ItemStack held, BlockState old) {
         return held.getItem() instanceof BlockItem item && !old.is(item.getBlock()) ? item.getBlock() : null;
     }
 
-    private abstract static class Builder implements ReplaceBuilder {
+    // The library leaves entities to the builder, as vanilla refuses a placement into one.
+    private static @Nullable Refusal obstructed(Level level, List<PlacementPlan.Placed> blocks) {
+        var clear = blocks.stream().allMatch(placed -> level.isUnobstructed(placed.state(), placed.pos(), CollisionContext.empty()));
+        return clear ? null : BeltRefusal.BLOCKED;
+    }
+
+    /** A builder whose refusals are the Mod's own, told by their message keys. */
+    private abstract static class TellsBeltRefusals implements ReplaceBuilder {
 
         @Override
         public Component message(Refusal refusal) {
@@ -69,27 +76,47 @@ public final class BeltReplaces {
     }
 
     /**
-     * A tile or a feeder, which never reshapes: the new block takes the old one's whole state, a
-     * tile its facing, corner and pitch, so its wedge stands, and a feeder its tail's turn. A
+     * A block that never reshapes in a tier swap: the new block takes the old one's whole state. A
      * Rotate turn held on the stack goes through the item's own plan, which makes what it does of
-     * the turned look, and a feeder keeps its tail's turn even then.
+     * the turned look, and {@link #turned} keeps what the turn leaves alone.
      */
-    private static final class Kept extends Builder {
+    private abstract static class KeepsItsState extends TellsBeltRefusals {
 
         @Override
         public @Nullable PlacementPlan plan(Level level, @Nullable Player player, ItemStack held, BlockPos aimed, BlockState old) {
-            var block = another(held, old);
+            var block = heldOfAnotherTier(held, old);
             if (block == null) return null;
-            if (Rotate.turnOf(held).equals(QuarterTurn.NONE)) {
-                return PlacementPlan.replacing(new PlacementPlan.Placed(aimed, block.withPropertiesOf(old)), null);
-            }
+            var kept = List.of(new PlacementPlan.Placed(aimed, block.withPropertiesOf(old)));
+            if (Rotate.turnOf(held).equals(QuarterTurn.NONE)) return PlacementPlan.replacing(kept, obstructed(level, kept));
             var planned = Placements.planFor(held.getItem(), new Replacing(level, player, held, aimed));
             if (planned == null || planned.blocks().stream().noneMatch(placed -> placed.pos().equals(aimed))) {
-                return PlacementPlan.replacing(new PlacementPlan.Placed(aimed, block.withPropertiesOf(old)), Refusal.FastReplace.PLANS_ELSEWHERE);
+                return PlacementPlan.replacing(kept, Refusal.FastReplace.PLANS_ELSEWHERE);
             }
-            var blocks = planned.blocks().stream().map(placed -> placed.pos().equals(aimed) && old.hasProperty(FeederBlock.TAIL_TURN)
-              ? new PlacementPlan.Placed(aimed, placed.state().setValue(FeederBlock.TAIL_TURN, old.getValue(FeederBlock.TAIL_TURN))) : placed).toList();
-            return new PlacementPlan(blocks, List.of(aimed), planned.refusal());
+            var blocks = planned.blocks().stream()
+              .map(placed -> placed.pos().equals(aimed) ? new PlacementPlan.Placed(aimed, turned(placed.state(), old)) : placed).toList();
+            var refusal = planned.refusal() != null ? planned.refusal() : obstructed(level, blocks);
+            return new PlacementPlan(blocks, List.of(aimed), refusal);
+        }
+
+        /** The turned state the item's plan makes, with what the turn leaves of {@code old} kept. */
+        abstract BlockState turned(BlockState planned, BlockState old);
+    }
+
+    /** A tile keeps its facing, corner and pitch, so its wedge stands; turned, it is the item's plan's, reshaped. */
+    private static final class Tile extends KeepsItsState {
+
+        @Override
+        BlockState turned(BlockState planned, BlockState old) {
+            return planned;
+        }
+    }
+
+    /** A feeder keeps its facing and its tail's turn, which a Rotate turn leaves alone. */
+    private static final class Feeder extends KeepsItsState {
+
+        @Override
+        BlockState turned(BlockState planned, BlockState old) {
+            return planned.setValue(FeederBlock.TAIL_TURN, old.getValue(FeederBlock.TAIL_TURN));
         }
     }
 
@@ -98,20 +125,18 @@ public final class BeltReplaces {
      * splitter charged and one handed back. The aimed half is laid first: its tier swap swaps its
      * partner too, so the partner's own swap finds it done.
      */
-    private static final class Splitter extends Builder {
+    private static final class Halves extends TellsBeltRefusals {
 
         @Override
         public @Nullable PlacementPlan plan(Level level, @Nullable Player player, ItemStack held, BlockPos aimed, BlockState old) {
-            var block = another(held, old);
+            var block = heldOfAnotherTier(held, old);
             if (block == null) return null;
             var halves = new ArrayList<PlacementPlan.Placed>();
             halves.add(new PlacementPlan.Placed(aimed, block.withPropertiesOf(old)));
             var partner = SplitterBlock.partner(aimed, old);
             var partnerState = level.getBlockState(partner);
             if (SplitterBlock.isPartner(old, partnerState)) halves.add(new PlacementPlan.Placed(partner, block.withPropertiesOf(partnerState)));
-            // The library leaves entities to the builder, as vanilla refuses a placement into one.
-            var clear = halves.stream().allMatch(half -> level.isUnobstructed(half.state(), half.pos(), CollisionContext.empty()));
-            return PlacementPlan.replacing(halves, clear ? null : BeltRefusal.BLOCKED);
+            return PlacementPlan.replacing(halves, obstructed(level, halves));
         }
     }
 

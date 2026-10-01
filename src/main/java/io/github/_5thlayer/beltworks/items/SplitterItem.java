@@ -36,8 +36,8 @@ import java.util.List;
  */
 public class SplitterItem extends BlockItem implements PlansPlacement {
 
-    // Groundworks' own words for a Fast Replace refused for room, which this replace keeps to.
-    private static final String NO_ROOM_TO_RETURN = "message.groundworks.fast_replace_no_room_to_return";
+    /** Groundworks' own words for a Fast Replace refused for room, which a splitter over a tile line keeps to. */
+    public static final String NO_ROOM_TO_RETURN = "message.groundworks.fast_replace_no_room_to_return";
 
     public SplitterItem(Block block, Properties settings) {
         super(block, settings);
@@ -131,8 +131,9 @@ public class SplitterItem extends BlockItem implements PlansPlacement {
         var level = context.getLevel();
         var player = context.getPlayer();
         if (plan.refused()) {
-            if (plan.refusal() == Refusal.FastReplace.NO_ROOM_TO_RETURN && player instanceof ServerPlayer server) {
-                server.sendSystemMessage(Component.translatable(NO_ROOM_TO_RETURN), true);
+            if (!level.isClientSide() && player instanceof ServerPlayer server) {
+                var key = plan.refusal() instanceof BeltRefusal belt ? belt.messageKey() : NO_ROOM_TO_RETURN;
+                server.sendSystemMessage(Component.translatable(key), true);
             }
             return InteractionResult.FAIL;
         }

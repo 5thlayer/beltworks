@@ -29,6 +29,7 @@ import io.github._5thlayer.beltworks.blocks.FeederBlock;
 import io.github._5thlayer.beltworks.blocks.FeederBlockEntity;
 import io.github._5thlayer.beltworks.blocks.FeederReach;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
+import io.github._5thlayer.beltworks.items.SplitterItem;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.FeederArms;
 import io.github._5thlayer.beltworks.model.Splitter;
@@ -52,7 +53,7 @@ final class FastReplaceTests {
     private static final BlockPos SLOPE_FIRST = new BlockPos(2, 1, 3);
     private static final int[] SLOPE = {0, 0, 1, 2, 3, 3};
     private static final int UPKEEP_TICKS = 3;
-    private static final String NO_ROOM = "message.groundworks.fast_replace_no_room_to_return";
+    private static final String NO_ROOM = SplitterItem.NO_ROOM_TO_RETURN;
 
     private FastReplaceTests() {
     }
@@ -69,6 +70,7 @@ final class FastReplaceTests {
         tests.test("a_loader_of_another_tier_replaces_a_loader_and_keeps_its_filter_and_facing", 20, FastReplaceTests::replacesALoader);
         tests.test("a_feeder_replace_keeps_the_old_feeders_reach_and_the_held_stack_its_own", 20, FastReplaceTests::keepsAFeedersReach);
         tests.test("a_feeder_replace_keeps_the_old_feeders_tail_turn", 20, FastReplaceTests::keepsAFeedersTailTurn);
+        tests.test("a_feeder_replace_with_an_entity_in_its_way_is_refused", 20, FastReplaceTests::entityInAFeeder);
         tests.test("a_sneak_click_with_another_tier_on_a_tile_replaces_nothing", 20,
                 helper -> sneakReplacesNothing(helper, tile(BeltTier.BELT), BlockContent.tileFor(BeltTier.IMPROVED), false));
         tests.test("a_sneak_click_with_another_tier_on_a_splitter_places_beside", 20,
@@ -219,6 +221,14 @@ final class FastReplaceTests {
             helper.fail("the held feeders reach " + FeederReach.held(player.getMainHandItem()) + ", not " + heldReach, AIMED);
         }
         chargedAndHandedBack(helper, player, BlockContent.feederFor(BeltTier.IMPROVED), BlockContent.feederFor(BeltTier.BELT));
+        helper.succeed();
+    }
+
+    private static void entityInAFeeder(GameTestHelper helper) {
+        helper.setBlock(AIMED, facing(BlockContent.feederFor(BeltTier.BELT)));
+        helper.spawn(EntityType.ARMOR_STAND, AIMED);
+        var player = holding(helper, BlockContent.feederFor(BeltTier.IMPROVED), 2);
+        refusedClick(helper, player, AIMED, "message.beltworks.stretch_blocked");
         helper.succeed();
     }
 

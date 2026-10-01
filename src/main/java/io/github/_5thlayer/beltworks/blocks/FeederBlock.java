@@ -90,7 +90,7 @@ public class FeederBlock extends HorizontalDirectionalBlock implements EntityBlo
     }
 
     // The held stack's reach, set by Head Reach and Tail Reach before placing (ADR 0013). A feeder
-    // put in another's place by a Fast Replace keeps the old one's, and the held reach stays on the
+    // put in another's place by a tier swap keeps the old one's, and the held reach stays on the
     // stack (#94).
     @Override
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
