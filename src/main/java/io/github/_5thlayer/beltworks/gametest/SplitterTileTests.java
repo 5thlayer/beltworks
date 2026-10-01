@@ -39,6 +39,7 @@ import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
 import io.github._5thlayer.beltworks.blocks.BeltEndBlockEntity;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
 import io.github._5thlayer.beltworks.blocks.SplitterMenu;
+import io.github._5thlayer.beltworks.items.BeltRefusal;
 import io.github._5thlayer.beltworks.items.SplitterItem;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.Splitter;
@@ -643,7 +644,8 @@ final class SplitterTileTests {
                     if (tiles != 1) {
                         helper.fail("placing the splitter refunded " + tiles + " tiles, expected the one it replaced", LEFT);
                     }
-                    if (!player.getMainHandItem().isEmpty()) {
+                    // Its last splitter spent, the held slot takes the tile handed back (#94).
+                    if (ContainerHelper.clearOrCountMatchingItems(player.getInventory(), stack -> stack.is(ItemContent.SPLITTER.get()), 0, true) != 0) {
                         helper.fail("the splitter was not spent", LEFT);
                     }
                 })
@@ -684,7 +686,7 @@ final class SplitterTileTests {
         BlockHitResult hit = new BlockHitResult(Vec3.atBottomCenterOf(tile).add(0, 6 / 16d, 0), Direction.UP, tile, false);
         var plan = ((SplitterItem) player.getMainHandItem().getItem())
                 .splitterPlan(new BlockPlaceContext(player, InteractionHand.MAIN_HAND, player.getMainHandItem(), hit));
-        if (plan == null || !plan.blocked() || !plan.halves().getFirst().pos().equals(tile)) {
+        if (plan == null || plan.refusal() != BeltRefusal.BLOCKED || !plan.halves().getFirst().pos().equals(tile)) {
             helper.fail("a splitter facing " + facing + " is not planned refused on the tile it was aimed at", LEFT);
         }
         helper.useBlock(LEFT, player, hit);

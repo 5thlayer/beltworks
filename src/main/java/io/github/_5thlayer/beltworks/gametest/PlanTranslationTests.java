@@ -70,7 +70,7 @@ final class PlanTranslationTests {
         var own = ((SplitterItem) player.getMainHandItem().getItem()).splitterPlan(context);
         if (own == null) throw helper.assertionException(FLOOR, "the Mod plans no splitter here");
         var blocks = own.halves().stream().map(half -> new PlacementPlan.Placed(half.pos(), half.state())).toList();
-        agrees(helper, FLOOR, libraryPlan(player, hit), blocks, List.of(), own.blocked() ? BeltRefusal.BLOCKED : null);
+        agrees(helper, FLOOR, libraryPlan(player, hit), blocks, own.replaced(), own.refusal());
     }
 
     // The tile vanilla would place, and the wedges its reshape puts down with it.

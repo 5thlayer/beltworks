@@ -6,6 +6,9 @@ package io.github._5thlayer.beltworks.items;
 
 import io.github._5thlayer.groundworks.PlacementPlan;
 import io.github._5thlayer.groundworks.PlansPlacement;
+import io.github._5thlayer.groundworks.Refusal;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -33,6 +36,9 @@ import java.util.List;
  */
 public class SplitterItem extends BlockItem implements PlansPlacement {
 
+    // Groundworks' own words for a Fast Replace refused for room, which this replace keeps to.
+    private static final String NO_ROOM_TO_RETURN = "message.groundworks.fast_replace_no_room_to_return";
+
     public SplitterItem(Block block, Properties settings) {
         super(block, settings);
     }
@@ -48,23 +54,46 @@ public class SplitterItem extends BlockItem implements PlansPlacement {
           new Half(SplitterBlock.partner(leftPos, left), left.setValue(SplitterBlock.SIDE, SplitterBlock.Side.RIGHT)));
     }
 
-    /** Whether every half can go down: in the world, where the player may build, on a replaceable block, clear of entities. */
+    /** Whether every half can go down: in the world, where the player may build, on a replaceable block or a tile it replaces, clear of entities. */
     public boolean fits(BlockPlaceContext context, List<Half> halves) {
         var level = context.getLevel();
         var player = context.getPlayer();
+        var replaced = replaced(context, halves);
         for (var half : halves) {
             if (!level.isInWorldBounds(half.pos()) || player != null && !level.mayInteract(player, half.pos())
-                  || !level.getBlockState(half.pos()).canBeReplaced() && !replacesTile(level.getBlockState(half.pos()), half.state().getValue(SplitterBlock.FACING))
+                  || !level.getBlockState(half.pos()).canBeReplaced() && !replaced.contains(half.pos())
                   || !level.isUnobstructed(half.state(), half.pos(), CollisionContext.empty())) return false;
         }
         return true;
     }
 
+    /**
+     * The tiles the halves take the places of, as a Fast Replace takes a block's: straight level
+     * tiles running the way the splitter faces, and none on a sneak-click, which places beside
+     * (#94).
+     */
+    public static List<BlockPos> replaced(BlockPlaceContext context, List<Half> halves) {
+        if (sneaking(context)) return List.of();
+        var level = context.getLevel();
+        return halves.stream().filter(half -> replacesTile(level.getBlockState(half.pos()), half.state().getValue(SplitterBlock.FACING)))
+                 .map(Half::pos).toList();
+    }
+
+    /** Whether the click is a sneak-click, which places beside a tile rather than in its place, as a Fast Replace's does. */
+    public static boolean sneaking(BlockPlaceContext context) {
+        return context.getPlayer() != null && context.getPlayer().isShiftKeyDown();
+    }
+
     // A tile the splitter does not face along is not replaced, so a click on its top lands above it
-    // (PlanetaryFactory #394).
+    // (PlanetaryFactory #394). A sneak-click lands above any tile.
     private static boolean onTopOfATile(BlockPlaceContext context) {
-        return !context.replacingClickedOnBlock() && context.getClickedFace() == Direction.UP
+        return !context.replacingClickedOnBlock() && context.getClickedFace() == Direction.UP && !sneaking(context)
                  && context.getLevel().getBlockState(context.getClickedPos().below()).getBlock() instanceof BeltTileBlock;
+    }
+
+    // One of the tile's own item for each tile it replaces, which a player with infinite materials is not handed.
+    private static List<ItemStack> handedBack(BlockPlaceContext context, List<BlockPos> replaced) {
+        return replaced.stream().map(pos -> new ItemStack(context.getLevel().getBlockState(pos).getBlock().asItem())).toList();
     }
 
     /** A straight tile running the way the half faces, which the half takes the place of (PlanetaryFactory #394). */
@@ -79,7 +108,11 @@ public class SplitterItem extends BlockItem implements PlansPlacement {
     public @Nullable Plan splitterPlan(BlockPlaceContext context) {
         if (!context.canPlace()) return null;
         var halves = halves(context);
-        return new Plan(halves, !fits(context, halves));
+        var replaced = replaced(context, halves);
+        // Refused before anything changes when what it hands back would not all fit.
+        Refusal refusal = !fits(context, halves) ? BeltRefusal.BLOCKED
+          : !HandBack.fits(context.getPlayer(), context.getHand(), handedBack(context, replaced)) ? Refusal.FastReplace.NO_ROOM_TO_RETURN : null;
+        return new Plan(halves, replaced, refusal);
     }
 
     /** What the Groundworks library draws for a click here: {@link #splitterPlan}'s halves, refused whole (ADR 0010). */
@@ -88,7 +121,7 @@ public class SplitterItem extends BlockItem implements PlansPlacement {
         var plan = splitterPlan(context);
         if (plan == null) return null;
         var blocks = plan.halves().stream().map(half -> new PlacementPlan.Placed(half.pos(), half.state())).toList();
-        return plan.blocked() ? PlacementPlan.refused(blocks, BeltRefusal.BLOCKED) : PlacementPlan.accepted(blocks);
+        return new PlacementPlan(blocks, plan.replaced(), plan.refusal());
     }
 
     @Override
@@ -97,15 +130,18 @@ public class SplitterItem extends BlockItem implements PlansPlacement {
         if (plan == null) return InteractionResult.FAIL;
         var level = context.getLevel();
         var player = context.getPlayer();
-        if (plan.blocked()) return InteractionResult.FAIL;
+        if (plan.refused()) {
+            if (plan.refusal() == Refusal.FastReplace.NO_ROOM_TO_RETURN && player instanceof ServerPlayer server) {
+                server.sendSystemMessage(Component.translatable(NO_ROOM_TO_RETURN), true);
+            }
+            return InteractionResult.FAIL;
+        }
 
+        var back = handedBack(context, plan.replaced());
         var carried = new ArrayList<List<TransportLine.Share<ItemStack>>>();
         for (var half : plan.halves()) {
-            var tile = level.getBlockEntity(half.pos(), BlockEntitiesContent.BELT_TILE.get()).orElse(null);
+            var tile = plan.replaced().contains(half.pos()) ? level.getBlockEntity(half.pos(), BlockEntitiesContent.BELT_TILE.get()).orElse(null) : null;
             carried.add(tile == null ? List.of() : tile.takeCarried());
-            if (tile != null && !level.isClientSide() && player != null && !player.hasInfiniteMaterials()) {
-                player.getInventory().placeItemBackInInventory(new ItemStack(tile.getBlockState().getBlock().asItem()));
-            }
             level.setBlock(half.pos(), half.state(), Block.UPDATE_ALL);
         }
         if (!level.isClientSide()) {
@@ -122,11 +158,19 @@ public class SplitterItem extends BlockItem implements PlansPlacement {
           (sound.getVolume() + 1.0F) / 2.0F, sound.getPitch() * 0.8F);
         level.gameEvent(GameEvent.BLOCK_PLACE, left.pos(), GameEvent.Context.of(player, left.state()));
         context.getItemInHand().consume(1, player);
+        if (!level.isClientSide()) HandBack.give(player, context.getHand(), back);
         return InteractionResult.SUCCESS;
     }
 
-    /** @param blocked whether a half's block is not free, so neither goes down */
-    public record Plan(List<Half> halves, boolean blocked) {
+    /**
+     * @param replaced the tiles the halves take the places of
+     * @param refusal why neither half goes down: a half's block is not free, or what it hands back would not fit
+     */
+    public record Plan(List<Half> halves, List<BlockPos> replaced, @Nullable Refusal refusal) {
+
+        public boolean refused() {
+            return refusal != null;
+        }
     }
 
     public record Half(BlockPos pos, BlockState state) {

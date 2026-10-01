@@ -116,10 +116,11 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
         return shapes;
     }
 
-    // A splitter placed across a straight line takes the tile's place (PlanetaryFactory #394).
+    // A splitter placed across a straight line takes the tile's place (PlanetaryFactory #394), unless
+    // a sneak-click places it beside (#94).
     @Override
     protected boolean canBeReplaced(BlockState state, BlockPlaceContext context) {
-        return context.getItemInHand().getItem() instanceof SplitterItem
+        return context.getItemInHand().getItem() instanceof SplitterItem && !SplitterItem.sneaking(context)
                  && SplitterItem.replacesTile(state, context.getHorizontalDirection());
     }
 

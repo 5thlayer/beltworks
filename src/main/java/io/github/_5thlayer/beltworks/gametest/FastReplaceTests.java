@@ -5,6 +5,7 @@ package io.github._5thlayer.beltworks.gametest;
 
 import io.github._5thlayer.groundworks.PlacementPlan;
 import io.github._5thlayer.groundworks.Placements;
+import io.github._5thlayer.groundworks.Refusal;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -78,6 +79,10 @@ final class FastReplaceTests {
                 helper -> sneakReplacesNothing(helper, facing(BlockContent.feederFor(BeltTier.BELT)), BlockContent.feederFor(BeltTier.IMPROVED), true));
         tests.test("a_replace_with_no_room_for_the_handed_back_block_is_refused_and_changes_nothing", 20, FastReplaceTests::noRoom);
         tests.test("a_click_on_a_tile_of_another_tier_with_a_stretch_start_stored_lays_the_stretch", 20, FastReplaceTests::stretchWins);
+        tests.test("a_splitter_over_a_tile_line_names_the_tiles_it_takes_as_replaced", 20, FastReplaceTests::splitterOverTiles);
+        tests.test("a_sneak_click_with_a_splitter_on_a_tile_line_places_beside", 20, FastReplaceTests::splitterBesideTiles);
+        tests.test("a_splitter_over_a_tile_line_with_no_room_for_the_tiles_is_refused_and_changes_nothing", 20,
+                FastReplaceTests::splitterOverTilesNoRoom);
         tests.test("a_tile_of_the_held_tier_is_not_replaced", 20,
                 helper -> sameTierPasses(helper, tile(BeltTier.BELT), BlockContent.tileFor(BeltTier.BELT)));
         tests.test("a_splitter_of_the_held_tier_is_not_replaced", 20,
@@ -274,6 +279,53 @@ final class FastReplaceTests {
         expect(helper, AIMED, old);
         if (count(player, held.asItem()) > 2) helper.fail("a click on a block of the held tier handed one back", AIMED);
         helper.succeed();
+    }
+
+    // A tile under each half, running east as the splitter faces: each is taken and handed back.
+    private static void splitterOverTiles(GameTestHelper helper) {
+        tilesUnderTheHalves(helper);
+        var player = holding(helper, BlockContent.splitterFor(BeltTier.BELT), 2);
+        var plan = planOf(helper, player, LEFT);
+        var both = List.of(helper.absolutePos(LEFT), helper.absolutePos(RIGHT));
+        if (plan == null || plan.isRefused() || !plan.replaces().equals(both)) {
+            helper.fail("the splitter over the tiles was planned " + plan + ", not replacing both", LEFT);
+        }
+        click(helper, player, LEFT, false);
+        expect(helper, LEFT, half(BeltTier.BELT, SplitterBlock.Side.LEFT));
+        expect(helper, RIGHT, half(BeltTier.BELT, SplitterBlock.Side.RIGHT));
+        if (count(player, BlockContent.splitterFor(BeltTier.BELT).asItem()) != 1 || count(player, BlockContent.tileFor(BeltTier.BELT).asItem()) != 2) {
+            helper.fail("the player holds " + inventory(player) + ", not one splitter and the two tiles", LEFT);
+        }
+        helper.succeed();
+    }
+
+    private static void splitterBesideTiles(GameTestHelper helper) {
+        tilesUnderTheHalves(helper);
+        var player = holding(helper, BlockContent.splitterFor(BeltTier.BELT), 2);
+        click(helper, player, LEFT, true);
+        expect(helper, LEFT, tile(BeltTier.BELT));
+        expect(helper, RIGHT, tile(BeltTier.BELT));
+        expect(helper, LEFT.above(), half(BeltTier.BELT, SplitterBlock.Side.LEFT));
+        if (count(player, BlockContent.tileFor(BeltTier.BELT).asItem()) != 0) helper.fail("a sneak-click handed tiles back", LEFT);
+        helper.succeed();
+    }
+
+    private static void splitterOverTilesNoRoom(GameTestHelper helper) {
+        tilesUnderTheHalves(helper);
+        var player = holding(helper, BlockContent.splitterFor(BeltTier.BELT), 2);
+        var inventory = player.getInventory();
+        for (int slot = 0; slot < inventory.getNonEquipmentItems().size(); slot++) {
+            if (slot != inventory.getSelectedSlot()) inventory.setItem(slot, new ItemStack(Items.DIRT, 64));
+        }
+        var plan = planOf(helper, player, LEFT);
+        if (plan == null || plan.refusal() != Refusal.FastReplace.NO_ROOM_TO_RETURN) helper.fail("the splitter was planned " + plan, LEFT);
+        refusedClick(helper, player, LEFT, NO_ROOM);
+        helper.succeed();
+    }
+
+    private static void tilesUnderTheHalves(GameTestHelper helper) {
+        helper.setBlock(LEFT, tile(BeltTier.BELT));
+        helper.setBlock(RIGHT, tile(BeltTier.BELT));
     }
 
     /** Clicks, and holds the world, the inventory and the drops to unchanged and the player to being told {@code key}. */
