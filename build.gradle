@@ -130,7 +130,7 @@ dependencies {
     jarJar(implementation('io.github.5thlayer:groundworks')) {
         version {
             strictly groundworksRange
-            prefer '0.5.0'
+            prefer '0.5.1'
         }
     }
 

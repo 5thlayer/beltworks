@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Nests Groundworks 0.5.1: a stretch pays from the held stack first, and hands the tiles it replaces back into the slot it freed. Groundworks' Fast Replace comes with it, which belt pieces join in a later release.
 ## 0.3.13
 
 - An item that lands on a belt tile, thrown, spilled or dropped from above, now joins the belt where it lands when there is room for it, a stack one item at a time as room allows, instead of riding past the belt's own items. With no room it rests on the items under it: it moves with them on a moving belt and stands still with them on one that has backed up, and joins once its spot has room. Players on a tile are still carried at the tile's speed (5thlayer/beltworks#92).
