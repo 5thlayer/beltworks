@@ -1,8 +1,8 @@
-![Beltworks](publish/beltworks-cover.png)
+![Beltworks](https://raw.githubusercontent.com/5thlayer/beltworks/main/publish/beltworks-cover.png)
 
 > **Want spline belts?** Those are **Simple Conveyor Belts** by Rearth, the mod Beltworks started from: [GitHub](https://github.com/Rearth/SimpleBelts) · [CurseForge](https://www.curseforge.com/minecraft/mc-mods/simple-conveyor-belts). Beltworks is a different mod, with belts laid on the block grid.
 
-Beltworks adds Factorio-style belts to Minecraft, laid block by block on the grid and built to work with any tech mod. It runs on **NeoForge** for **Minecraft 26.1.2**. It is early work, so please report any issues you find.
+Beltworks adds Factorio-style belts to Minecraft, laid block by block on the grid and built to work with any tech mod. It runs on **NeoForge** for **Minecraft 26.1.2**. It is early work, so please report any issues you find on [GitHub](https://github.com/5thlayer/beltworks/issues).
 
 ## Features
 
@@ -21,4 +21,9 @@ None beyond NeoForge. Groundworks, the library that plans and previews placement
 
 ## Credits
 
-Beltworks builds on Simple Conveyor Belts by Rearth and on malcolmriley's unused-textures, both CC BY 4.0. See [NOTICE](NOTICE) for the full credits, and [LICENSE](LICENSE) for how each file is licensed.
+Beltworks builds on two works, both under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/):
+
+- **Simple Conveyor Belts** by Rearth ([GitHub](https://github.com/Rearth/SimpleBelts) · [CurseForge](https://www.curseforge.com/minecraft/mc-mods/simple-conveyor-belts)), whose code and textures Beltworks modifies.
+- **unused-textures** by malcolmriley ([GitHub](https://github.com/malcolmriley/unused-textures)), which the belt textures come from.
+
+Code is MIT and assets are CC BY 4.0. See [NOTICE](https://github.com/5thlayer/beltworks/blob/main/NOTICE) for the full credits and [LICENSE](https://github.com/5thlayer/beltworks/blob/main/LICENSE) for how each file is licensed; the jar carries both. Source is on [GitHub](https://github.com/5thlayer/beltworks).
