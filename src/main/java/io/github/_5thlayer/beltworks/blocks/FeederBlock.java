@@ -89,11 +89,13 @@ public class FeederBlock extends HorizontalDirectionalBlock implements EntityBlo
         return TurnsInPlace.turned(state.setValue(TAIL_TURN, TailTurn.of(state.getValue(TAIL_TURN).turn().turned(reverse))));
     }
 
-    // The held stack's reach, set by Head Reach and Tail Reach before placing (ADR 0013).
+    // The held stack's reach, set by Head Reach and Tail Reach before placing (ADR 0013). A feeder
+    // put in another's place by a Fast Replace keeps the old one's, and the held reach stays on the
+    // stack (#94).
     @Override
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
         super.setPlacedBy(level, pos, state, placer, stack);
-        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof FeederBlockEntity feeder) {
+        if (!level.isClientSide() && level.getBlockEntity(pos) instanceof FeederBlockEntity feeder && !feeder.swappedIn()) {
             feeder.setArms(FeederReach.held(stack));
         }
     }

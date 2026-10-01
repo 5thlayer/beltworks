@@ -34,6 +34,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.FeederBlock;
+import io.github._5thlayer.beltworks.blocks.FeederBlockEntity;
 import io.github._5thlayer.beltworks.blocks.FeederReach;
 import io.github._5thlayer.beltworks.blocks.PlannedSupports;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
@@ -75,14 +76,19 @@ final class BeltPreviews {
     /**
      * A planned feeder's arms, at the reach the held stack's next placement takes (ADR 0013), so a
      * press of Head Reach or Tail Reach redraws them. They are a placed feeder's, in the plan's tint.
+     * A feeder a Fast Replace swaps keeps its own reach, so its arms are drawn at that (#94).
      */
     private static void feederArms(PlacementPreviewEvent.Overlay event) {
-        var arms = FeederReach.held(event.getStack());
+        var held = FeederReach.held(event.getStack());
+        var plan = event.getPlan();
         var geometry = event.getGeometry();
         var camera = geometry.getLevelRenderState().cameraRenderState.pos;
         var poseStack = geometry.getPoseStack();
-        for (var placed : event.getPlan().blocks()) {
+        for (var placed : plan.blocks()) {
             if (!(placed.state().getBlock() instanceof FeederBlock feeder)) continue;
+            var arms = plan.replaces().contains(placed.pos()) && event.getLevel().getBlockEntity(placed.pos()) instanceof FeederBlockEntity old
+                         ? old.arms() : held;
+            arms = arms.withTailTurn(placed.state().getValue(FeederBlock.TAIL_TURN).turn());
             var facing = placed.state().getValue(HorizontalDirectionalBlock.FACING);
             var boxes = FeederRenderer.boxes(arms, facing, at -> LightCoordsUtil.FULL_BRIGHT);
             var pos = placed.pos();

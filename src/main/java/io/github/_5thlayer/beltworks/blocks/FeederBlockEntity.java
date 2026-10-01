@@ -53,6 +53,8 @@ public class FeederBlockEntity extends BlockEntity {
     private final FlowLimit flow;
     private final LoaderEnergy energy;
     private FeederArms arms = FeederArms.ADJACENT;
+    // Whether it took the place of a feeder of another tier and kept what that one held.
+    private boolean swappedIn;
     // On a client only: the items its head took lately, still being drawn going in.
     private final List<Sucked> sucked = new ArrayList<>();
 
@@ -168,7 +170,12 @@ public class FeederBlockEntity extends BlockEntity {
     @Override
     public void setLevel(Level level) {
         super.setLevel(level);
-        TierSwap.take(this);
+        swappedIn = TierSwap.take(this);
+    }
+
+    /** Whether it took a feeder of another tier's place and kept its filter and reach (#27). */
+    public boolean swappedIn() {
+        return swappedIn;
     }
 
     @Override

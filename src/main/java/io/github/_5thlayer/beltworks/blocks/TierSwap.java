@@ -71,16 +71,17 @@ final class TierSwap {
         for (var parcel : stale) parcel.spill().run();
     }
 
-    /** Hands {@code to}, as it joins its level, what the block entity it replaced parked, if any. */
-    static void take(BlockEntity to) {
+    /** Hands {@code to}, as it joins its level, what the block entity it replaced parked, if any, and answers whether it did. */
+    static boolean take(BlockEntity to) {
         var level = to.getLevel();
-        if (level == null || level.isClientSide() || PARKED.isEmpty()) return;
+        if (level == null || level.isClientSide() || PARKED.isEmpty()) return false;
         for (var parcels = PARKED.iterator(); parcels.hasNext(); ) {
             var parcel = parcels.next();
             if (parcel.level() != level || !parcel.pos().equals(to.getBlockPos())) continue;
             parcels.remove();
             parcel.deliver().accept(to);
-            return;
+            return true;
         }
+        return false;
     }
 }

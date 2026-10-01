@@ -23,6 +23,7 @@ import io.github._5thlayer.beltworks.blocks.SplitterBlock;
 import io.github._5thlayer.beltworks.collision.BeltCollisionRegistry;
 import io.github._5thlayer.beltworks.gametest.BeltGameTests;
 import io.github._5thlayer.beltworks.items.BeltLegs;
+import io.github._5thlayer.beltworks.items.BeltReplaces;
 import io.github._5thlayer.beltworks.neoforge.BeltChangesPayload;
 import io.github._5thlayer.beltworks.neoforge.BeltHandPayload;
 import io.github._5thlayer.beltworks.neoforge.SplitterFilterPayload;
@@ -77,6 +78,8 @@ public final class Beltworks {
         Dismantles.register(BeltFamily.INSTANCE);
         // Groundworks runs the Stretch too, and the Mod builds a belt's legs (ADR 0011).
         Stretches.register(new BeltLegs());
+        // A tile, splitter, loader or feeder of another tier takes a placed one's place (#94).
+        BeltReplaces.register();
         modBus.addListener(Beltworks::registerCapabilities);
         modBus.addListener(Beltworks::registerPayloads);
         NeoForge.EVENT_BUS.addListener(Beltworks::sendLinesOfChunk);

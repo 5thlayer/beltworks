@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A belt tile, splitter, loader or feeder of another tier now replaces a placed one in place with a click, up or down, for one item charged and the old one handed back. The new block keeps what the old one held: a tile its items and its shape, a splitter both halves' items and its settings, a loader its filter and facing, a feeder its filter, reach and tail turn, and each the energy its tier holds. A sneak-click places beside instead (5thlayer/beltworks#94).
+
 ## 0.3.14
 
 - Nests Groundworks 0.5.1: a stretch pays from the held stack first, and hands the tiles it replaces back into the slot it freed. Groundworks' Fast Replace comes with it, which belt pieces join in a later release.
