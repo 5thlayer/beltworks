@@ -157,6 +157,20 @@ public class FeederBlockEntity extends BlockEntity {
         filter.reset(this, player);
     }
 
+    // A feeder of another tier put in its place keeps its filter, its reach and what energy its tier
+    // holds, whatever its facing (#27).
+    @Override
+    public void preRemoveSideEffects(BlockPos pos, BlockState state) {
+        super.preRemoveSideEffects(pos, state);
+        if (level != null && TierSwap.swaps(state, level.getBlockState(pos))) TierSwap.parkSaved(this, pos, () -> {});
+    }
+
+    @Override
+    public void setLevel(Level level) {
+        super.setLevel(level);
+        TierSwap.take(this);
+    }
+
     @Override
     protected void saveAdditional(ValueOutput output) {
         super.saveAdditional(output);

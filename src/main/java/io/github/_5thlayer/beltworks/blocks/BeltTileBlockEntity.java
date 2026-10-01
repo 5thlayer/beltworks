@@ -386,34 +386,20 @@ public class BeltTileBlockEntity extends BlockEntity {
         // Through the holder, so every tile of the run holds its own share before the run is cut:
         // the tiles past this one keep their items and run dry rather than losing them (#383).
         var carried = membership.takeCarried(world);
-        if (level != null && level.getBlockState(pos).getBlock() instanceof BeltTileBlock) handOver(level, pos, carried);
-        else for (var share : carried) drop(share.payload());
+        // A tile of another tier put in its place, as a stretch's Fast Replace puts one, takes what
+        // this one carried as it joins the level (#393, #27).
+        if (level != null && !carried.isEmpty() && TierSwap.swaps(state, level.getBlockState(pos))) {
+            TierSwap.park(level, pos, BeltTileBlockEntity.class, tile -> tile.carry(carried), () -> carried.forEach(share -> drop(share.payload())));
+        } else {
+            for (var share : carried) drop(share.payload());
+        }
         membership.invalidateAround(world);
-    }
-
-    /** What a tile swapped for one of another tier hands the tile replacing it, which takes it as it joins the level. */
-    private record Handoff(Level level, BlockPos pos, List<TransportLine.Share<ItemStack>> shares) {
-    }
-
-    // Set and taken within the one setBlock, on the server thread.
-    private static @Nullable Handoff handoff;
-
-    // The chunk makes the new tile's block entity right after removing this one's, so a swap of
-    // tiers, as a stretch's Fast Replace makes, keeps what the tile carried (#393).
-    private static void handOver(Level level, BlockPos pos, List<TransportLine.Share<ItemStack>> shares) {
-        var stale = handoff;
-        if (stale != null) for (var share : stale.shares()) drop(stale.level(), stale.pos(), share.payload());
-        handoff = shares.isEmpty() ? null : new Handoff(level, pos.immutable(), List.copyOf(shares));
     }
 
     @Override
     public void setLevel(Level level) {
         super.setLevel(level);
-        var handed = handoff;
-        if (handed != null && handed.level() == level && handed.pos().equals(worldPosition)) {
-            handoff = null;
-            carry(handed.shares());
-        }
+        TierSwap.take(this);
     }
 
     @Override

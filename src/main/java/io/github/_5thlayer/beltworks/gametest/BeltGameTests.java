@@ -80,6 +80,7 @@ public final class BeltGameTests {
         SupportTests.register(tests);
         RotateTests.register(tests);
         FeederTests.register(tests);
+        TierSwapTests.register(tests);
         RecipeTests.register(tests);
     }
 

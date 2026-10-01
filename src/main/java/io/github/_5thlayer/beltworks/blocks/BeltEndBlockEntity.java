@@ -287,8 +287,39 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
     @Override
     public void preRemoveSideEffects(BlockPos pos, BlockState state) {
         super.preRemoveSideEffects(pos, state);
+        if (swapsTier(pos, state)) {
+            TierSwap.parkSaved(this, pos, () -> releaseBelts(null));
+            swapOtherHalf(pos, state);
+            return;
+        }
         releaseBelts(null);
         removeOtherHalf(pos, state);
+    }
+
+    // A loader keeps what it held whatever its new facing; a splitter half only with its own facing
+    // and side, any other being a break and a placement (ADR 0007).
+    private boolean swapsTier(BlockPos pos, BlockState state) {
+        if (level == null || level.isClientSide()) return false;
+        var now = level.getBlockState(pos);
+        if (!TierSwap.swaps(state, now)) return false;
+        return !splitter || now.getValue(HorizontalDirectionalBlock.FACING) == state.getValue(HorizontalDirectionalBlock.FACING)
+                            && now.getValue(SplitterBlock.SIDE) == state.getValue(SplitterBlock.SIDE);
+    }
+
+    // The other half takes the new tier too, with its own properties, so a splitter is only ever of
+    // one tier. Its removal swaps it as this one's did, and finds this half already swapped.
+    private void swapOtherHalf(BlockPos pos, BlockState state) {
+        if (!splitter) return;
+        var partner = SplitterBlock.partner(pos, state);
+        var partnerState = level.getBlockState(partner);
+        if (!SplitterBlock.isPartner(state, partnerState)) return;
+        level.setBlock(partner, level.getBlockState(pos).getBlock().withPropertiesOf(partnerState), Block.UPDATE_ALL);
+    }
+
+    @Override
+    public void setLevel(Level level) {
+        super.setLevel(level);
+        TierSwap.take(this);
     }
 
     // Without drops: the half removed first pays the splitter's one item through its loot table (#349).
