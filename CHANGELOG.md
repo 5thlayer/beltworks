@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.16
+
 - Nests Groundworks 0.5.2, which adds footprints: a block placed and broken whole across several positions (5thlayer/groundworks#40).
 
 ## 0.3.15
