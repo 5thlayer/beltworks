@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Requires Groundworks 0.5.4 or later, the version it nests, where it accepted any 0.5.
+
 ## 0.3.17
 
 - Nests Groundworks 0.5.4: a footprint part left in a world after a mod changed its shape no longer crashes the game when used, aimed at or broken, and Groundworks' item tags have names in EMI (5thlayer/groundworks#42).

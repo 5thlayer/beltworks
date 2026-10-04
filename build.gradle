@@ -103,8 +103,9 @@ tasks.named('runClient') { dependsOn syncClientMods }
 // The last JEI for 26.1.2 that loads on gradle.properties' neoforge_version; later ones need 26.1.2.81 or more.
 def jeiVersion = '29.20.0.53'
 
-// The Groundworks versions the Mod nests and, through neoforge.mods.toml, accepts at load.
-def groundworksRange = '[0.5,0.6)'
+// The Groundworks versions the Mod nests and, through neoforge.mods.toml, accepts at load. The lower
+// bound is the Groundworks it nests, the prefer below, and rises with it.
+def groundworksRange = '[0.5.4,0.6)'
 
 // A checkout outside the range still builds, and is refused at load: the composite substitutes it
 // whatever the range says. So -PsiblingBuilds (settings.gradle) checks it here.
