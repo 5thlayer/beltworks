@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Nests Groundworks 0.5.4: a footprint part left in a world after a mod changed its shape no longer crashes the game when used, aimed at or broken, and Groundworks' item tags have names in EMI (5thlayer/groundworks#42).
+
 ## 0.3.16
 
 - Nests Groundworks 0.5.2, which adds footprints: a block placed and broken whole across several positions (5thlayer/groundworks#40).
