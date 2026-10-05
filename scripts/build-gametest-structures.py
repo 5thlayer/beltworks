@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 5thlayer
+# SPDX-License-Identifier: MIT
+
 """Writes the structures the game tests stand on: stone floors with air above them.
 
 A game test is placed into a structure template, and its helper's coordinates are relative to
