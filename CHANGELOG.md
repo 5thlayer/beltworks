@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Requires Groundworks 0.5.4 or later, the version it nests, where it accepted any 0.5.
+- Requires Groundworks 0.5.4 or later, where it accepted any 0.5. Groundworks is no longer inside the jar: install it alongside Beltworks, from Modrinth or CurseForge, where it is listed as a required dependency.
 
 ## 0.3.17
 

@@ -17,7 +17,7 @@ Beltworks adds Factorio-style belts to Minecraft, laid block by block on the gri
 
 ## Dependencies
 
-None beyond NeoForge. Groundworks, the library that plans and previews placements, comes inside the jar.
+NeoForge and Groundworks, the library that plans and previews placements. Install Groundworks alongside Beltworks.
 
 ## Credits
 

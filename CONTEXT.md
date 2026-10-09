@@ -15,7 +15,7 @@ This project, the Mod. "The Mod" is an accepted alias.
 _Avoid_: the fork, SimpleBelts, Belt Works, belts (that was Upstream's mod id, not a name)
 
 **Groundworks**:
-The library mod for mass placement and **Dismantle**, for the Mod and the Pack alike: it plans what a click would lay or take up, shows the plan before the click, and carries it out. It also runs **Rotate**. The Mod bundles it in its own jar (ADR 0010). Formerly placementpreview, which only drew **Placement Plans**.
+The library mod for mass placement and **Dismantle**, for the Mod and the Pack alike: it plans what a click would lay or take up, shows the plan before the click, and carries it out. It also runs **Rotate**. The Mod requires it and does not bundle it (ADR 0015). Formerly placementpreview, which only drew **Placement Plans**.
 _Avoid_: placementpreview (its old name), preview lib, the renderer, Groundwork
 
 **the Pack**:
@@ -139,7 +139,7 @@ _Avoid_: balancer block
 ### Rotating
 
 **Rotate**:
-Groundworks' one action on one key (`R` by default, and **Reverse Rotate** the other way on `Shift+R`) that turns a quarter at a time. It **Rotates the Plan** when the held item is rotatable, and otherwise **Rotates in Place** the block under the crosshair. The Mod gets Rotate from the library it bundles, so a tile turns by Rotate in any pack; its only keys of its own are **Head Reach** and **Tail Reach**.
+Groundworks' one action on one key (`R` by default, and **Reverse Rotate** the other way on `Shift+R`) that turns a quarter at a time. It **Rotates the Plan** when the held item is rotatable, and otherwise **Rotates in Place** the block under the crosshair. The Mod gets Rotate from the library it requires, so a tile turns by Rotate in any pack; its only keys of its own are **Head Reach** and **Tail Reach**.
 _Avoid_: rotate key, turn, wrench rotate
 
 **Rotate the Plan**:

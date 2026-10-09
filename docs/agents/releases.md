@@ -17,7 +17,7 @@ Each change players notice adds its line under `## Unreleased` in `CHANGELOG.md`
 3. commits `chore: release <version>`, runs `publishToMavenLocal`, and tags `beltworks-v<version>` with the jar's sha256
 4. with `--upload`, uploads the jar to Modrinth and CurseForge with `scripts/upload.py` (below). A failed upload leaves the local release and the tag in place; the script names the site that failed, and `scripts/upload.py --site <site> <version>` retries it. Without `--upload` it stops after the tag and prints `scripts/upload.py <version>`, since an upload is public and for good and waits on the user's word; the release train runs it once the user says to push. `release.sh` takes its flags in any position and refuses an unknown flag or a second version before it changes anything. Under `MAVEN_REPO_LOCAL`, a trial run, the upload is only a dry run.
 
-It pushes nothing to git, and ends by printing the push command. The published jar is the `jar` task's, with Groundworks nested under `META-INF/jarjar/`. The Pack loads the Groundworks that Beltworks bundles, so check that `META-INF/jarjar/metadata.json` names the Groundworks and the range you meant to ship.
+It pushes nothing to git, and ends by printing the push command. The published jar is the `jar` task's. It nests nothing: check that its `META-INF/neoforge.mods.toml` requires Groundworks in the range you meant to ship (ADR 0015).
 
 A release that must reach another Library or the Pack follows the `release-train` skill.
 
@@ -26,14 +26,14 @@ A release that must reach another Library or the Pack follows the `release-train
 `scripts/upload.py <version>` uploads a version already in `~/.m2` to each site whose project `gradle.properties` names: the jar there, byte for byte, with that version's changelog section as its notes, for Minecraft `minecraft_version` on NeoForge, on client and server, as the release type `upload_release_type` names (`release`, `beta` or `alpha`) or, left empty, as beta below 1.0 and release from it. An unknown type is refused before either site is contacted, and `--dry-run` shows the type it would send.
 
 - `modrinth_project_id` (`p4zxipln`) and `curseforge_project_id` (`1714527`) are the projects; `MODRINTH_PROJECT_ID` and `CURSEFORGE_PROJECT_ID` override them. With neither set, the script refuses and `scripts/release.sh` skips the upload.
-- `modrinth_dependencies` (Modrinth project ids) and `curseforge_dependencies` (CurseForge slugs) are the required dependencies, comma separated. Beltworks has none: Groundworks is nested, so neither site lists it.
+- `modrinth_dependencies` (Modrinth project ids) and `curseforge_dependencies` (CurseForge slugs) are the required dependencies, comma separated. Beltworks's is Groundworks (Modrinth `AJ3Q7hSr`, CurseForge `groundworks`), which each site lists as required (ADR 0015).
 
 Each site's token comes from the environment and is never printed. The tokens live in 1Password, and `publish/upload.env` names them there; when a token is missing the upload runs itself again through `op run --env-file=publish/upload.env`, which fills them in for that run only. So `scripts/release.sh --upload <version>` and `scripts/upload.py <version>` need nothing exported; 1Password asks to be unlocked.
 
 - Modrinth: `MODRINTH_TOKEN`, the 1Password item "Beltworks Modrinth": a personal access token with the scopes Create versions, Read versions and Read projects.
 - CurseForge: `CURSEFORGE_TOKEN`, the 1Password item "Beltworks CurseForge": an upload API token. The upload API can't list a project's files, so the check for a version CurseForge already has reads the website's own listing (`www.curseforge.com/api/v1/mods/<id>/files`), which needs no key but is undocumented: if it changes, that check fails and the upload stops. It doesn't show a file still under CurseForge's review, so a version is never uploaded again while one waits: 0.3.9 was uploaded by hand on 2026-09-27, and `--site modrinth` is the way to upload it elsewhere. CurseForge needs the environments named too, Client and Server, or it refuses the file.
 
-It refuses, before contacting either site, a version missing from `~/.m2` or from the changelog, and a jar lacking the licensing `checkJarLicensing` requires: `LICENSE`, `NOTICE` crediting Rearth and malcolmriley, `LICENSES/MIT.txt` and `LICENSES/CC-BY-4.0.txt`, and a `LICENSE` in the nested Groundworks. Each site then goes on its own: a site that already has the version, or whose upload fails, is refused without touching the other, and `--site modrinth` or `--site curseforge` retries just that one. `--dry-run` prints the requests and contacts nothing. `MODRINTH_API_URL`, `CURSEFORGE_UPLOAD_URL` and `CURSEFORGE_API_URL` (the listing's site) point it elsewhere, and its tests (`python3 -m unittest discover scripts/tests`) run it against a stand-in server on localhost.
+It refuses, before contacting either site, a version missing from `~/.m2` or from the changelog, and a jar lacking the licensing `checkJarLicensing` requires: `LICENSE`, `NOTICE` crediting Rearth and malcolmriley, `LICENSES/MIT.txt` and `LICENSES/CC-BY-4.0.txt`. Each site then goes on its own: a site that already has the version, or whose upload fails, is refused without touching the other, and `--site modrinth` or `--site curseforge` retries just that one. `--dry-run` prints the requests and contacts nothing. `MODRINTH_API_URL`, `CURSEFORGE_UPLOAD_URL` and `CURSEFORGE_API_URL` (the listing's site) point it elsewhere, and its tests (`python3 -m unittest discover scripts/tests`) run it against a stand-in server on localhost.
 
 ## A published version is final
 
@@ -41,9 +41,9 @@ A version in `~/.m2` never changes. A fix, or a rebuild against another Groundwo
 
 ## Trying an unreleased Groundworks
 
-`-PsiblingBuilds` is for trying a change across Groundworks and Beltworks before Groundworks is released (#54). It includes the Groundworks checkout (`-PgroundworksDir`, default `~/minecraft_mods/groundworks`, the Pack's property and default) as a composite, so the compile, the nested jar and every dev run, `runGameTestServer` included, use the checkout and never `~/.m2`. The build prints one `siblingBuilds:` line naming the checkout, its version and HEAD, and fails if the checkout's version is outside the range Beltworks nests Groundworks under: a Groundworks minor needs that range moved in this checkout too. Under the Pack's `-PsiblingBuilds` this build sees the same properties, so it names the same checkout.
+`-PsiblingBuilds` is for trying a change across Groundworks and Beltworks before Groundworks is released (#54). It includes the Groundworks checkout (`-PgroundworksDir`, default `~/minecraft_mods/groundworks`, the Pack's property and default) as a composite, so the compile and every dev run, `runGameTestServer` included, use the checkout and never `~/.m2`. The build prints one `siblingBuilds:` line naming the checkout, its version and HEAD, and fails if the checkout's version is outside the range Beltworks requires Groundworks in: a Groundworks minor needs that range moved in this checkout too. Under the Pack's `-PsiblingBuilds` this build sees the same properties, so it names the same checkout.
 
-Nothing publishes under it: `publishToMavenLocal` and `scripts/release.sh` refuse. A green run under it proves nothing about a release, which still goes Groundworks, then Beltworks, then the Pack, through release-train. Under the composite the nested jar is named `io.github.5thlayer.groundworks-<minecraft>-<version>.jar`, so read `metadata.json`, not the file name.
+Nothing publishes under it: `publishToMavenLocal` and `scripts/release.sh` refuse. A green run under it proves nothing about a release, which still goes Groundworks, then Beltworks, then the Pack, through release-train.
 
 ## Tags
 
@@ -51,8 +51,8 @@ A Beltworks tag is `beltworks-v<version>`. This repo still carries upstream Simp
 
 ## Releasing an older commit
 
-To release a commit behind main, check it out in a worktree, publish it with `-Pmod_version=<version>` instead of committing the bump, and tag that commit. The tag's message records the command and the jar's sha256. `beltworks-v0.1.1` is one: the #49 commit, the last to nest Groundworks 0.1.
+To release a commit behind main, check it out in a worktree, publish it with `-Pmod_version=<version>` instead of committing the bump, and tag that commit. The tag's message records the command and the jar's sha256. `beltworks-v0.1.1` is one: the #49 commit, the last to bundle Groundworks 0.1.
 
 ## The stray 0.1.0
 
-The `0.1.0` in `~/.m2` predates these rules and nests Groundworks 0.3. It has no tag, is not a release, and is never pinned.
+The `0.1.0` in `~/.m2` predates these rules and bundles Groundworks 0.3. It has no tag, is not a release, and is never pinned.
