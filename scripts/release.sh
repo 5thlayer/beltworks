@@ -45,7 +45,7 @@ published="$repo/${group//.//}/$artifact/$version"
 ! git rev-parse -q --verify "refs/tags/$tag" > /dev/null || fail "$tag already exists."
 [[ ! -e "$published" ]] || fail "$version is already in $published, and a published version never changes."
 
-# A released Beltworks never nests an unreleased Groundworks. -PsiblingBuilds can come from the
+# A released Beltworks never requires an unreleased Groundworks. -PsiblingBuilds can come from the
 # environment or any gradle.properties, so Gradle itself is asked: under it the build names the
 # Groundworks checkout on a siblingBuilds: line.
 sibling="$(sh ./gradlew -q help 2>&1 | grep '^siblingBuilds:' || true)"

@@ -24,7 +24,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      # The Mod nests Groundworks, whose releases reach ~/.m2 only on a maintainer's machine. So the
+      # The Mod builds against Groundworks, whose releases reach ~/.m2 only on a maintainer's machine. So the
       # runner builds the tagged release that build.gradle prefers and publishes it to its own ~/.m2.
       - id: groundworks
         run: echo "version=$(sed -n "s/^ *prefer '\(.*\)'$/\1/p" build.gradle)" >> "$GITHUB_OUTPUT"

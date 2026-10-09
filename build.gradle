@@ -103,8 +103,8 @@ tasks.named('runClient') { dependsOn syncClientMods }
 // The last JEI for 26.1.2 that loads on gradle.properties' neoforge_version; later ones need 26.1.2.81 or more.
 def jeiVersion = '29.20.0.53'
 
-// The Groundworks versions the Mod nests and, through neoforge.mods.toml, accepts at load. The lower
-// bound is the Groundworks it nests, the prefer below, and rises with it.
+// The Groundworks versions the Mod requires, through neoforge.mods.toml, at load. The lower bound is
+// the Groundworks it builds against, the prefer below, and rises with it (ADR 0015).
 def groundworksRange = '[0.5.4,0.6)'
 
 // A checkout outside the range still builds, and is refused at load: the composite substitutes it
@@ -121,14 +121,13 @@ if (gradle.ext.has('groundworksCheckout')) {
     def above = !lowerBound || (lower == '[' ? compare(v, lowerBound) >= 0 : compare(v, lowerBound) > 0)
     def below = !upperBound || (upper == ']' ? compare(v, upperBound) <= 0 : compare(v, upperBound) < 0)
     if (!(above && below)) throw new GradleException(
-            "-PsiblingBuilds: Groundworks $v in ${checkout.dir} is outside $groundworksRange, which the Mod nests it under" +
+            "-PsiblingBuilds: Groundworks $v in ${checkout.dir} is outside $groundworksRange, which the Mod requires" +
             " and which would refuse it at load. A Groundworks minor needs this range moved in this checkout too.")
 }
 
 dependencies {
-    // Bundled, so the Mod runs with nothing else installed (ADR 0010). The range lets the Pack's own
-    // copy and this one resolve to one loaded version.
-    jarJar(implementation('io.github.5thlayer:groundworks')) {
+    // Required at load and not bundled (ADR 0015).
+    implementation('io.github.5thlayer:groundworks') {
         version {
             strictly groundworksRange
             prefer '0.5.4'
@@ -155,13 +154,13 @@ test {
     useJUnitPlatform()
 }
 
-// The jar is what players are handed, so it carries what CC BY and the bundled Groundworks require:
+// The jar is what players are handed, so it carries what CC BY requires:
 // the licences, and NOTICE crediting the works the Mod builds on.
 tasks.named('jar', Jar) {
     from(rootDir) { include 'LICENSE', 'NOTICE', 'LICENSES/**' }
 }
 
-// Fails the build when the jar, or a jar it nests, lost its licensing.
+// Fails the build when the jar lost its licensing.
 def checkJarLicensing = tasks.register('checkJarLicensing') {
     def jarFile = tasks.named('jar', Jar).flatMap { it.archiveFile }
     inputs.file jarFile
@@ -170,7 +169,7 @@ def checkJarLicensing = tasks.register('checkJarLicensing') {
             def found = [:]
             new java.util.zip.ZipInputStream(stream).withCloseable { zip ->
                 for (def e = zip.nextEntry; e != null; e = zip.nextEntry) {
-                    found[e.name] = e.name == 'NOTICE' || e.name.endsWith('.jar') ? zip.readAllBytes() : null
+                    found[e.name] = e.name == 'NOTICE' ? zip.readAllBytes() : null
                 }
             }
             found
@@ -179,16 +178,13 @@ def checkJarLicensing = tasks.register('checkJarLicensing') {
         def missing = ['LICENSE', 'NOTICE', 'LICENSES/MIT.txt', 'LICENSES/CC-BY-4.0.txt'].findAll { !outer.containsKey(it) }
         def notice = outer['NOTICE'] ? new String(outer['NOTICE'], 'UTF-8') : ''
         missing += ['Rearth', 'malcolmriley'].findAll { !notice.contains(it) }.collect { "NOTICE crediting $it" }
-        outer.findAll { it.key.startsWith('META-INF/jarjar/') && it.key.endsWith('.jar') }.each { name, bytes ->
-            if (!entries(new ByteArrayInputStream(bytes)).containsKey('LICENSE')) missing << "LICENSE in $name"
-        }
         if (missing) throw new GradleException("${jarFile.get().asFile.name} lacks its licensing: ${missing.join(', ')}")
     }
 }
 tasks.named('check') { dependsOn checkJarLicensing }
 
 // neoforge.mods.toml names nothing of its own but its credits: it is filled from gradle.properties,
-// and its Groundworks range from the one the Mod nests.
+// and its Groundworks range from the one the Mod requires.
 def modProperties = [
         mod_id: mod_id, mod_name: mod_name, mod_description: mod_description, version: mod_version,
         minecraft_version: minecraft_version, neoforge_version: neoforge_version,
@@ -218,7 +214,7 @@ tasks.withType(PublishToMavenLocal).configureEach {
     def published = new File(repositories.named('MavenLocal').get().url.path,
             "${maven_group.replace('.', '/')}/$archives_name/$mod_version")
     doFirst {
-        // A released Beltworks never nests an unreleased Groundworks (docs/agents/releases.md).
+        // A released Beltworks never requires an unreleased Groundworks (docs/agents/releases.md).
         if (gradle.ext.has('groundworksCheckout')) throw new GradleException(
                 "$mod_name is built against the Groundworks checkout under -PsiblingBuilds, and nothing publishes under it")
         if (published.exists()) throw new GradleException(

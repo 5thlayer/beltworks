@@ -4,7 +4,7 @@ issueTrackerURL = "https://github.com/5thlayer/${mod_id}/issues"
 license = "MIT AND CC-BY-4.0"
 
 # processResources fills each dollar-brace value from gradle.properties, so this file names
-# nothing of the Mod's own but its credits and its Groundworks.
+# nothing of the Mod's own but its credits and its Groundworks range.
 [[mods]]
 modId = "${mod_id}"
 version = "${version}"

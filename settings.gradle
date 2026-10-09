@@ -35,7 +35,7 @@ if (providers.gradleProperty('siblingBuilds').present) {
     }
     def dirty = git('status', '--porcelain') ? ' +uncommitted' : ''
     includeBuild dir
-    // build.gradle checks the checkout's version against the range it nests Groundworks under.
+    // build.gradle checks the checkout's version against the range it requires Groundworks under.
     gradle.ext.groundworksCheckout = [dir: dir, version: props.mod_version]
     println "siblingBuilds: not the published Groundworks -- groundworks ${props.mod_version} at ${git('rev-parse', '--short', 'HEAD')}${dirty} (${dir})"
 }
