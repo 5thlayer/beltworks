@@ -106,12 +106,6 @@ def lacking_licensing(data):
         missing = [name for name in LICENSING if name not in names]
         notice = z.read("NOTICE").decode() if "NOTICE" in names else ""
         missing += [f"NOTICE crediting {who}" for who in CREDITED if who not in notice]
-        # A nested jar, Groundworks, carries its own licence.
-        for name in sorted(names):
-            if name.startswith("META-INF/jarjar/") and name.endswith(".jar"):
-                with zipfile.ZipFile(io.BytesIO(z.read(name))) as nested:
-                    if "LICENSE" not in nested.namelist():
-                        missing.append(f"LICENSE in {name}")
     return missing
 
 

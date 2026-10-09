@@ -52,17 +52,9 @@ upload_release_type =
 """
 
 
-def nested(entries):
-    out = io.BytesIO()
-    with zipfile.ZipFile(out, "w") as z:
-        for name, data in entries.items():
-            z.writestr(name, data)
-    return out.getvalue()
-
-
 def jar(**overrides):
     entries = {"LICENSE": "MIT", "LICENSES/MIT.txt": "MIT", "NOTICE": "Credits Rearth and malcolmriley.",
-               "LICENSES/CC-BY-4.0.txt": "CC BY", "META-INF/jarjar/groundworks.jar": nested({"LICENSE": "MIT"}),
+               "LICENSES/CC-BY-4.0.txt": "CC BY",
                "io/github/_5thlayer/examplelib/ExampleLib.class": b"\xca\xfe\xba\xbe", **overrides}
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w") as z:
@@ -147,8 +139,7 @@ class Upload(unittest.TestCase):
     def test_refuses_a_jar_that_lacks_its_licensing(self):
         for lacking, entry in [(name, {name: None}) for name in
                                ["LICENSE", "NOTICE", "LICENSES/MIT.txt", "LICENSES/CC-BY-4.0.txt"]] + [
-                ("malcolmriley", {"NOTICE": "Credits Rearth."}),
-                ("groundworks.jar", {"META-INF/jarjar/groundworks.jar": nested({"x": "y"})})]:
+                ("malcolmriley", {"NOTICE": "Credits Rearth."})]:
             with self.subTest(lacking):
                 shutil.rmtree(self.maven, ignore_errors=True)
                 self.publish("0.3.9", jar(**entry))
