@@ -46,7 +46,7 @@ import java.util.function.Function;
  * A feeder's arms in its tier colour, which its block model of a slate base and column leaves out
  * since their reach is its block entity's: each runs from the hub atop the column to the block its
  * end reaches, the head ending in a sweeper's nozzle and the tail in a spout. An item the head
- * takes is drawn rising into the nozzle until it is inside, and not after (CONTEXT.md, Head). The
+ * takes is drawn rising into the nozzle until it is inside, and not after (GLOSSARY.md, Head). The
  * filter is drawn on the column's sides, as a loader's is on its housing.
  */
 public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, FeederRenderer.RenderState> {

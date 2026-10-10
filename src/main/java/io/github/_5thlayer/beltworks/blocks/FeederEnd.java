@@ -22,7 +22,7 @@ import java.util.function.Predicate;
 /**
  * What a feeder's head takes from or its tail drops into: an inventory, a level tile or a splitter
  * half, and, where there is none of those, the items lying loose at the block, which only a head
- * takes from. A slope or a loader is never one (CONTEXT.md).
+ * takes from. A slope or a loader is never one (GLOSSARY.md).
  */
 sealed interface FeederEnd {
 
@@ -152,7 +152,7 @@ sealed interface FeederEnd {
             tile.lineChanged();
         }
 
-        // A slope is never a feeder's end (CONTEXT.md).
+        // A slope is never a feeder's end (GLOSSARY.md).
         private @Nullable TransportLine<ItemStack> line() {
             if (tile.pitch() != Pitch.LEVEL) return null;
             var line = tile.line();

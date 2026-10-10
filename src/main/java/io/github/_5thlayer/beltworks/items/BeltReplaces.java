@@ -37,7 +37,7 @@ import java.util.List;
 /**
  * The Mod's four Replace groups (Groundworks ADR 0008): a tile, a splitter, a loader and a feeder
  * each replace one of the same kind and another tier with a plain click, and each replace is a
- * tier swap (CONTEXT.md), which keeps what the old block held. Only another tier replaces: a block
+ * tier swap (GLOSSARY.md), which keeps what the old block held. Only another tier replaces: a block
  * of the held item's own tier is the item's own click.
  */
 public final class BeltReplaces {

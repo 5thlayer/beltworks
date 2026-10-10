@@ -34,7 +34,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A tier swap (CONTEXT.md, #27): a block put by {@code setBlock} in the place of one of the same kind
+ * A tier swap (GLOSSARY.md, #27): a block put by {@code setBlock} in the place of one of the same kind
  * and another tier keeps what the old one held, and a splitter swaps both its halves.
  */
 final class TierSwapTests {

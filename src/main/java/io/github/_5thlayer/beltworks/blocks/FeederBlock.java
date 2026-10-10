@@ -49,7 +49,7 @@ public class FeederBlock extends HorizontalDirectionalBlock implements EntityBlo
     public static final EnumProperty<TailTurn> TAIL_TURN = EnumProperty.create("tail_turn", TailTurn.class);
 
     // Its slate base at belt height and the column at its centre with the hub its arms hang from;
-    // the arms themselves collide with nothing (CONTEXT.md, Arm).
+    // the arms themselves collide with nothing (GLOSSARY.md, Arm).
     private static final VoxelShape SHAPE = Shapes.or(Block.box(1, 0, 1, 15, 6, 15), Block.box(6, 6, 6, 10, 17, 10),
             Block.box(5, 17, 5, 11, 20, 11));
 

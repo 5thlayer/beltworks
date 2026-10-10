@@ -7,7 +7,7 @@ package io.github._5thlayer.beltworks.model;
  * A feeder's two arms: how far its head and its tail reach, one to three blocks each, and which way
  * its tail turns. The head reaches behind the feeder's facing and the tail ahead of it, turned left
  * or right as a tile turns, both on the feeder's own level and counted from the feeder's block. An
- * arm passes over whatever stands between (CONTEXT.md, Arm).
+ * arm passes over whatever stands between (GLOSSARY.md, Arm).
  */
 public record FeederArms(int headReach, int tailReach, Turn tailTurn) {
 

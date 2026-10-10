@@ -11,5 +11,5 @@ So a feeder follows the same switch as loaders. With `loadersNeedPower` off, the
 
 ## Consequences
 
-- The Feeder entry in `CONTEXT.md` says it draws power only when loaders need it.
+- The Feeder entry in `GLOSSARY.md` says it draws power only when loaders need it.
 - A feeder's cost now sits with the pack that turns power on, not with the Mod.

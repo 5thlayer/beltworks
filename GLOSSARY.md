@@ -161,7 +161,7 @@ A placed tile, splitter, loader or feeder taking the place of one of the same ki
 _Avoid_: fast replace (the gesture that makes one), upgrade (it goes down as well), retier
 
 **Fast Replace**:
-Groundworks' gesture, defined in its glossary (https://github.com/5thlayer/groundworks/blob/main/CONTEXT.md) and its ADR 0008. The Mod states four **Replace groups**: a tile, a splitter, a loader and a feeder each replace one of the same kind and another tier, a splitter both its halves, and each replace is a **tier swap**. A tile keeps its shape, its pitch and its wedge, unless a **Rotate the Plan** turn is held.
+Groundworks' gesture, defined in its glossary (https://github.com/5thlayer/groundworks/blob/main/GLOSSARY.md) and its ADR 0008. The Mod states four **Replace groups**: a tile, a splitter, a loader and a feeder each replace one of the same kind and another tier, a splitter both its halves, and each replace is a **tier swap**. A tile keeps its shape, its pitch and its wedge, unless a **Rotate the Plan** turn is held.
 _Avoid_: upgrade, swap (alone), replace (for an ordinary placement into grass or air)
 
 **Dismantle**:

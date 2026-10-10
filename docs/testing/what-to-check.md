@@ -4,7 +4,7 @@ What the unit and game tests cannot see: how a change looks and feels in a runni
 
 ## A belt's underside (#57)
 
-The belt family wears slate, with tier colour its only accent. See **Tier colour** in `CONTEXT.md`.
+The belt family wears slate, with tier colour its only accent. See **Tier colour** in `GLOSSARY.md`.
 
 - Look up at a floating line from below: its underside is one flat slate, with no step or shade where tiles meet, and a rib runs down each side of it in darker slate, one pixel wide and one pixel deep, unbroken from tile to tile.
 - Follow the ribs round a floating corner: the outer one steps round the curve with the outer wall, and the inner one is a single pixel at the turn's inner corner. Both line up with the ribs of the straight tiles either side.
@@ -16,7 +16,7 @@ The belt family wears slate, with tier colour its only accent. See **Tier colour
 
 ## Supports (ADR 0012)
 
-A raised line shows a **support** where a builder would hold it up. See **Support** in `CONTEXT.md`.
+A raised line shows a **support** where a builder would hold it up. See **Support** in `GLOSSARY.md`.
 
 - A floating corner shows a support: a leg up each corner of its block to the tile's top, and a frame under the tile tying the legs along each edge. The legs meet the tile's corners with no gap and no flicker. On a turn, the leg at its outer corner stands back where the curve's outer edge is, and the struts to it run at an angle. A floating line's first and last tiles show a support too.
 - A straight floating line shows a support every 8th block along it, at x (or z) a multiple of 8, and none on the straight tiles between. Build the same line from its other end, or the other way: the supports stand at the same blocks.
@@ -57,7 +57,7 @@ In the Mods menu, Beltworks' config screen, or `config/beltworks-client.toml`, w
 
 ## Rotate (Groundworks ADR 0003)
 
-With nothing but Beltworks installed. See **Rotate** in `CONTEXT.md`.
+With nothing but Beltworks installed. See **Rotate** in `GLOSSARY.md`.
 
 - `R` and `Shift+R` are listed once each, under Groundworks' key category, in the controls screen.
 - Holding tiles, press `R`: the Placement Preview redraws a quarter clockwise at once, and `Shift+R` turns it back. The click places what the preview drew. Do the same with a splitter and with a loader on the ground.
@@ -67,7 +67,7 @@ With nothing but Beltworks installed. See **Rotate** in `CONTEXT.md`.
 
 ## Stretch (Groundworks ADR 0004)
 
-With nothing but Beltworks installed. See **Stretch** in `CONTEXT.md`.
+With nothing but Beltworks installed. See **Stretch** in `GLOSSARY.md`.
 
 - Sneak-click a tile item on the ground, press `G` once, and aim a few blocks ahead over flat ground. The preview draws a foot and a top right after the start, with the top's wedge under it, then level tiles one block up in mid-air. Click: what is laid, wedge included, is what the preview drew, and it charges one tile per tile, none for the wedge.
 - Press `G` twice and aim only three blocks ahead: the preview draws red and the click lays nothing. Aim further and it turns clear.

@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * A tier swap's handoff (CONTEXT.md): a block put in the place of one of the same kind and another
+ * A tier swap's handoff (GLOSSARY.md): a block put in the place of one of the same kind and another
  * tier keeps what the old one held, whoever called {@code setBlock}. The chunk makes the new block's
  * entity right after removing the old one's, within the one {@code setBlock}, so the old one parks
  * what it held here as it is removed, and the new one takes it as it joins the level.

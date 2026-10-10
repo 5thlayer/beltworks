@@ -10,5 +10,5 @@ Until now the Mod had no keys: it took **Rotate** from Groundworks, so a tile tu
 
 ## Consequences
 
-- The Rotate entry in `CONTEXT.md` no longer says the Mod has no keys; it names these two.
+- The Rotate entry in `GLOSSARY.md` no longer says the Mod has no keys; it names these two.
 - A pack that binds keys has two more to place.
