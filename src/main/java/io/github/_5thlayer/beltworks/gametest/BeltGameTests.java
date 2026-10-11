@@ -26,7 +26,7 @@ import java.util.function.Consumer;
  * splitter's belts and a three-block climb, or on its {@code gametest/long_platform}, 66x3x3, for a
  * 64-tile line, and places what it needs itself, so the setup is in the diff. Both are committed .nbt
  * files of the Mod's own: the libworks plugin's {@code buildGametestStructures} writes only its 9x5x9
- * default platform, over this one, so it is not run here.
+ * default platform, and refuses to replace this one.
  */
 public final class BeltGameTests {
 
