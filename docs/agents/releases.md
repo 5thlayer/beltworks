@@ -19,7 +19,7 @@ Each change players notice adds its line under `## Unreleased` in `CHANGELOG.md`
 
 It pushes nothing to git, and ends by printing the push command. The published jar is the `jar` task's. It nests nothing: check that its `META-INF/neoforge.mods.toml` requires Groundworks in the range you meant to ship (ADR 0015).
 
-A release that must reach another Library or the Pack follows the `release-train` skill.
+A release that must reach a Consumer in another checkout, a Library or a pack that pins the jar, follows the `release-train` skill.
 
 ## Uploading to Modrinth and CurseForge
 
