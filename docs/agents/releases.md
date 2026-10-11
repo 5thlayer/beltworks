@@ -1,8 +1,8 @@
 # Releases
 
-A release reaches the Pack through the local maven repository (`~/.m2`) at a version of its own. The Pack pins that version and compares the jar's sha256. That only works if the jar published at a version is the one jar that version ever names.
+A release reaches Consumers through the local maven repository (`~/.m2`) at a version of its own. Consumers read the Library from there by version, and a Consumer that pins the jar pins its sha256. That only works if the jar published at a version is the one jar that version ever names.
 
-A released version is then uploaded to Modrinth and CurseForge from the maintainer's machine (below). CI builds and tests on every push but never publishes.
+A Library that names its Modrinth and CurseForge projects in `gradle.properties` also uploads a released version there, from the maintainer's machine (below); one that names none, like Voidworks, publishes nowhere else. CI builds and tests on every push but never publishes.
 
 ## The changelog
 
@@ -10,14 +10,16 @@ Each change players notice adds its line under `## Unreleased` in `CHANGELOG.md`
 
 ## Cutting a release
 
-`sh ./gradlew release -PreleaseVersion=<version>` from a clean main; the libworks convention plugin carries the script and runs it here. libworks' ADR 0001 (https://github.com/5thlayer/libworks/blob/main/docs/adr/0001-below-1-0-an-addition-bumps-the-patch.md) sets the semver: below 1.0 only a breaking change bumps the minor version, and an addition or a fix is the next patch. It refuses a version that is already tagged or in `~/.m2`, an empty Unreleased, and a build under `-PsiblingBuilds`. It then:
+`sh ./gradlew release -PreleaseVersion=<version>` from a clean main; the libworks plugin bundles the script it runs, tags `<archives_name>-v<version>` unless `libworks { tagPrefix }` says otherwise, and refuses to run under `-PsiblingBuilds`. ADR 0001 sets the semver: below 1.0 only a breaking change bumps the minor version, and an addition or a fix is the next patch. The script refuses a version that is already tagged or in `~/.m2`, and an empty Unreleased. It then:
 
 1. sets `mod_version` and turns `## Unreleased` into `## <version>` under a fresh, empty Unreleased
 2. runs the build and the game tests, putting both files back if either fails
-3. commits `chore: release <version>`, runs `publishToMavenLocal`, and tags `beltworks-v<version>` with the jar's sha256
-4. with `-Pupload`, uploads the jar to Modrinth and CurseForge with the plugin's upload step (below). A failed upload leaves the local release and the tag in place; the script names the site that failed, and `sh ./gradlew upload -PreleaseVersion=<version> -Psite=<site>` retries it. Without `-Pupload` it stops after the tag and prints `sh ./gradlew upload -PreleaseVersion=<version>`, since an upload is public and for good and waits on the user's word; the release train runs it once the user says to push. Under `MAVEN_REPO_LOCAL`, a trial run, the upload is only a dry run.
+3. commits `chore: release <version>`, runs `publishToMavenLocal`, and tags the release with the jar's sha256
+4. with `-Pupload`, uploads the jar to Modrinth and CurseForge with the `upload` task (below), or says it skipped the upload when `gradle.properties` names neither project. A failed upload leaves the local release and the tag in place; the script names the site that failed, and `sh ./gradlew upload -PreleaseVersion=<version> -Psite=<site>` retries it. Without `-Pupload` it stops after the tag and prints the upload command, since an upload is public and for good and waits on the user's word; the release train runs it once the user says to push. Under `MAVEN_REPO_LOCAL`, a trial run, the upload is only a dry run.
 
-It pushes nothing to git, and ends by printing the push command. The published jar is the `jar` task's. It nests nothing: check that its `META-INF/neoforge.mods.toml` requires Groundworks in the range you meant to ship (ADR 0015).
+It pushes nothing to git, and ends by printing the push command. To try a release out, set `MAVEN_REPO_LOCAL` to a scratch folder and run it in a throwaway clone: a version published to the real `~/.m2` is permanent.
+
+The published jar is the `jar` task's. It nests nothing: check that its `META-INF/neoforge.mods.toml` requires Groundworks in the range you meant to ship (ADR 0015).
 
 A release that must reach a Consumer in another checkout, a Library or a pack that pins the jar, follows the `release-train` skill.
 
@@ -25,15 +27,15 @@ A release that must reach a Consumer in another checkout, a Library or a pack th
 
 `sh ./gradlew upload -PreleaseVersion=<version>` uploads a version already in `~/.m2` to each site whose project `gradle.properties` names: the jar there, byte for byte, with that version's changelog section as its notes, for Minecraft `minecraft_version` on NeoForge, on client and server, as the release type `upload_release_type` names (`release`, `beta` or `alpha`) or, left empty, as beta below 1.0 and release from it. An unknown type is refused before either site is contacted, and `-PdryRun` shows the type it would send.
 
-- `modrinth_project_id` (`p4zxipln`) and `curseforge_project_id` (`1714527`) are the projects; `MODRINTH_PROJECT_ID` and `CURSEFORGE_PROJECT_ID` override them. With neither set, the script refuses and the release skips the upload.
-- `modrinth_dependencies` (Modrinth project ids) and `curseforge_dependencies` (CurseForge slugs) are the required dependencies, comma separated. Beltworks's is Groundworks (Modrinth `AJ3Q7hSr`, CurseForge `groundworks`), which each site lists as required (ADR 0015).
+- `modrinth_project_id` and `curseforge_project_id` are the projects. A new Library leaves them empty until its projects exist on the sites (creating them: `docs/agents/publishing.md`), and never borrows another mod's; `MODRINTH_PROJECT_ID` and `CURSEFORGE_PROJECT_ID` override them. With neither set, the upload refuses and `release` skips it. Beltworks' are `p4zxipln` and `1714527`.
+- `modrinth_dependencies` (Modrinth project ids) and `curseforge_dependencies` (CurseForge slugs) are the required dependencies, comma separated. Beltworks' is Groundworks (Modrinth `AJ3Q7hSr`, CurseForge `groundworks`), which each site lists as required (ADR 0015).
 
-Each site's token comes from the environment and is never printed. The tokens live in 1Password, and `publish/upload.env` names them there; when a token is missing the upload runs itself again through `op run --env-file=publish/upload.env`, which fills them in for that run only. So `release -Pupload` and `upload` need nothing exported; 1Password asks to be unlocked.
+Each site's token comes from the environment and is never printed. The tokens live in 1Password, and `publish/upload.env` names them there; when a token is missing the upload runs itself again through `op run --env-file=publish/upload.env`, which fills them in for that run only. So `release -Pupload` and `upload` need nothing exported; 1Password asks to be unlocked. A token belongs to the account, not a project, so every Library uses Beltworks' items:
 
 - Modrinth: `MODRINTH_TOKEN`, the 1Password item "Beltworks Modrinth": a personal access token with the scopes Create versions, Read versions and Read projects.
 - CurseForge: `CURSEFORGE_TOKEN`, the 1Password item "Beltworks CurseForge": an upload API token. The upload API can't list a project's files, so the check for a version CurseForge already has reads the website's own listing (`www.curseforge.com/api/v1/mods/<id>/files`), which needs no key but is undocumented: if it changes, that check fails and the upload stops. It doesn't show a file still under CurseForge's review, so a version is never uploaded again while one waits: 0.3.9 was uploaded by hand on 2026-09-27, and `-Psite=modrinth` is the way to upload it elsewhere. CurseForge needs the environments named too, Client and Server, or it refuses the file.
 
-It refuses, before contacting either site, a version missing from `~/.m2` or from the changelog, and a jar lacking the licensing the plugin's `checkJarLicensing` requires: `LICENSE`, `NOTICE` and every file under `LICENSES/`. That NOTICE credits Rearth and malcolmriley is `NoticeTest`'s to check. Each site then goes on its own: a site that already has the version, or whose upload fails, is refused without touching the other, and `-Psite=modrinth` or `-Psite=curseforge` retries just that one. `-PdryRun` prints the requests and contacts nothing. `MODRINTH_API_URL`, `CURSEFORGE_UPLOAD_URL` and `CURSEFORGE_API_URL` (the listing's site) point it elsewhere, and libworks tests it against a stand-in server on localhost.
+It refuses, before contacting either site, a version missing from `~/.m2` or from the changelog, and a jar lacking the licensing `checkJarLicensing` requires (`LICENSE`, `NOTICE` if present and every file under `LICENSES/`, which the build puts in every jar). That `NOTICE` credits Rearth and malcolmriley is `NoticeTest`'s to check. Each site then goes on its own: a site that already has the version, or whose upload fails, is refused without touching the other, and `-Psite=modrinth` or `-Psite=curseforge` retries just that one. `-PdryRun` prints the requests and contacts nothing. `MODRINTH_API_URL`, `CURSEFORGE_UPLOAD_URL` and `CURSEFORGE_API_URL` (the listing's site) point it elsewhere, and libworks' tests (`python3 -m unittest discover scripts/tests`) run it against a stand-in server on localhost.
 
 ## A published version is final
 
@@ -41,18 +43,16 @@ A version in `~/.m2` never changes. A fix, or a rebuild against another Groundwo
 
 ## Trying an unreleased Groundworks
 
-`-PsiblingBuilds` is for trying a change across Groundworks and Beltworks before Groundworks is released (#54). It includes the Groundworks checkout (`-PgroundworksDir`, default `~/minecraft_mods/groundworks`, the Pack's property and default) as a composite, so the compile and every dev run, `runGameTestServer` included, use the checkout and never `~/.m2`. The build prints one `siblingBuilds:` line naming the checkout, its version and HEAD, and fails if the checkout's version is outside the range `upstream('groundworks')` in `build.gradle` requires (the libworks plugin checks): a Groundworks minor needs that range moved in this checkout too. Under the Pack's `-PsiblingBuilds` this build sees the same properties, so it names the same checkout.
+`-PsiblingBuilds` is for trying a change across Groundworks and Beltworks before Groundworks is released (#54). It includes the Groundworks checkout (`-PgroundworksDir`, default `~/minecraft_mods/groundworks`) as a composite, so the compile and every dev run, `runGameTestServer` included, use the checkout and never `~/.m2`. The build prints one `siblingBuilds:` line naming the checkout, its version and HEAD, and fails if the checkout's version is outside the range `upstream('groundworks')` in `build.gradle` requires (the libworks plugin checks): a Groundworks minor needs that range moved in this checkout too.
 
-Nothing publishes under it: `publishToMavenLocal` and the `release` task refuse. A green run under it proves nothing about a release, which still goes Groundworks, then Beltworks, then the Pack, through release-train.
+Nothing publishes under it: `publishToMavenLocal` and the `release` task refuse. A green run under it proves nothing about a release, which still goes Groundworks first, then Beltworks, through release-train.
 
 ## Tags
 
-A Beltworks tag is `beltworks-v<version>`. This repo still carries upstream SimpleBelts' `v0.1.0` to `v0.2.2`, and Beltworks' own versions restarted at 0.1.0, so a bare `v<version>` would collide with them. `git tag -l 'beltworks-v*' -n` lists the releases.
+A release is tagged `<archives_name>-v<version>` (the plugin's `tagPrefix`), annotated with its jar's sha256. `git tag -l '*v*' -n9` lists them.
+
+This repo still carries upstream SimpleBelts' `v0.1.0` to `v0.2.2`, and Beltworks' own versions restarted at 0.1.0, so a bare `v<version>` would collide with them.
 
 ## Releasing an older commit
 
 To release a commit behind main, check it out in a worktree, publish it with `-Pmod_version=<version>` instead of committing the bump, and tag that commit. The tag's message records the command and the jar's sha256. `beltworks-v0.1.1` is one: the #49 commit, the last to bundle Groundworks 0.1.
-
-## The stray 0.1.0
-
-The `0.1.0` in `~/.m2` predates these rules and bundles Groundworks 0.3. It has no tag, is not a release, and is never pinned.
