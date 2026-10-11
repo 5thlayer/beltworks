@@ -4,8 +4,6 @@
 package io.github._5thlayer.beltworks;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -16,64 +14,56 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * The mod plays alone on Groundworks (ADR-0127): its data names no other suite mod's id, ships none
- * in its namespace, and consumes no tag a vanilla item cannot fill.
+ * The mod plays alone on Groundworks (ADR-0127): nothing it ships names another suite mod's id or
+ * puts data or assets in its namespace. The game test {@code every_tag_beltworks_reads_holds_an_entry_of_minecraft_or_beltworks}
+ * checks the tags it consumes, which only the game can resolve.
  */
 class PlaysAloneTest {
 
-    private static final Path DATA = Path.of("src/main/resources/data");
+    private static final Path MAIN = Path.of("src/main");
 
     @Test
-    void theShippedDataPlaysAlone() throws IOException {
-        assertEquals(List.of(), PlaysAlone.violations(DATA, Beltworks.MOD_ID));
+    void nothingShippedNamesAnotherSuiteModsId() throws IOException {
+        assertEquals(List.of(), PlaysAlone.foreignIds(MAIN, Beltworks.MOD_ID));
     }
 
     @Test
-    void aForeignNamespaceFolderIsReported(@TempDir Path data) throws IOException {
-        write(data.resolve("fieldworks/recipe/x.json"), "{}");
-        assertTrue(PlaysAlone.violations(data, Beltworks.MOD_ID).stream().anyMatch(v -> v.contains("fieldworks")));
+    void nothingShippedIsInAnotherSuiteModsNamespace() throws IOException {
+        assertEquals(List.of(), PlaysAlone.foreignNamespaces(MAIN.resolve("resources/data"), Beltworks.MOD_ID));
+        assertEquals(List.of(), PlaysAlone.foreignNamespaces(MAIN.resolve("resources/assets"), Beltworks.MOD_ID));
     }
 
     @Test
-    void aForeignIdIsReported(@TempDir Path data) throws IOException {
-        write(data.resolve("beltworks/recipe/x.json"), "{\"result\":{\"id\":\"factoryworks:crude_oil\"}}");
-        assertTrue(PlaysAlone.violations(data, Beltworks.MOD_ID).stream().anyMatch(v -> v.contains("factoryworks:crude_oil")));
+    void aForeignNamespaceFolderIsReported(@TempDir Path root) throws IOException {
+        write(root.resolve("data/fieldworks/recipe/x.json"), "{}");
+        write(root.resolve("data/beltworks/recipe/x.json"), "{}");
+        write(root.resolve("data/groundworks/tags/item/dismantles.json"), "{}");
+        assertEquals(List.of("data has the namespace fieldworks"), PlaysAlone.foreignNamespaces(root.resolve("data"), Beltworks.MOD_ID));
     }
 
     @Test
-    void aForeignTagIsReported(@TempDir Path data) throws IOException {
-        write(data.resolve("beltworks/recipe/x.json"), "{\"key\":{\"a\":\"#factoryworks:belts\"}}");
-        assertTrue(PlaysAlone.violations(data, Beltworks.MOD_ID).stream().anyMatch(v -> v.contains("factoryworks:belts")));
+    void aForeignIdInDataIsReported(@TempDir Path root) throws IOException {
+        write(root.resolve("data/beltworks/recipe/x.json"), "{\"key\":{\"a\":\"#factoryworks:belts\"}}");
+        assertEquals(List.of("data/beltworks/recipe/x.json names factoryworks:belts"), PlaysAlone.foreignIds(root, Beltworks.MOD_ID));
     }
 
     @Test
-    void groundworksAndTheSharedNamespacesAreAllowed(@TempDir Path data) throws IOException {
-        write(data.resolve("groundworks/tags/item/dismantles.json"), "{}");
-        write(data.resolve("beltworks/recipe/x.json"),
-                "{\"a\":\"minecraft:glass\",\"b\":\"#c:glass_blocks\",\"c\":\"groundworks:x\",\"d\":\"neoforge:y\"}");
-        assertEquals(List.of(), PlaysAlone.violations(data, Beltworks.MOD_ID));
+    void anIdInJavaSourceIsReported(@TempDir Path root) throws IOException {
+        write(root.resolve("java/x/Pipes.java"), "class Pipes { String id = \"pipeworks:pipe\"; }");
+        assertEquals(List.of("java/x/Pipes.java names pipeworks:pipe"), PlaysAlone.foreignIds(root, Beltworks.MOD_ID));
     }
 
     @Test
-    void anOwnTagWithoutAVanillaMemberIsReported(@TempDir Path data) throws IOException {
-        write(data.resolve("beltworks/tags/item/rods.json"), "{\"values\":[\"beltworks:rod\"]}");
-        write(data.resolve("beltworks/recipe/x.json"), "{\"key\":{\"a\":\"#beltworks:rods\"}}");
-        assertTrue(PlaysAlone.violations(data, Beltworks.MOD_ID).stream().anyMatch(v -> v.contains("beltworks:rods")));
+    void anIdInTheModsTomlIsReported(@TempDir Path root) throws IOException {
+        write(root.resolve("resources/META-INF/neoforge.mods.toml"), "[[dependencies.beltworks]]\nmodId = \"x\" # wireworks:cable\n");
+        assertEquals(List.of("resources/META-INF/neoforge.mods.toml names wireworks:cable"), PlaysAlone.foreignIds(root, Beltworks.MOD_ID));
     }
 
     @Test
-    void anOwnTagReachesAVanillaMemberThroughAnotherTag(@TempDir Path data) throws IOException {
-        write(data.resolve("beltworks/tags/item/outer.json"), "{\"values\":[\"#beltworks:inner\"]}");
-        write(data.resolve("beltworks/tags/item/inner.json"), "{\"values\":[\"minecraft:stick\"]}");
-        write(data.resolve("beltworks/recipe/x.json"), "{\"key\":{\"a\":\"#beltworks:outer\"}}");
-        assertEquals(List.of(), PlaysAlone.violations(data, Beltworks.MOD_ID));
-    }
-
-    @Test
-    void aCommonTagOutsideTheKnownDefaultsIsReported(@TempDir Path data) throws IOException {
-        write(data.resolve("beltworks/recipe/x.json"), "{\"key\":{\"a\":{\"tag\":\"c:gems/ruby\"}}}");
-        assertTrue(PlaysAlone.violations(data, Beltworks.MOD_ID).stream().anyMatch(v -> v.contains("c:gems/ruby")));
-        assertFalse(PlaysAlone.violations(data, Beltworks.MOD_ID).isEmpty());
+    void theModsOwnAndTheSharedNamespacesAreAllowed(@TempDir Path root) throws IOException {
+        write(root.resolve("assets/beltworks/models/x.json"),
+                "{\"a\":\"beltworks:block/x\",\"b\":\"minecraft:glass\",\"c\":\"#c:glass_blocks\",\"d\":\"groundworks:x\",\"e\":\"neoforge:y\"}");
+        assertEquals(List.of(), PlaysAlone.foreignIds(root, Beltworks.MOD_ID));
     }
 
     private static void write(Path file, String text) throws IOException {
