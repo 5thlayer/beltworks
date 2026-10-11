@@ -33,6 +33,16 @@ class PlaysAloneTest {
     }
 
     @Test
+    void theShippedCodeNamesNoOtherModulesNamespace() throws IOException {
+        assertEquals(List.of(), PlaysAlone.otherModulesNamespaceStrings(CODE));
+    }
+
+    @Test
+    void theShippedModsTomlRequiresNoOtherModule() throws IOException {
+        assertEquals(List.of(), PlaysAlone.otherModulesRequired(RESOURCES));
+    }
+
+    @Test
     void theShippedResourcesHoldNothingInAnotherModulesNamespace() throws IOException {
         assertEquals(List.of(), PlaysAlone.otherModulesNamespaces(RESOURCES));
     }
@@ -79,6 +89,44 @@ class PlaysAloneTest {
             out.write(("\u0008\u0000\u0004Name\u0000" + (char) id.length() + id).getBytes(StandardCharsets.ISO_8859_1));
         }
         assertEquals(List.of("data/beltworks/structure/x.nbt names " + id), PlaysAlone.otherModulesIds(resources));
+    }
+
+    @Test
+    void anotherModulesNamespaceInJavaSourceIsReported(@TempDir Path code) throws IOException {
+        write(code.resolve("x/Pipes.java"), "class Pipes { Identifier id = Identifier.fromNamespaceAndPath(\"pipeworks\", \"pipe\"); }");
+        write(code.resolve("x/Own.java"), "class Own { String ns = \"beltworks\"; String gw = \"groundworks\"; }");
+        assertEquals(List.of("x/Pipes.java names \"pipeworks\""), PlaysAlone.otherModulesNamespaceStrings(code));
+    }
+
+    @Test
+    void aRequiredDependencyOnAnotherModuleIsReported(@TempDir Path resources) throws IOException {
+        write(resources.resolve("META-INF/neoforge.mods.toml"), """
+                [[mods]]
+                modId = "beltworks"
+
+                [[dependencies.beltworks]]
+                modId = "groundworks"
+                type = "required"
+
+                [[dependencies.beltworks]]
+                modId = "craftworks"
+                type = "required"
+
+                [[dependencies.beltworks]]
+                modId="wireworks"
+                """);
+        assertEquals(List.of("META-INF/neoforge.mods.toml requires craftworks", "META-INF/neoforge.mods.toml requires wireworks"),
+                PlaysAlone.otherModulesRequired(resources));
+    }
+
+    @Test
+    void anOptionalDependencyOnAnotherModuleIsAllowed(@TempDir Path resources) throws IOException {
+        write(resources.resolve("META-INF/neoforge.mods.toml"), """
+                [[dependencies.beltworks]]
+                modId = "pipeworks"
+                type = "optional"
+                """);
+        assertEquals(List.of(), PlaysAlone.otherModulesRequired(resources));
     }
 
     @Test
