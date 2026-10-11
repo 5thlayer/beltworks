@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Requires Groundworks 0.5.7 or later.
+
 ## 0.4.1
 
 - No change in game: Beltworks is now built with the libworks plugin.

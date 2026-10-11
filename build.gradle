@@ -13,7 +13,7 @@ libworks {
     upstream('groundworks') {
         // Groundworks' tags are v<version>.
         tagPrefix = 'v'
-        range = '[0.5.4,0.6)'
+        range = '[0.5.7,0.6)'
     }
 }
 
