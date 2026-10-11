@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.4.1
+
 - No change in game: Beltworks is now built with the libworks plugin.
 
 ## 0.4.0
