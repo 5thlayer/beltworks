@@ -22,9 +22,11 @@ import java.util.function.Consumer;
 
 /**
  * The Mod's game tests, run by the {@code gameTestServer} Gradle run. Each test stands on the
- * {@code gametest/platform} structure, a stone floor that {@code scripts/build-gametest-structures.py}
- * writes, or on its {@code gametest/long_platform} for a 64-tile line, and places what it needs
- * itself, so the setup is in the diff.
+ * {@code gametest/platform} structure, a 23x7x7 stone floor with room for two lines side by side, a
+ * splitter's belts and a three-block climb, or on its {@code gametest/long_platform}, 66x3x3, for a
+ * 64-tile line, and places what it needs itself, so the setup is in the diff. Both are committed .nbt
+ * files of the Mod's own: the libworks plugin's {@code buildGametestStructures} writes only its 9x5x9
+ * default platform, over this one, so it is not run here.
  */
 public final class BeltGameTests {
 
