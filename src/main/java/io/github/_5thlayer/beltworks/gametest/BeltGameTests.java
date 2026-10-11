@@ -64,6 +64,7 @@ public final class BeltGameTests {
         LineSmokeTest.register(tests);
         BeltTileTests.register(tests);
         BeltCornerTests.register(tests);
+        PlaysAloneTests.register(tests);
         BeltSideLoadTests.register(tests);
         BeltSlopeEdgeTests.register(tests);
         BeltWedgeTests.register(tests);
