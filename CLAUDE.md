@@ -4,7 +4,7 @@ Conventional commits: `<type>(<optional scope>): <summary>`, with the summary in
 
 ## Testing
 
-`sh ./gradlew build` runs the JUnit tests, on a plain JVM with no Minecraft. `sh ./gradlew runGameTestServer` runs the game tests headless and names each one it ran; it fails if it ran none. CI (`.github/workflows/ci.yml`) calls libworks' `module-ci.yml` at the tag of the plugin `build.gradle` applies, which runs both on every push, and REUSE lint, and never publishes.
+`sh ./gradlew build` runs the JUnit tests, on a plain JVM with no Minecraft. `sh ./gradlew runGameTestServer` runs the game tests headless and names each one it ran; it fails if it ran none. CI (`.github/workflows/ci.yml`) calls libworks' `module-ci.yml` at the tag of the plugin `build.gradle` applies, which runs both on every push, and REUSE lint, and never publishes. Data only the Mod's own runs load lives in `src/gametest/resources`, which never ships (libworks ADR 0004): `DevPacks` switches on `gametest_pack/` in the game tests and `dev_pack/` in the dev client, the datapacks that stand in for what the Pack would add. Packs a test switches on itself, such as one per batch, go under `gametest_packs/<name>/`.
 
 ## Agent skills
 
