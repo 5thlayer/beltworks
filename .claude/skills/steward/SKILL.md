@@ -7,9 +7,8 @@ description: How to drive a Beltworks pull request to green, handle its review a
 
 ## Before any push
 
-- Run all three of CI's checks locally and push only if they pass:
-  `sh ./gradlew build`, `sh ./gradlew runGameTestServer` and
-  `python3 -m unittest discover scripts/tests`.
+- Run both of CI's checks locally and push only if they pass:
+  `sh ./gradlew build` and `sh ./gradlew runGameTestServer`.
 - Commits follow CLAUDE.md's conventional-commit rules.
 - A change players notice adds its line under `## Unreleased` in `CHANGELOG.md`.
 

@@ -1,31 +1,28 @@
+// ModDevGradle on Java 25, the game test server that names each test, the jar's licensing, ~/.m2-only
+// publishing and the release and upload tasks come from the libworks convention plugin (libworks ADR 0003).
 plugins {
-    id 'java-library'
-    id 'maven-publish'
-    id 'net.neoforged.moddev' version '2.0.147'
+    id 'io.github.5thlayer.libworks.module' version '0.1.1'
 }
 
-group = maven_group
-version = mod_version
-base.archivesName = archives_name
-
-java {
-    withSourcesJar()
-    toolchain.languageVersion = JavaLanguageVersion.of(25)
-}
-
-tasks.withType(JavaCompile).configureEach {
-    options.release = 25
-}
-
-// The Minecraft version goes in the jar's name and not in the Mod's version:
-// beltworks-26.1.2-0.3.8.jar.
-tasks.withType(Jar).configureEach {
-    archiveVersion = "$minecraft_version-$mod_version"
+// What the Mod requires of the other Libraries, each as a range whose lower bound is a released version:
+// the one the Mod is built and run against and the one CI builds from its tag. neoforge.mods.toml names
+// each as ${<name>_range}. Beltworks' own tags are the default, beltworks-v<version>.
+libworks {
+    // Required at load and not bundled (ADR 0015). The lower bound rises with the Groundworks the Mod
+    // builds against; the cap is the next minor, which moves when the Mod takes it.
+    upstream('groundworks') {
+        // Groundworks' tags are v<version>.
+        tagPrefix = 'v'
+        range = '[0.5.4,0.6)'
+    }
 }
 
 repositories {
-    // Groundworks: its releases are published to the local maven repository only (5thlayer/groundworks#2).
-    mavenLocal()
+    // Groundworks, from the local maven only, where its releases publish it (5thlayer/groundworks#2).
+    // CI builds its tag there first.
+    mavenLocal {
+        content { includeModule 'io.github.5thlayer', 'groundworks' }
+    }
     maven { url = 'https://cursemaven.com' }
     exclusiveContent { // Energized Power, the dev client's FE source
         forRepository { maven { url = 'https://api.modrinth.com/maven' } }
@@ -37,53 +34,12 @@ repositories {
     }
 }
 
-def gameTestReport = layout.buildDirectory.file('reports/gametest.xml').get().asFile
-
 neoForge {
-    version = neoforge_version
-
     runs {
-        // The same player every launch, so a dev save keeps its inventory and position.
-        client {
-            client()
-            programArguments.addAll '--username', 'Developer', '--uuid', '123456781234123412341234567890ab'
-            // -PquickPlay=<save> opens that save straight from launch (the skillworks:quicklaunch skill).
-            programArguments.addAll providers.gradleProperty('quickPlay').map { ['--quickPlaySingleplayer', it] }.orElse([])
-        }
         server {
             server()
             programArgument '--nogui'
         }
-        // Runs the Mod's game tests headless and exits, non-zero if any fails. 26.1 has no
-        // namespace property, so the selector is what keeps vanilla's tests out.
-        // A directory of its own, so the mods the dev client loads from run/mods never reach it.
-        gameTestServer {
-            type = 'gameTestServer'
-            gameDirectory = project.file('run/gametest')
-            programArguments.addAll '--tests', "${mod_id}:*", '--report', gameTestReport.absolutePath
-        }
-    }
-
-    mods {
-        "$mod_id" {
-            sourceSet sourceSets.main
-        }
-    }
-}
-
-// The server says only how many tests passed, so the report is read back to name them: a green
-// run that didn't run a test is no evidence for it.
-// The server writes the report but not its folder, which a clean checkout has yet to make.
-tasks.named('runGameTestServer') {
-    doFirst {
-        gameTestReport.delete()
-        gameTestReport.parentFile.mkdirs()
-    }
-    doLast {
-        if (!gameTestReport.exists()) throw new GradleException("The game test server wrote no report at $gameTestReport")
-        def cases = new groovy.xml.XmlSlurper().parse(gameTestReport).'**'.findAll { it.name() == 'testcase' }
-        if (cases.isEmpty()) throw new GradleException('The game test server ran no tests')
-        cases.each { logger.lifecycle("${it.failure.size() ? 'FAILED' : 'passed'}  ${it.@name}") }
     }
 }
 
@@ -103,37 +59,7 @@ tasks.named('runClient') { dependsOn syncClientMods }
 // The last JEI for 26.1.2 that loads on gradle.properties' neoforge_version; later ones need 26.1.2.81 or more.
 def jeiVersion = '29.20.0.53'
 
-// The Groundworks versions the Mod requires, through neoforge.mods.toml, at load. The lower bound is
-// the Groundworks it builds against, the prefer below, and rises with it (ADR 0015).
-def groundworksRange = '[0.5.4,0.6)'
-
-// A checkout outside the range still builds, and is refused at load: the composite substitutes it
-// whatever the range says. So -PsiblingBuilds (settings.gradle) checks it here.
-if (gradle.ext.has('groundworksCheckout')) {
-    def checkout = gradle.ext.groundworksCheckout
-    def (lower, lowerBound, upperBound, upper) = (groundworksRange =~ /^([\[(])([^,]*),([^\])]*)([\])])$/)[0][1..4]
-    def compare = { String a, String b ->
-        def (x, y) = [a, b].collect { it.tokenize('.')*.toInteger() }
-        def i = (0..<Math.max(x.size(), y.size())).find { (x[it] ?: 0) != (y[it] ?: 0) }
-        i == null ? 0 : (x[i] ?: 0) <=> (y[i] ?: 0)
-    }
-    def v = checkout.version
-    def above = !lowerBound || (lower == '[' ? compare(v, lowerBound) >= 0 : compare(v, lowerBound) > 0)
-    def below = !upperBound || (upper == ']' ? compare(v, upperBound) <= 0 : compare(v, upperBound) < 0)
-    if (!(above && below)) throw new GradleException(
-            "-PsiblingBuilds: Groundworks $v in ${checkout.dir} is outside $groundworksRange, which the Mod requires" +
-            " and which would refuse it at load. A Groundworks minor needs this range moved in this checkout too.")
-}
-
 dependencies {
-    // Required at load and not bundled (ADR 0015).
-    implementation('io.github.5thlayer:groundworks') {
-        version {
-            strictly groundworksRange
-            prefer '0.5.4'
-        }
-    }
-
     clientMods 'curse.maven:jade-324717:8651070'
     // Its Creative Battery Box powers feeders and loaders with loadersNeedPower on (5thlayer/beltworks#80).
     clientMods 'maven.modrinth:energized-power:3.0.1+26.1.x-neoforge'
@@ -144,80 +70,4 @@ dependencies {
     compileOnly 'curse.maven:jade-324717:8651070'
     // JEI finds the splitter screen's drop target by its annotation, so the Mod runs without it.
     compileOnly "mezz.jei:jei-26.1.2-neoforge-api:$jeiVersion"
-
-    testImplementation platform('org.junit:junit-bom:5.10.2')
-    testImplementation 'org.junit.jupiter:junit-jupiter'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-}
-
-test {
-    useJUnitPlatform()
-}
-
-// The jar is what players are handed, so it carries what CC BY requires:
-// the licences, and NOTICE crediting the works the Mod builds on.
-tasks.named('jar', Jar) {
-    from(rootDir) { include 'LICENSE', 'NOTICE', 'LICENSES/**' }
-}
-
-// Fails the build when the jar lost its licensing.
-def checkJarLicensing = tasks.register('checkJarLicensing') {
-    def jarFile = tasks.named('jar', Jar).flatMap { it.archiveFile }
-    inputs.file jarFile
-    doLast {
-        def entries = { InputStream stream ->
-            def found = [:]
-            new java.util.zip.ZipInputStream(stream).withCloseable { zip ->
-                for (def e = zip.nextEntry; e != null; e = zip.nextEntry) {
-                    found[e.name] = e.name == 'NOTICE' ? zip.readAllBytes() : null
-                }
-            }
-            found
-        }
-        def outer = jarFile.get().asFile.withInputStream(entries)
-        def missing = ['LICENSE', 'NOTICE', 'LICENSES/MIT.txt', 'LICENSES/CC-BY-4.0.txt'].findAll { !outer.containsKey(it) }
-        def notice = outer['NOTICE'] ? new String(outer['NOTICE'], 'UTF-8') : ''
-        missing += ['Rearth', 'malcolmriley'].findAll { !notice.contains(it) }.collect { "NOTICE crediting $it" }
-        if (missing) throw new GradleException("${jarFile.get().asFile.name} lacks its licensing: ${missing.join(', ')}")
-    }
-}
-tasks.named('check') { dependsOn checkJarLicensing }
-
-// neoforge.mods.toml names nothing of its own but its credits: it is filled from gradle.properties,
-// and its Groundworks range from the one the Mod requires.
-def modProperties = [
-        mod_id: mod_id, mod_name: mod_name, mod_description: mod_description, version: mod_version,
-        minecraft_version: minecraft_version, neoforge_version: neoforge_version,
-        groundworksRange: groundworksRange,
-]
-processResources {
-    inputs.properties modProperties
-    filesMatching('META-INF/neoforge.mods.toml') {
-        expand modProperties
-    }
-}
-
-// Maven local only, which is where the Pack's pin reads the Mod's jar (release-train). Nothing here
-// publishes anywhere else.
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            artifactId = base.archivesName.get()
-            from components.java
-        }
-    }
-}
-
-// A version in the local maven repository never changes: the Pack pins it and compares its sha256, so
-// a fix is the next patch version (docs/agents/releases.md).
-tasks.withType(PublishToMavenLocal).configureEach {
-    def published = new File(repositories.named('MavenLocal').get().url.path,
-            "${maven_group.replace('.', '/')}/$archives_name/$mod_version")
-    doFirst {
-        // A released Beltworks never requires an unreleased Groundworks (docs/agents/releases.md).
-        if (gradle.ext.has('groundworksCheckout')) throw new GradleException(
-                "$mod_name is built against the Groundworks checkout under -PsiblingBuilds, and nothing publishes under it")
-        if (published.exists()) throw new GradleException(
-                "$mod_name $mod_version is already in $published, and a published version never changes: bump mod_version")
-    }
 }
