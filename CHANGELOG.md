@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Requires Groundworks 0.5.7 or later.
+
+## 0.4.1
+
+- No change in game: Beltworks is now built with the libworks plugin.
+
 ## 0.4.0
 
 - Requires Groundworks 0.5.4 or later, where it accepted any 0.5. Groundworks is no longer inside the jar: install it alongside Beltworks, from Modrinth or CurseForge, where it is listed as a required dependency.

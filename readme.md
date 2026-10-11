@@ -2,7 +2,13 @@
 
 > **Want spline belts?** Those are **Simple Conveyor Belts** by Rearth, the mod Beltworks started from: [GitHub](https://github.com/Rearth/SimpleBelts) · [CurseForge](https://www.curseforge.com/minecraft/mc-mods/simple-conveyor-belts). Beltworks is a different mod, with belts laid on the block grid.
 
-Beltworks adds Factorio-style belts to Minecraft, laid block by block on the grid and built to work with any tech mod. It runs on **NeoForge** for **Minecraft 26.1.2**. It is early work, so please report any issues you find on [GitHub](https://github.com/5thlayer/beltworks/issues).
+Beltworks adds Factorio-style belts to Minecraft, laid block by block on the grid and built to work with any tech mod. 
+
+## Why?
+
+Because I want my belts to work just like Factorio and I found no other mods to do it as I want.
+
+It runs on **NeoForge** for **Minecraft 26.1.2**. It is early work, so please report any issues you find on [GitHub](https://github.com/5thlayer/beltworks/issues).
 
 ## Features
 

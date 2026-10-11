@@ -14,7 +14,9 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
@@ -85,6 +87,12 @@ final class FastReplaceTests {
         tests.test("a_sneak_click_with_a_splitter_on_a_tile_line_places_beside", 20, FastReplaceTests::splitterBesideTiles);
         tests.test("a_splitter_over_a_tile_line_with_no_room_for_the_tiles_is_refused_and_changes_nothing", 20,
                 FastReplaceTests::splitterOverTilesNoRoom);
+        tests.test("a_splitter_over_a_tile_line_hands_the_tiles_back_into_the_slot_its_last_item_freed", 20,
+                FastReplaceTests::splitterOverTilesFreesTheHeldSlot);
+        tests.test("a_splitter_held_in_the_off_hand_over_a_tile_line_hands_the_tiles_back_into_it", 20,
+                FastReplaceTests::splitterOverTilesFromTheOffHand);
+        tests.test("a_splitter_over_a_tile_line_charges_and_hands_back_nothing_in_creative", 20,
+                FastReplaceTests::splitterOverTilesInCreative);
         tests.test("a_tile_of_the_held_tier_is_not_replaced", 20,
                 helper -> sameTierPasses(helper, tile(BeltTier.BELT), BlockContent.tileFor(BeltTier.BELT)));
         tests.test("a_splitter_of_the_held_tier_is_not_replaced", 20,
@@ -331,6 +339,61 @@ final class FastReplaceTests {
         if (plan == null || plan.refusal() != Refusal.FastReplace.NO_ROOM_TO_RETURN) helper.fail("the splitter was planned " + plan, LEFT);
         refusedClick(helper, player, LEFT, NO_ROOM);
         helper.succeed();
+    }
+
+    // The last splitter in the main hand, every other slot full: the tiles go into the slot it freed.
+    private static void splitterOverTilesFreesTheHeldSlot(GameTestHelper helper) {
+        tilesUnderTheHalves(helper);
+        var player = holding(helper, BlockContent.splitterFor(BeltTier.BELT), 1);
+        var inventory = player.getInventory();
+        for (int slot = 0; slot < inventory.getNonEquipmentItems().size(); slot++) {
+            if (slot != inventory.getSelectedSlot()) inventory.setItem(slot, new ItemStack(Items.DIRT, 64));
+        }
+        click(helper, player, LEFT, false);
+        expect(helper, LEFT, half(BeltTier.BELT, SplitterBlock.Side.LEFT));
+        var held = player.getMainHandItem();
+        if (!held.is(BlockContent.tileFor(BeltTier.BELT).asItem()) || held.getCount() != 2) {
+            helper.fail("the freed slot holds " + held + ", not the two tiles", LEFT);
+        }
+        nothingDropped(helper, LEFT);
+        helper.succeed();
+    }
+
+    // The last splitter in the off hand, the main inventory full: the tiles go into the off hand.
+    private static void splitterOverTilesFromTheOffHand(GameTestHelper helper) {
+        tilesUnderTheHalves(helper);
+        var player = holding(helper, Blocks.AIR, 0);
+        var inventory = player.getInventory();
+        for (int slot = 0; slot < inventory.getNonEquipmentItems().size(); slot++) inventory.setItem(slot, new ItemStack(Items.DIRT, 64));
+        player.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(BlockContent.splitterFor(BeltTier.BELT).asItem()));
+        player.gameMode.useItemOn(player, helper.getLevel(), player.getOffhandItem(), InteractionHand.OFF_HAND, onTop(helper, LEFT));
+        expect(helper, LEFT, half(BeltTier.BELT, SplitterBlock.Side.LEFT));
+        expect(helper, RIGHT, half(BeltTier.BELT, SplitterBlock.Side.RIGHT));
+        var held = player.getOffhandItem();
+        if (!held.is(BlockContent.tileFor(BeltTier.BELT).asItem()) || held.getCount() != 2) {
+            helper.fail("the off hand holds " + held + ", not the two tiles", LEFT);
+        }
+        nothingDropped(helper, LEFT);
+        helper.succeed();
+    }
+
+    private static void splitterOverTilesInCreative(GameTestHelper helper) {
+        tilesUnderTheHalves(helper);
+        var player = holding(helper, BlockContent.splitterFor(BeltTier.BELT), 2);
+        player.setGameMode(GameType.CREATIVE);
+        click(helper, player, LEFT, false);
+        expect(helper, LEFT, half(BeltTier.BELT, SplitterBlock.Side.LEFT));
+        expect(helper, RIGHT, half(BeltTier.BELT, SplitterBlock.Side.RIGHT));
+        if (!inventory(player).equals(Map.of(BlockContent.splitterFor(BeltTier.BELT).asItem(), 2))) {
+            helper.fail("a creative player holds " + inventory(player) + ", not the two splitters alone", LEFT);
+        }
+        nothingDropped(helper, LEFT);
+        helper.succeed();
+    }
+
+    private static void nothingDropped(GameTestHelper helper, BlockPos at) {
+        var dropped = helper.getEntities(EntityType.ITEM).size();
+        if (dropped != 0) helper.fail(dropped + " items lie on the ground after the replace", at);
     }
 
     private static void tilesUnderTheHalves(GameTestHelper helper) {

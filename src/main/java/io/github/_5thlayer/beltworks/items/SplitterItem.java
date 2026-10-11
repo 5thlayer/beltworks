@@ -4,6 +4,7 @@
 
 package io.github._5thlayer.beltworks.items;
 
+import io.github._5thlayer.groundworks.HandBack;
 import io.github._5thlayer.groundworks.PlacementPlan;
 import io.github._5thlayer.groundworks.PlansPlacement;
 import io.github._5thlayer.groundworks.Refusal;
@@ -158,8 +159,7 @@ public class SplitterItem extends BlockItem implements PlansPlacement {
         level.playSound(player, left.pos(), sound.getPlaceSound(), SoundSource.BLOCKS,
           (sound.getVolume() + 1.0F) / 2.0F, sound.getPitch() * 0.8F);
         level.gameEvent(GameEvent.BLOCK_PLACE, left.pos(), GameEvent.Context.of(player, left.state()));
-        context.getItemInHand().consume(1, player);
-        if (!level.isClientSide()) HandBack.give(player, context.getHand(), back);
+        if (!level.isClientSide()) HandBack.charge(player, context.getHand(), back);
         return InteractionResult.SUCCESS;
     }
 

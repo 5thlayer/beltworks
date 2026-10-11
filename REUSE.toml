@@ -16,7 +16,6 @@ path = [
     "**/*.mods.toml",
     "**/*.mixins.json",
     "scripts/*.py",
-    "scripts/*.sh",
     "**/*.md",
     "NOTICE",
     "publish/summary.txt",

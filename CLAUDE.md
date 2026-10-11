@@ -4,7 +4,7 @@ Conventional commits: `<type>(<optional scope>): <summary>`, with the summary in
 
 ## Testing
 
-`sh ./gradlew build` runs the JUnit tests, on a plain JVM with no Minecraft. `sh ./gradlew runGameTestServer` runs the game tests headless and names each one it ran; it fails if it ran none. `python3 -m unittest discover scripts/tests` tests the upload step against a stand-in server on localhost. CI (`.github/workflows/ci.yml`) runs all three on every push, and REUSE lint, and never publishes.
+`sh ./gradlew build` runs the JUnit tests, on a plain JVM with no Minecraft. `sh ./gradlew runGameTestServer` runs the game tests headless and names each one it ran; it fails if it ran none. CI (`.github/workflows/ci.yml`) calls libworks' `module-ci.yml` at the tag of the plugin `build.gradle` applies, which runs both on every push, and REUSE lint, and never publishes. Data only the Mod's own runs load lives in `src/gametest/resources`, which never ships (libworks ADR 0004): `DevPacks` switches on `gametest_pack/` in the game tests and `dev_pack/` in the dev client, the datapacks that stand in for what the Pack would add. Packs a test switches on itself, such as one per batch, go under `gametest_packs/<name>/`.
 
 ## Agent skills
 
@@ -22,6 +22,6 @@ Single-context: `GLOSSARY.md` + `docs/adr/` at repo root. See `docs/agents/domai
 
 ### Releases
 
-A change players notice adds its line under `## Unreleased` in `CHANGELOG.md` as it lands. Before bumping `mod_version`, publishing to `~/.m2`, tagging a release or uploading to Modrinth or CurseForge, read `docs/agents/releases.md`: releases go through `scripts/release.sh`, which uploads last with `scripts/upload.py`, and a published version never changes, in `~/.m2` or on either site. CI never publishes.
+A change players notice adds its line under `## Unreleased` in `CHANGELOG.md` as it lands. Before bumping `mod_version`, publishing to `~/.m2`, tagging a release or uploading to Modrinth or CurseForge, read `docs/agents/releases.md`: releases go through the libworks plugin's `release` task, which uploads last with its `upload` task, and a published version never changes, in `~/.m2` or on either site. CI never publishes.
 
-A release that involves Groundworks or the Pack follows the `release-train` skill: one owning session per checkout, releases in order Groundworks → Beltworks → Pack, and pushes only on the user's word.
+A release that involves Groundworks follows the `release-train` skill: one owning session per checkout, releases in order Groundworks → Beltworks, and pushes only on the user's word.
