@@ -8,11 +8,12 @@ package io.github._5thlayer.beltworks.model;
  * tick, so a belt moves {@code speed × 60} blocks a second and carries {@code speed × 480} items a
  * second at {@link BeltContents#SPACING}. A tier's loader moves the same items a second as its belt,
  * and so does each side of its splitter.
- * A loader pays per item and drains what the inserter its recipe is built from does (ADR 0007).
+ * A loader starts at paying per item and draining what the inserter its recipe is built from does (ADR 0007),
+ * and the server config sets what it pays per item.
  * A feeder moves a tenth of its tier's loader and, when loaders need power, pays per item at every tier, with no drain.
  */
 public enum BeltTier {
-    // Tier 1's burner inserter burns fuel the loader has no slot for, so it runs unpowered.
+    // Tier 1's burner inserter burns fuel the loader has no slot for, so the config starts it unpowered.
     BELT(1, "belt", "loader", "splitter", "conveyorbelt", 0.03125, InserterSwing.NONE),
     IMPROVED(2, "improved_belt", "improved_loader", "improved_splitter", "improved_conveyorbelt", 0.0625,
       new InserterSwing(0.014, 5000, 0.035, 5000, 5, 1, 400)),

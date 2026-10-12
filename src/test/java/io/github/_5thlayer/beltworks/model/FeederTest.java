@@ -199,13 +199,13 @@ class FeederTest {
     @Test
     void aSettingRefusesAFeederThatPaysMoreThanTheMost() {
         assertThrows(IllegalArgumentException.class, () -> new LoaderEnergy.Setting(false, 100,
-          Map.of(BeltTier.IMPROVED, LoaderEnergy.Setting.MAX_FEEDER_JOULES_PER_ITEM + 1)));
+          Map.of(BeltTier.IMPROVED, LoaderEnergy.Setting.MAX_JOULES_PER_ITEM + 1)));
     }
 
     @ParameterizedTest
     @EnumSource(BeltTier.class)
     void aFeederPayingTheMostStillFillsAndMoves(BeltTier tier) {
-        var most = LoaderEnergy.Setting.MAX_FEEDER_JOULES_PER_ITEM;
+        var most = LoaderEnergy.Setting.MAX_JOULES_PER_ITEM;
         var energy = LoaderEnergy.feeder(tier, new LoaderEnergy.Setting(true, 1, Map.of(tier, most)));
 
         assertTrue(energy.capacityFe() > 0);

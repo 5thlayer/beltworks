@@ -17,8 +17,10 @@ import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 import net.neoforged.neoforge.gametest.GameTestHooks;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import io.github._5thlayer.beltworks.Beltworks;
+import io.github._5thlayer.beltworks.model.BeltTier;
 
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -66,7 +68,10 @@ public final class BeltGameTests {
         var environment = event.registerEnvironment(Beltworks.id("default"), new TestEnvironmentDefinition.AllOf(List.of()));
         var powered = event.registerEnvironment(Beltworks.id("loaders_need_power"), new LoaderPowerEnvironment(true));
         var unpowered = event.registerEnvironment(Beltworks.id("loaders_need_no_power"), new LoaderPowerEnvironment(false));
-        var tests = new Registrar(event, environment, powered, unpowered);
+        // Tier 1 paying what tier 2 does by default, and tier 2 nothing: the defaults the other way about.
+        var repriced = event.registerEnvironment(Beltworks.id("loaders_repriced"), new LoaderPowerEnvironment(true,
+          Map.of(BeltTier.BELT, BeltTier.IMPROVED.loaderJoulesPerItem(), BeltTier.IMPROVED, 0L)));
+        var tests = new Registrar(event, environment, powered, unpowered, repriced);
         LineSmokeTest.register(tests);
         BeltTileTests.register(tests);
         BeltCornerTests.register(tests);
@@ -99,10 +104,16 @@ public final class BeltGameTests {
      * holds whatever the config says about loader power, and one that doesn't asks for a setting.
      */
     record Registrar(RegisterGameTestsEvent event, Holder<TestEnvironmentDefinition<?>> environment,
-                     Holder<TestEnvironmentDefinition<?>> powered, Holder<TestEnvironmentDefinition<?>> unpowered) {
+                     Holder<TestEnvironmentDefinition<?>> powered, Holder<TestEnvironmentDefinition<?>> unpowered,
+                     Holder<TestEnvironmentDefinition<?>> repriced) {
 
         Registrar withLoaderPower(boolean loadersNeedPower) {
-            return new Registrar(event, loadersNeedPower ? powered : unpowered, powered, unpowered);
+            return new Registrar(event, loadersNeedPower ? powered : unpowered, powered, unpowered, repriced);
+        }
+
+        /** Loaders need power, a tier-1 loader pays what a tier-2 one does by default, and a tier-2 one pays nothing. */
+        Registrar withLoadersRepriced() {
+            return new Registrar(event, repriced, powered, unpowered, repriced);
         }
 
         void test(String name, int maxTicks, Consumer<GameTestHelper> body) {

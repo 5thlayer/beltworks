@@ -80,7 +80,7 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
         flow = new FlowLimit(tier.itemsPerTick());
         // Splitters draw no power (ADR 0007). The setting is read once, so a changed config reaches a
         // loader when its chunk next loads.
-        energy = new LoaderEnergy(splitter ? BeltTier.BELT : tier, BeltworksConfig.loaderPower());
+        energy = splitter ? LoaderEnergy.unpowered() : new LoaderEnergy(tier, BeltworksConfig.loaderPower());
         splitterModel = splitter ? new Splitter<>(tier) : null;
         half = splitter ? new Splitter.Half<>(tier) : null;
     }
@@ -493,7 +493,7 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
         return getBlockState().getValue(HorizontalDirectionalBlock.FACING);
     }
 
-    /** The FE buffer a tier-2 to tier-4 loader pays each item from; tier 1's is never charged. */
+    /** The FE buffer a loader pays each item from, at its tier's configured figure; one that pays nothing is never charged. */
     public LoaderEnergy getEnergy() {
         return energy;
     }

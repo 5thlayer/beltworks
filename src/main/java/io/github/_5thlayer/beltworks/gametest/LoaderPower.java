@@ -10,7 +10,7 @@ import io.github._5thlayer.beltworks.blocks.FeederBlockEntity;
 
 /**
  * Keeps every loader and feeder in a test's structure charged each tick, as a creative energy source would.
- * The Mod ships no energy source (ADR 0002), so tests of tiers 2 to 4 are fed by hand. Splitters
+ * The Mod ships no energy source (ADR 0002), so a test of a powered loader or feeder is fed by hand. Splitters
  * share the loaders' block entity and are topped up too, which changes nothing: they draw no power.
  */
 final class LoaderPower {

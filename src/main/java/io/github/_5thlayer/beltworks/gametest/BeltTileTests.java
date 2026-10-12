@@ -94,6 +94,8 @@ final class BeltTileTests {
 
     private static final int TIER_2_JOULES_PER_ITEM = 6650;
     private static final int TIER_2_DRAIN_WATTS = 400;
+    // A burner inserter's: a tier-1 loader priced by the config still has no idle drain.
+    private static final int TIER_1_DRAIN_WATTS = 0;
     private static final int JOULES_PER_FE = 100;
     private static final int UNPOWERED_TICKS = 60;
     private static final int FED_WARMUP_TICKS = 40;
@@ -144,9 +146,17 @@ final class BeltTileTests {
         tests.withLoaderPower(false).test("tier_2_loader_moves_onto_tiles_with_no_fe_when_loaders_need_no_power",
                 UNPOWERED_TICKS + 20, helper -> runsUnpowered(helper, BeltTier.IMPROVED));
         tests.withLoaderPower(true).test("tier_2_loader_with_no_fe_puts_nothing_on_tiles", UNPOWERED_TICKS + 20,
-                BeltTileTests::tierTwoStallsUnpowered);
+                helper -> stallsUnpowered(helper, BeltTier.IMPROVED));
         tests.withLoaderPower(true).test("fed_tier_2_loader_on_tiles_draws_66_5_fe_per_item",
-                FED_WARMUP_TICKS + DRAW_WINDOW_TICKS + 20, BeltTileTests::fedLoaderDrawsPerItem);
+                FED_WARMUP_TICKS + DRAW_WINDOW_TICKS + 20,
+                helper -> fedLoaderDrawsPerItem(helper, BeltTier.IMPROVED, TIER_2_JOULES_PER_ITEM, TIER_2_DRAIN_WATTS));
+        // The config sets each tier's figure, tier 1 included, and 0 runs a tier unpowered (#84).
+        tests.withLoadersRepriced().test("tier_1_loader_set_above_0_with_no_fe_puts_nothing_on_tiles",
+                UNPOWERED_TICKS + 20, helper -> stallsUnpowered(helper, BeltTier.BELT));
+        tests.withLoadersRepriced().test("fed_tier_1_loader_set_to_66_5_fe_on_tiles_draws_it_per_item",
+                FED_WARMUP_TICKS + DRAW_WINDOW_TICKS + 20, helper -> fedLoaderDrawsPerItem(helper, BeltTier.BELT, TIER_2_JOULES_PER_ITEM, TIER_1_DRAIN_WATTS));
+        tests.withLoadersRepriced().test("tier_2_loader_set_to_0_moves_onto_tiles_with_no_fe",
+                UNPOWERED_TICKS + 20, helper -> runsUnpowered(helper, BeltTier.IMPROVED));
         tests.test("a_line_built_by_hand_carries_items", 200, BeltTileTests::lineBuiltByHand);
         tests.test("a_tile_placed_between_two_lines_merges_them", MERGE_FILL_TICKS + 20,
                 BeltTileTests::placingATileMergesTwoLines);
@@ -641,13 +651,14 @@ final class BeltTileTests {
         }).thenSucceed();
     }
 
-    private static void tierTwoStallsUnpowered(GameTestHelper helper) {
-        place(helper, tiers(BeltTier.IMPROVED), BeltTier.IMPROVED, RATE_SUPPLY);
+    private static void stallsUnpowered(GameTestHelper helper, BeltTier loaders) {
+        place(helper, tiers(loaders), loaders, RATE_SUPPLY);
         helper.startSequence().thenIdle(UNPOWERED_TICKS).thenExecute(() -> {
+            face(helper, FROM); // fails the test if the loader has no energy face
             int left = count(chest(helper, SOURCE));
             int onLine = held(helper, FIRST_TILE);
             if (left != RATE_SUPPLY || onLine != 0) {
-                helper.fail("a tier-2 loader with no FE took " + (RATE_SUPPLY - left)
+                helper.fail("a tier-" + loaders.number() + " loader with no FE took " + (RATE_SUPPLY - left)
                         + " items and put " + onLine + " on the line", FROM);
             }
         }).thenSucceed();
@@ -655,17 +666,17 @@ final class BeltTileTests {
 
     // Measured with the supply cut off and the buffer filled by hand: fed, the refill's order against
     // the loader's tick decides what a read sees.
-    private static void fedLoaderDrawsPerItem(GameTestHelper helper) {
+    private static void fedLoaderDrawsPerItem(GameTestHelper helper, BeltTier loaders, int joulesPerItem, int drainWatts) {
         LoaderPower power = LoaderPower.feed(helper);
-        place(helper, tiers(BeltTier.IMPROVED), BeltTier.IMPROVED, RATE_SUPPLY);
-        BlockPos target = targetOf(tiers(BeltTier.IMPROVED));
+        place(helper, tiers(loaders), loaders, RATE_SUPPLY);
+        BlockPos target = targetOf(tiers(loaders));
         BeltEndBlockEntity loader = helper.getBlockEntity(FROM, BeltEndBlockEntity.class);
         long[] before = new long[2];
         helper.startSequence()
                 .thenIdle(FED_WARMUP_TICKS)
                 .thenExecute(() -> {
                     if (count(chest(helper, target)) == 0) {
-                        helper.fail("fed tier-2 loaders delivered nothing over tiles", target);
+                        helper.fail("fed tier-" + loaders.number() + " loaders delivered nothing over tiles", target);
                     }
                     power.stop();
                     loader.getEnergy().insertFe(Long.MAX_VALUE);
@@ -679,8 +690,8 @@ final class BeltTileTests {
                         helper.fail("the loader moved nothing in the window, so this proves nothing", FROM);
                     }
                     long drawn = before[0] - face(helper, FROM).getAmountAsLong();
-                    long joules = items * TIER_2_JOULES_PER_ITEM
-                            + (long) DRAW_WINDOW_TICKS * TIER_2_DRAIN_WATTS / 20;
+                    long joules = items * joulesPerItem
+                            + (long) DRAW_WINDOW_TICKS * drainWatts / 20;
                     // The face reads whole FE, so the window's far end rounds down by under one.
                     if (Math.abs(drawn * JOULES_PER_FE - joules) >= JOULES_PER_FE) {
                         helper.fail("the loader drew " + drawn + " FE for " + items + " items in "

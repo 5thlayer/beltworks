@@ -144,7 +144,7 @@ public final class Beltworks {
         }
     }
 
-    // A tier-1 loader has no face, so a pole does not count it as a machine.
+    // An unpowered loader has no face, so a pole does not count it as a machine.
     private static void registerCapabilities(RegisterCapabilitiesEvent event) {
         event.registerBlockEntity(Capabilities.Energy.BLOCK, BlockEntitiesContent.BELT_END.get(),
           (loader, side) -> loader.getEnergy().powered()
