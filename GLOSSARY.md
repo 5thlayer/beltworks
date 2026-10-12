@@ -18,6 +18,14 @@ _Avoid_: the fork, SimpleBelts, Belt Works, belts (that was Upstream's mod id, n
 The library mod for mass placement and **Dismantle**, for the Mod and the Pack alike: it plans what a click would lay or take up, shows the plan before the click, and carries it out. It also runs **Rotate**. The Mod requires it and does not bundle it (ADR 0015). Formerly placementpreview, which only drew **Placement Plans**.
 _Avoid_: placementpreview (its old name), preview lib, the renderer, Groundwork
 
+**libworks**:
+The suite's shared library. Its runtime, the one part the Mod loads in game, registers the **Works tab**; the Mod nests it in its jar by jar-in-jar, and NeoForge loads the newest copy any Module nests (ADR 0015, FactoryWorks ADR-0128).
+_Avoid_: libworks-runtime (the artifact, not the mod)
+
+**Works tab**:
+The creative tab every Module of the suite shows its items in, registered by **libworks**. The Mod lists every item there, in the order it registers them, and has no tab of its own.
+_Avoid_: Beltworks tab, the creative tab (alone)
+
 **the Pack**:
 FactoryWorks, the modpack that is the Mod's first consumer. Its repo is 5thlayer/factoryworks, checked out at `~/curseforge/Instances/FactoryWorks`. Formerly PlanetaryFactory, at adamico/planetary-factory, whose issue links still redirect.
 _Avoid_: the modpack, PF, PlanetaryFactory (its old name)
