@@ -4,7 +4,7 @@ issueTrackerURL = "https://github.com/5thlayer/${mod_id}/issues"
 license = "MIT AND CC-BY-4.0"
 
 # processResources fills each dollar-brace value from gradle.properties, so this file names
-# nothing of the Mod's own but its credits and its Groundworks range.
+# nothing of the Mod's own but its credits and its Groundworks and libworks-runtime ranges.
 [[mods]]
 modId = "${mod_id}"
 version = "${version}"
@@ -34,6 +34,14 @@ side = "BOTH"
 modId = "groundworks"
 type = "required"
 versionRange = "${groundworks_range}"
+ordering = "NONE"
+side = "BOTH"
+
+# Nested by jar-in-jar: it registers the Works tab the Mod's items show in (5thlayer/beltworks#97).
+[[dependencies.${mod_id}]]
+modId = "libworks"
+type = "required"
+versionRange = "${libworks_runtime_range}"
 ordering = "NONE"
 side = "BOTH"
 

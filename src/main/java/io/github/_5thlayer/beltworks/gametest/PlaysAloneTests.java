@@ -28,7 +28,8 @@ import net.neoforged.fml.ModList;
  */
 final class PlaysAloneTests {
 
-    private static final Set<String> LOADED_ALONE = Set.of("minecraft", "neoforge", "groundworks", Beltworks.MOD_ID);
+    // libworks is nested inside the Mod's jar, so it loads wherever the Mod does (5thlayer/beltworks#97).
+    private static final Set<String> LOADED_ALONE = Set.of("minecraft", "neoforge", "groundworks", "libworks", Beltworks.MOD_ID);
 
     private static final Set<String> FILLS_ALONE = Set.of("minecraft", Beltworks.MOD_ID);
 
