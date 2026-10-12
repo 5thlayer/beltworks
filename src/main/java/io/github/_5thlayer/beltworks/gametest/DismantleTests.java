@@ -57,7 +57,7 @@ final class DismantleTests {
 
     private static final BlockPos START = new BlockPos(2, 1, 3);
     private static final String OFF_LINE = "message.beltworks.dismantle_off_line";
-    private static final String NOT_SAME_KIND = "message.groundworks.dismantle_not_same_kind";
+    private static final String FILTER_SET = "message.beltworks.filter_set";
     private static final String QUEUED = "message.groundworks.dismantle_queued";
     private static final String QUEUE_FULL = "message.groundworks.dismantle_queue_full";
     private static final String START_GONE = "message.groundworks.dismantle_start_gone";
@@ -77,16 +77,18 @@ final class DismantleTests {
         tests.test("a_dismantle_out_of_a_line_leaves_both_sides_carrying_and_delivering", 120, DismantleTests::middle);
         tests.test("a_dismantle_with_no_room_drops_the_rest_at_the_players_feet", 20, DismantleTests::fullInventory);
         tests.test("a_creative_dismantle_hands_over_nothing", 20, DismantleTests::creative);
-        tests.test("a_dismantle_ending_on_a_splitter_changes_nothing", 20, helper -> refused(helper,
-                () -> splitterAt(helper, START.east(3)), START.east(3), NOT_SAME_KIND));
+        // A splitter and a loader are in no Dismantle family, so a click on one is never the Dismantle's (Groundworks ADR 0010).
+        tests.test("a_click_on_a_splitter_with_a_start_stored_passes_on_and_keeps_the_start", 20, helper -> passesOn(helper,
+                () -> splitterAt(helper, START.east(3)), START.east(3), List.of()));
         tests.test("a_dismantle_ending_beyond_a_splitter_changes_nothing", 20, helper -> refused(helper,
                 () -> {
                     splitterAt(helper, START.east(3));
                     helper.setBlock(START.east(4), BeltTileTests.tile(BeltTier.BELT, Direction.EAST));
                 }, START.east(4), OFF_LINE));
-        tests.test("a_dismantle_ending_on_a_loader_changes_nothing", 20, helper -> refused(helper,
+        // The loader's own use hears the click: with the tool held, it sets its filter.
+        tests.test("a_click_on_a_loader_with_a_start_stored_passes_on_to_the_loader_and_keeps_the_start", 20, helper -> passesOn(helper,
                 () -> helper.setBlock(START.east(3), BeltTileTests.loader(BeltTier.BELT, Direction.WEST)), START.east(3),
-                NOT_SAME_KIND));
+                List.of(FILTER_SET)));
         tests.test("a_dismantle_ending_on_another_line_changes_nothing", 20, helper -> refused(helper,
                 () -> {
                     for (int i = 0; i < 3; i++) helper.setBlock(START.south(2).east(i), BeltTileTests.tile(BeltTier.BELT, Direction.EAST));
@@ -252,6 +254,44 @@ final class DismantleTests {
             }
             if (!player.heard.equals(List.of(reason))) {
                 helper.fail("the player was told " + player.heard + ", not " + reason, end);
+                return;
+            }
+            helper.succeed();
+        });
+    }
+
+    /**
+     * A plain click on {@code at}, a block of no Dismantle family, with a start stored: the click is
+     * the tool's and the block's own, so the Dismantle takes nothing and says nothing, and the start
+     * stays stored. {@code heard} is what the block's own use tells the player.
+     */
+    private static void passesOn(GameTestHelper helper, Runnable setUp, BlockPos at, List<String> heard) {
+        row(helper, 3);
+        setUp.run();
+        helper.runAfterDelay(2, () -> {
+            var player = started(helper, START);
+            if (Dismantles.aimsAtMember(helper.getLevel(), helper.absolutePos(at))) {
+                helper.fail("the block clicked is a member of a Dismantle family", at);
+                return;
+            }
+            Map<BlockPos, BlockState> before = world(helper);
+            Map<Item, Integer> carried = inventory(player);
+            var stored = storedStart(player);
+            player.heard.clear();
+            click(helper, player, at);
+
+            Map<BlockPos, BlockState> after = world(helper);
+            List<BlockPos> changed = before.keySet().stream().filter(pos -> before.get(pos) != after.get(pos)).toList();
+            if (!changed.isEmpty()) {
+                helper.fail("a click outside the belt family changed " + changed.size() + " blocks, first at " + changed.getFirst(), at);
+                return;
+            }
+            if (!carried.equals(inventory(player)) || !Objects.equals(stored, storedStart(player))) {
+                helper.fail("a click outside the belt family changed the player's inventory or the stored start", at);
+                return;
+            }
+            if (!player.heard.equals(heard)) {
+                helper.fail("the player was told " + player.heard + ", not " + heard, at);
                 return;
             }
             helper.succeed();
