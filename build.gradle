@@ -15,14 +15,13 @@ libworks {
         tagPrefix = 'v'
         range = '[0.5.7,0.6)'
     }
-    // Nested by jar-in-jar, so players install nothing more; FML loads the newest nested copy in range,
-    // which runs to the next minor.
+    // Nested, unlike Groundworks: the shared Works tab needs it loaded as a mod (FactoryWorks ADR-0128).
     runtime = '0.1.1'
 }
 
 repositories {
-    // Groundworks and libworks-runtime, from the local maven only, where their releases publish them
-    // (5thlayer/groundworks#2). CI builds their tags there first.
+    // From the local maven only, where their releases publish them (Groundworks: 5thlayer/groundworks#2;
+    // libworks-runtime: FactoryWorks ADR-0128). CI builds their tags there first.
     mavenLocal {
         content {
             includeModule 'io.github.5thlayer', 'groundworks'
