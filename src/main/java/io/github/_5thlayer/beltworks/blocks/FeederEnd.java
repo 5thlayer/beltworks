@@ -9,8 +9,11 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.item.ItemResource;
+import net.neoforged.neoforge.transfer.transaction.Transaction;
+import net.neoforged.neoforge.transfer.transaction.TransactionContext;
 import org.jetbrains.annotations.Nullable;
-import io.github._5thlayer.beltworks.api.item.ItemApi;
 import io.github._5thlayer.beltworks.model.BeltContents;
 import io.github._5thlayer.beltworks.model.Pitch;
 import io.github._5thlayer.beltworks.model.Splitter;
@@ -23,17 +26,21 @@ import java.util.function.Predicate;
  * What a feeder's head takes from or its tail drops into: an inventory, a level tile or a splitter
  * half, and, where there is none of those, the items lying loose at the block, which only a head
  * takes from. A slope or a loader is never one (GLOSSARY.md).
+ *
+ * <p>A feeder makes each move inside one root transaction, which an inventory's take and put join
+ * (ADR 0008): it commits only once the item is in, and otherwise closes it, which puts back what an
+ * inventory gave. The Mod's own ends change at once and are put back by hand.
  */
 sealed interface FeederEnd {
 
     /** Takes one item {@code wanted} accepts, or null, with how to put it back. */
-    @Nullable Taken take(Predicate<ItemStack> wanted);
+    @Nullable Taken take(Predicate<ItemStack> wanted, TransactionContext transaction);
 
-    /** Whether {@link #put} would take this item now. */
-    boolean accepts(ItemStack item);
+    /** Whether {@link #put} would take this item now: a hint to choose what to take, never what decides. */
+    boolean accepts(ItemStack item, TransactionContext transaction);
 
     /** Puts the item in, answering whether it went. */
-    boolean put(ItemStack item);
+    boolean put(ItemStack item, TransactionContext transaction);
 
     /** An item taken, and what puts it back where it was. */
     record Taken(ItemStack item, Runnable undo) {
@@ -48,8 +55,8 @@ sealed interface FeederEnd {
             var half = end.getHalf();
             return half == null ? null : new Half(end, half);
         }
-        var storage = ItemApi.BLOCK.find(level, pos, null, null, face);
-        return storage == null ? null : new Inventory(storage);
+        var handler = Inventories.at(level, pos, face);
+        return handler == null ? null : new Inventory(handler);
     }
 
     /** A head's end: {@link #at}, or else the items lying loose at {@code pos}, unless a loader stands there. */
@@ -63,7 +70,7 @@ sealed interface FeederEnd {
     record Loose(Level level, BlockPos pos) implements FeederEnd {
 
         @Override
-        public @Nullable Taken take(Predicate<ItemStack> wanted) {
+        public @Nullable Taken take(Predicate<ItemStack> wanted, TransactionContext transaction) {
             for (var entity : level.getEntitiesOfClass(ItemEntity.class, new AABB(pos))) {
                 var stack = entity.getItem();
                 if (stack.isEmpty()) continue;
@@ -77,39 +84,38 @@ sealed interface FeederEnd {
         }
 
         @Override
-        public boolean accepts(ItemStack item) {
+        public boolean accepts(ItemStack item, TransactionContext transaction) {
             return false;
         }
 
         @Override
-        public boolean put(ItemStack item) {
+        public boolean put(ItemStack item, TransactionContext transaction) {
             return false;
         }
     }
 
-    record Inventory(ItemApi.InventoryStorage storage) implements FeederEnd {
+    /** Another block's items, which take and put join the feeder's transaction for. */
+    record Inventory(ResourceHandler<ItemResource> handler) implements FeederEnd {
 
         @Override
-        public @Nullable Taken take(Predicate<ItemStack> wanted) {
-            for (int slot = 0; slot < storage.getSlotCount(); slot++) {
-                var available = storage.getStackInSlot(slot);
-                if (available.isEmpty()) continue;
-                var one = available.copyWithCount(1);
-                if (!wanted.test(one) || storage.extract(one, true) != 1) continue;
-                if (storage.extract(one, false) != 1) continue;
-                return new Taken(one, () -> storage.insert(one, false));
+        public @Nullable Taken take(Predicate<ItemStack> wanted, TransactionContext transaction) {
+            var taken = Inventories.extractOne(handler, wanted, transaction);
+            // Closing the transaction uncommitted puts it back.
+            return taken == null ? null : new Taken(taken, () -> {
+            });
+        }
+
+        // Inserted and never committed, so it takes nothing.
+        @Override
+        public boolean accepts(ItemStack item, TransactionContext transaction) {
+            try (var hint = Transaction.open(transaction)) {
+                return handler.insert(ItemResource.of(item), item.getCount(), hint) == item.getCount();
             }
-            return null;
         }
 
         @Override
-        public boolean accepts(ItemStack item) {
-            return storage.insert(item, true) == item.getCount();
-        }
-
-        @Override
-        public boolean put(ItemStack item) {
-            return storage.insert(item, false) == item.getCount();
+        public boolean put(ItemStack item, TransactionContext transaction) {
+            return Inventories.insertAll(handler, item, transaction);
         }
     }
 
@@ -117,7 +123,7 @@ sealed interface FeederEnd {
     record Tile(BeltTileBlockEntity tile) implements FeederEnd {
 
         @Override
-        public @Nullable Taken take(Predicate<ItemStack> wanted) {
+        public @Nullable Taken take(Predicate<ItemStack> wanted, TransactionContext transaction) {
             var line = line();
             if (line == null) return null;
             var taken = line.take(tile.index(), wanted);
@@ -127,13 +133,13 @@ sealed interface FeederEnd {
         }
 
         @Override
-        public boolean accepts(ItemStack item) {
+        public boolean accepts(ItemStack item, TransactionContext transaction) {
             var line = line();
             return line != null && line.canDrop(tile.index());
         }
 
         @Override
-        public boolean put(ItemStack item) {
+        public boolean put(ItemStack item, TransactionContext transaction) {
             var line = line();
             if (line == null || !line.drop(item, tile.index())) return false;
             tile.lineChanged();
@@ -164,7 +170,7 @@ sealed interface FeederEnd {
     record Half(BeltEndBlockEntity end, Splitter.Half<ItemStack> half) implements FeederEnd {
 
         @Override
-        public @Nullable Taken take(Predicate<ItemStack> wanted) {
+        public @Nullable Taken take(Predicate<ItemStack> wanted, TransactionContext transaction) {
             var taken = half.take(wanted);
             if (taken == null) return null;
             end.setChanged();
@@ -175,12 +181,12 @@ sealed interface FeederEnd {
         }
 
         @Override
-        public boolean accepts(ItemStack item) {
+        public boolean accepts(ItemStack item, TransactionContext transaction) {
             return half.canDrop();
         }
 
         @Override
-        public boolean put(ItemStack item) {
+        public boolean put(ItemStack item, TransactionContext transaction) {
             if (!half.drop(item)) return false;
             end.setChanged();
             return true;

@@ -25,6 +25,7 @@ import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.TagValueOutput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.transfer.transaction.Transaction;
 import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.beltworks.BeltworksConfig;
 import io.github._5thlayer.beltworks.BlockEntitiesContent;
@@ -80,14 +81,19 @@ public class FeederBlockEntity extends BlockEntity {
         var tail = end(level, arms.tail(spot, travel), false);
         if (head == null || tail == null) return;
 
-        var taken = head.take(item -> filter.matches(level, item) && tail.accepts(item));
-        if (taken == null) return;
-        // Taken first, since a tail may use up the stack it is handed.
-        var seen = looks(taken.item());
-        // An end whose simulation lied gets its item back, so nothing is lost.
-        if (!tail.put(taken.item())) {
-            taken.undo().run();
-            return;
+        ItemStack seen;
+        try (var move = Transaction.openRoot()) {
+            var taken = head.take(item -> filter.matches(level, item) && tail.accepts(item, move), move);
+            if (taken == null) return;
+            // Taken first, since a tail may use up the stack it is handed.
+            seen = looks(taken.item());
+            // A tail that refuses after all leaves the item where it was, so nothing is lost: an
+            // inventory's by the uncommitted transaction, the Mod's own ends by hand.
+            if (!tail.put(taken.item(), move)) {
+                taken.undo().run();
+                return;
+            }
+            move.commit();
         }
         flow.pass();
         energy.move();

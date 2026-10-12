@@ -27,11 +27,13 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.item.ItemResource;
+import net.neoforged.neoforge.transfer.transaction.Transaction;
 import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.beltworks.BeltSync;
 import io.github._5thlayer.beltworks.BeltworksConfig;
 import io.github._5thlayer.beltworks.BlockEntitiesContent;
-import io.github._5thlayer.beltworks.api.item.ItemApi;
 import io.github._5thlayer.beltworks.collision.BeltCollisionRegistry;
 import io.github._5thlayer.beltworks.util.SplineUtil;
 import io.github._5thlayer.beltworks.model.BeltContents;
@@ -337,49 +339,52 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
     
     /**
      * Unloads one item into the inventory behind this loader's facing, at its own tier's rate and
-     * for its own energy. A transport line's last tile offers here (PlanetaryFactory #398).
+     * for its own energy, as one committed insert of all of it or nothing (ADR 0008). A transport
+     * line's last tile offers here (PlanetaryFactory #398).
      */
     public boolean acceptFromLine(ItemStack item) {
         if (splitter) return false;
         if (!flow.ready(level.getGameTime()) || !energy.canMove()) return false;
-        var targetInv = ItemApi.BLOCK.find(level, worldPosition.relative(getOwnFacing().getOpposite()), null, null, getOwnFacing());
-        if (targetInv == null) return false;
-
-        if (targetInv.insert(item, true) != item.getCount()) return false;
-        targetInv.insert(item, false);
+        var target = behind();
+        if (target == null) return false;
+        try (var move = Transaction.openRoot()) {
+            if (!Inventories.insertAll(target, item, move)) return false;
+            move.commit();
+        }
         flow.pass();
         energy.move();
         setChanged();
         return true;
     }
 
-    
     /**
      * Loads one item out of the inventory behind this loader's facing, at its own tier's rate and
      * for its own energy: one item per entry, as a Factorio loader puts one item in each belt slot
-     * (#344). A transport line's first tile asks here (PlanetaryFactory #398).
+     * (#344), and one committed extract (ADR 0008). A transport line's first tile asks here
+     * (PlanetaryFactory #398).
      */
     @SuppressWarnings("DataFlowIssue")
     public @Nullable ItemStack extractOne() {
         if (splitter) return null;
         if (!flow.ready(level.getGameTime()) || !energy.canMove()) return null;
-        var source = ItemApi.BLOCK.find(level, worldPosition.relative(getOwnFacing().getOpposite()), null, null, getOwnFacing());
+        var source = behind();
         if (source == null) return null;
-
-        for (int slot = 0; slot < source.getSlotCount(); slot++) {
-            var availableStack = source.getStackInSlot(slot);
-            if (availableStack.isEmpty() || !filter.matches(level, availableStack)) continue;
-
-            var extractingStack = availableStack.copyWithCount(1);
-            if (source.extract(extractingStack, false) <= 0) continue;
-
-            flow.pass();
-            energy.move();
-            return extractingStack;
+        ItemStack taken;
+        try (var move = Transaction.openRoot()) {
+            taken = Inventories.extractOne(source, item -> filter.matches(level, item), move);
+            if (taken == null) return null;
+            move.commit();
         }
-        return null;
+        flow.pass();
+        energy.move();
+        return taken;
     }
     
+    // The inventory this loader's back is set against, through the face that touches it.
+    private @Nullable ResourceHandler<ItemResource> behind() {
+        return Inventories.at(level, worldPosition.relative(getOwnFacing().getOpposite()), getOwnFacing());
+    }
+
     @Override
     protected void saveAdditional(ValueOutput output) {
         super.saveAdditional(output);

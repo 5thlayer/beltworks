@@ -14,6 +14,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.Rotation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.event.RegisterGameTestsEvent;
+import net.neoforged.neoforge.gametest.GameTestHooks;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import io.github._5thlayer.beltworks.Beltworks;
 
@@ -54,10 +55,13 @@ public final class BeltGameTests {
         ENVIRONMENT_TYPES.register(modBus);
         // Posted only when game tests are enabled, so a production server never registers the tests.
         modBus.addListener(BeltGameTests::registerTests);
+        // The proving set's stand-in for a fickle target answers at a lodestone, in the Mod's own runs only.
+        if (GameTestHooks.isGametestEnabled()) modBus.addListener(FickleInventory::registerCapabilities);
     }
 
     private static void registerTests(RegisterGameTestsEvent event) {
         CodeGameTest.clear();
+        FickleInventory.clear();
         // Registered rather than borrowed, since the event hands out no lookup for vanilla's.
         var environment = event.registerEnvironment(Beltworks.id("default"), new TestEnvironmentDefinition.AllOf(List.of()));
         var powered = event.registerEnvironment(Beltworks.id("loaders_need_power"), new LoaderPowerEnvironment(true));
@@ -75,6 +79,7 @@ public final class BeltGameTests {
         BeltDropTests.register(tests);
         BeltFilterTests.register(tests);
         LoaderMouthTests.register(tests);
+        ProvingSetTests.register(tests);
         SplitterTileTests.register(tests);
         SplitterPlanTests.register(tests);
         PlanTranslationTests.register(tests);

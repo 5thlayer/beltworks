@@ -17,7 +17,6 @@ import io.github._5thlayer.groundworks.Rotate;
 import io.github._5thlayer.groundworks.Stretches;
 import io.github._5thlayer.libworks.WorksTab;
 
-import io.github._5thlayer.beltworks.api.item.ItemApi;
 import io.github._5thlayer.beltworks.blocks.BeltFamily;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
@@ -32,7 +31,6 @@ import io.github._5thlayer.beltworks.neoforge.FeederReachPayload;
 import io.github._5thlayer.beltworks.neoforge.FeederSuckedPayload;
 import io.github._5thlayer.beltworks.neoforge.BeltLinePayload;
 import io.github._5thlayer.beltworks.neoforge.LoaderEnergyHandler;
-import io.github._5thlayer.beltworks.neoforge.NeoforgeItemApiImpl;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.Block;
@@ -71,7 +69,6 @@ public final class Beltworks {
 
     public Beltworks(IEventBus modBus, ModContainer container) {
         container.registerConfig(ModConfig.Type.SERVER, BeltworksConfig.SPEC);
-        ItemApi.BLOCK = new NeoforgeItemApiImpl();
         // Every block of the Mod's that places as vanilla does, such as a loader, gets a preview (ADR 0010).
         Placements.optIn(OURS);
         // Rotate in Place turns the Mod's own blocks and never another mod's, each answering for itself.
