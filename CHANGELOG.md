@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.4.2
+
 - Requires Groundworks 0.5.8 or later.
 - Beltworks' items are in the Works creative tab, which every FactoryWorks mod shares, and Beltworks has no tab of its own. The tab comes from libworks, which is inside the Beltworks jar, so there is nothing more to install.
 - A belt stretch started, anchored or ended by aiming at a placed tile now lies in that tile, where before it lay on top of it: a tile of another tier is replaced, keeping its items, and one of the held tier is kept or turned to the stretch, as along the rest of the line. A replaced tile hands back what breaking it drops, its own tile. Aiming at a splitter still lays the stretch beside it (5thlayer/beltworks#105, 5thlayer/groundworks#49).
