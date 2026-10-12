@@ -82,6 +82,12 @@ public final class BeltReplaces {
      */
     private abstract static class KeepsItsState extends TellsBeltRefusals {
 
+        // A tile's or a feeder's tier swap is the aimed block alone, so a stretch of tiles goes through another tier's.
+        @Override
+        public boolean spansBlocks() {
+            return false;
+        }
+
         @Override
         public @Nullable PlacementPlan plan(Level level, @Nullable Player player, ItemStack held, BlockPos aimed, BlockState old) {
             var block = heldOfAnotherTier(held, old);

@@ -3,6 +3,7 @@
 
 package io.github._5thlayer.beltworks.gametest;
 
+import io.github._5thlayer.groundworks.FastReplace;
 import io.github._5thlayer.groundworks.PlacementPlan;
 import io.github._5thlayer.groundworks.Placements;
 import io.github._5thlayer.groundworks.Raise;
@@ -64,6 +65,9 @@ final class StretchTests {
         tests.test("a_stretch_ending_on_its_start_places_one_tile_facing_the_look", 20, StretchTests::zeroLength);
         tests.test("a_stretch_turns_a_tile_of_its_tier_facing_back", 20, StretchTests::turns);
         tests.test("a_stretch_replaces_a_tile_of_another_tier_and_hands_it_back", 30, StretchTests::replaces);
+        tests.test("a_start_aimed_at_a_tile_of_another_tier_lies_in_it_and_replaces_it", 30, StretchTests::startsInATile);
+        tests.test("a_start_aimed_at_a_tile_of_its_tier_lies_in_it_and_keeps_it", 20, StretchTests::startsInATileOfItsTier);
+        tests.test("a_stretch_goes_through_the_tiles_group_and_never_the_splitters", 20, StretchTests::groups);
         tests.test("a_flat_stretch_goes_round_a_bump_in_the_ground_and_never_climbs_it", 20, StretchTests::bump);
         tests.test("raise_after_the_start_climbs_right_after_it_and_ends_in_mid_air", 20, StretchTests::raised);
         tests.test("lower_after_the_start_descends_right_after_it", 20, StretchTests::lowered);
@@ -164,6 +168,69 @@ final class StretchTests {
             helper.fail("the player was handed back " + count(player, improved) + " tier-2 tiles, not 1", replaced);
         }
         keepsItsItem(helper, START, 5, replaced);
+    }
+
+    /**
+     * A tier-2 tile at the start, aimed at itself rather than the floor under it: the start lies in
+     * it, as in a block of the held tile's own Replace group (5thlayer/groundworks#49), so the
+     * stretch replaces it, hands it back and keeps its item.
+     */
+    private static void startsInATile(GameTestHelper helper) {
+        helper.setBlock(START, tile(BeltTier.IMPROVED, Direction.EAST));
+        helper.getBlockEntity(START, BeltTileBlockEntity.class)
+                .carry(List.of(new TransportLine.Share<>(0.5, new ItemStack(Items.IRON_INGOT))));
+        // Clicked on top of the tile itself, not on the floor under the start.
+        var player = started(helper, Direction.EAST, START.above());
+        var stored = Stretches.storedOn(player.level(), player.getMainHandItem());
+        if (stored == null || !stored.start().equals(helper.absolutePos(START))) {
+            helper.fail("the start aimed at the tile was stored at " + (stored == null ? "nothing" : stored.start()), START);
+            return;
+        }
+        var plan = accepted(helper, player, START.east(2), 3);
+        if (plan == null) return;
+        if (!plan.replaces().equals(List.of(helper.absolutePos(START)))) {
+            helper.fail("the plan names " + plan.replaces() + " as replaced, not the tier-2 tile", START);
+        }
+        var improved = ItemContent.tileFor(BeltTier.IMPROVED);
+        if (count(player, improved) != 1) {
+            helper.fail("the player was handed back " + count(player, improved) + " tier-2 tiles, not 1", START);
+        }
+        keepsItsItem(helper, START, 3, START);
+    }
+
+    /** A tier-1 tile at the start, aimed at itself: the start lies in it, and the stretch keeps it as it stands, charging for the two after it. */
+    private static void startsInATileOfItsTier(GameTestHelper helper) {
+        helper.setBlock(START, tile(BeltTier.BELT, Direction.EAST));
+        var kept = helper.getBlockState(START);
+        var player = started(helper, Direction.EAST, START.above());
+        var stored = Stretches.storedOn(player.level(), player.getMainHandItem());
+        if (stored == null || !stored.start().equals(helper.absolutePos(START))) {
+            helper.fail("the start aimed at the tile was stored at " + (stored == null ? "nothing" : stored.start()), START);
+            return;
+        }
+        var plan = accepted(helper, player, START.east(2), 2);
+        if (plan == null) return;
+        if (!plan.replaces().isEmpty() || plan.blocks().stream().anyMatch(placed -> placed.pos().equals(helper.absolutePos(START)))) {
+            helper.fail("the plan was " + plan + ", not keeping the tile of its tier", START);
+        }
+        if (!helper.getBlockState(START).equals(kept)) {
+            helper.fail("the tile of the stretch's tier became " + helper.getBlockState(START), START);
+        }
+        helper.succeed();
+    }
+
+    /** A tile's tier swap is one block, so a stretch goes through the tiles' group; a splitter's spans both halves. */
+    private static void groups(GameTestHelper helper) {
+        var tiles = FastReplace.groupOf(BlockContent.IMPROVED_BELT_TILE.get());
+        if (tiles == null || tiles.spansBlocks()
+                || !FastReplace.stretchesThrough(BlockContent.BELT_TILE.get(), BlockContent.IMPROVED_BELT_TILE.get())) {
+            helper.fail("the tiles' group was " + tiles + ", not one a stretch goes through", START);
+        }
+        var splitters = FastReplace.groupOf(BlockContent.SPLITTER_BLOCK.get());
+        if (splitters == null || !splitters.spansBlocks()) {
+            helper.fail("the splitters' group was " + splitters + ", not one whose replace spans blocks", START);
+        }
+        helper.succeed();
     }
 
     /** One tick on, the stretch's tiles hold the one item the turned or replaced tile carried, and none is on the ground. */
