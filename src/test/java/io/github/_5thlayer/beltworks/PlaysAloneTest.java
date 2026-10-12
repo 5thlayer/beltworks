@@ -6,47 +6,22 @@ package io.github._5thlayer.beltworks;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.zip.GZIPOutputStream;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * The Mod plays alone on Groundworks (FactoryWorks ADR-0127): nothing it ships names another Module's id or
- * holds data or assets in its namespace. The tags it consumes are checked by {@code PlaysAloneTests} in game,
- * where they resolve.
+ * The Mod plays alone on Groundworks (FactoryWorks ADR-0127): every tag its code reads is checked by
+ * {@code PlaysAloneTests} in game, where they resolve.
+ * That nothing it ships names another Module is libworks-plugin's {@code checkPlaysAlone} (libworks ADR 0005).
  */
 class PlaysAloneTest {
 
     private static final Path CODE = Path.of("src/main/java");
-    private static final Path RESOURCES = Path.of("src/main/resources");
     private static final Path TAG_CHECK = CODE.resolve("io/github/_5thlayer/beltworks/gametest/PlaysAloneTests.java");
-
-    @Test
-    void theShippedCodeAndResourcesNameNoOtherModulesId() throws IOException {
-        assertEquals(List.of(), PlaysAlone.otherModulesIds(CODE));
-        assertEquals(List.of(), PlaysAlone.otherModulesIds(RESOURCES));
-    }
-
-    @Test
-    void theShippedCodeNamesNoOtherModulesNamespace() throws IOException {
-        assertEquals(List.of(), PlaysAlone.otherModulesNamespaceStrings(CODE));
-    }
-
-    @Test
-    void theShippedModsTomlRequiresNoOtherModule() throws IOException {
-        assertEquals(List.of(), PlaysAlone.otherModulesRequired(RESOURCES));
-    }
-
-    @Test
-    void theShippedResourcesHoldNothingInAnotherModulesNamespace() throws IOException {
-        assertEquals(List.of(), PlaysAlone.otherModulesNamespaces(RESOURCES));
-    }
 
     /** A tag the code starts reading fails here until {@code PlaysAloneTests} checks it in game. */
     @Test
@@ -64,95 +39,6 @@ class PlaysAloneTest {
         write(code.resolve("a/gametest/Check.java"), "class Check { List<TagKey<?>> checked = List.of(FluidTags.LAVA, BlockTags.LOGS); }");
         assertEquals(List.of("a/Burn.java reads ItemTags.LOGS", "a/Fuel.java declares Fuel.FUEL", "a/Lazy.java creates a TagKey outside a constant",
                 "a/Mine.java reads Tags.Blocks.ORES"), PlaysAlone.tagsReadButUnchecked(code, code.resolve("a/gametest/Check.java")));
-    }
-
-    @Test
-    void aDataOrAssetFolderInAnotherModulesNamespaceIsReported(@TempDir Path resources) throws IOException {
-        write(resources.resolve("data/fieldworks/recipe/x.json"), "{}");
-        write(resources.resolve("assets/voidworks/lang/en_us.json"), "{}");
-        write(resources.resolve("data/beltworks/recipe/x.json"), "{}");
-        write(resources.resolve("data/groundworks/tags/item/dismantles.json"), "{}");
-        assertEquals(List.of("assets/voidworks", "data/fieldworks"), PlaysAlone.otherModulesNamespaces(resources));
-    }
-
-    @Test
-    void anIdInDataIsReported(@TempDir Path resources) throws IOException {
-        write(resources.resolve("data/beltworks/recipe/x.json"), "{\"key\":{\"a\":\"gearworks:gear\"}}");
-        assertEquals(List.of("data/beltworks/recipe/x.json names gearworks:gear"), PlaysAlone.otherModulesIds(resources));
-    }
-
-    @Test
-    void aTagOfTheRetiredPackInARecipeIsReported(@TempDir Path resources) throws IOException {
-        write(resources.resolve("data/beltworks/recipe/x.json"), "{\"key\":{\"a\":\"#factoryworks:belts\"}}");
-        assertEquals(List.of("data/beltworks/recipe/x.json names factoryworks:belts"), PlaysAlone.otherModulesIds(resources));
-    }
-
-    @Test
-    void anIdInJavaSourceIsReported(@TempDir Path code) throws IOException {
-        write(code.resolve("x/Pipes.java"), "class Pipes { String id = \"pipeworks:pipe\"; }");
-        assertEquals(List.of("x/Pipes.java names pipeworks:pipe"), PlaysAlone.otherModulesIds(code));
-    }
-
-    @Test
-    void anIdInTheModsTomlIsReported(@TempDir Path resources) throws IOException {
-        write(resources.resolve("META-INF/neoforge.mods.toml"), "description = \"fills wireworks:cable\"");
-        assertEquals(List.of("META-INF/neoforge.mods.toml names wireworks:cable"), PlaysAlone.otherModulesIds(resources));
-    }
-
-    @Test
-    void anIdInAStructureIsReportedWhenItsLengthByteIsALetter(@TempDir Path resources) throws IOException {
-        String id = "fieldworks:" + "o".repeat('A' - "fieldworks:".length());
-        Path nbt = resources.resolve("data/beltworks/structure/x.nbt");
-        Files.createDirectories(nbt.getParent());
-        try (OutputStream out = new GZIPOutputStream(Files.newOutputStream(nbt))) {
-            out.write(("\u0008\u0000\u0004Name\u0000" + (char) id.length() + id).getBytes(StandardCharsets.ISO_8859_1));
-        }
-        assertEquals(List.of("data/beltworks/structure/x.nbt names " + id), PlaysAlone.otherModulesIds(resources));
-    }
-
-    @Test
-    void anotherModulesNamespaceInJavaSourceIsReported(@TempDir Path code) throws IOException {
-        write(code.resolve("x/Pipes.java"), "class Pipes { Identifier id = Identifier.fromNamespaceAndPath(\"pipeworks\", \"pipe\"); }");
-        write(code.resolve("x/Own.java"), "class Own { String ns = \"beltworks\"; String gw = \"groundworks\"; }");
-        assertEquals(List.of("x/Pipes.java names \"pipeworks\""), PlaysAlone.otherModulesNamespaceStrings(code));
-    }
-
-    @Test
-    void aRequiredDependencyOnAnotherModuleIsReported(@TempDir Path resources) throws IOException {
-        write(resources.resolve("META-INF/neoforge.mods.toml"), """
-                [[mods]]
-                modId = "beltworks"
-
-                [[dependencies.beltworks]]
-                modId = "groundworks"
-                type = "required"
-
-                [[dependencies.beltworks]]
-                modId = "craftworks"
-                type = "required"
-
-                [[dependencies.beltworks]]
-                modId="wireworks"
-                """);
-        assertEquals(List.of("META-INF/neoforge.mods.toml requires craftworks", "META-INF/neoforge.mods.toml requires wireworks"),
-                PlaysAlone.otherModulesRequired(resources));
-    }
-
-    @Test
-    void anOptionalDependencyOnAnotherModuleIsAllowed(@TempDir Path resources) throws IOException {
-        write(resources.resolve("META-INF/neoforge.mods.toml"), """
-                [[dependencies.beltworks]]
-                modId = "pipeworks"
-                type = "optional"
-                """);
-        assertEquals(List.of(), PlaysAlone.otherModulesRequired(resources));
-    }
-
-    @Test
-    void theModsOwnIdsGroundworksAndTheSharedNamespacesAreAllowed(@TempDir Path resources) throws IOException {
-        write(resources.resolve("assets/beltworks/models/x.json"),
-                "{\"a\":\"beltworks:block/x\",\"b\":\"minecraft:glass\",\"c\":\"#c:glass_blocks\",\"d\":\"groundworks:x\",\"e\":\"neoforge:y\"}");
-        assertEquals(List.of(), PlaysAlone.otherModulesIds(resources));
     }
 
     private static void write(Path file, String text) throws IOException {
