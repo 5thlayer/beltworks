@@ -23,8 +23,8 @@ import net.minecraft.tags.TagKey;
 import net.neoforged.fml.ModList;
 
 /**
- * The Mod plays alone on Groundworks (FactoryWorks ADR-0127): nothing else is loaded beside it, and every tag its code
- * reads or its data names holds an entry of Minecraft or Beltworks.
+ * The Mod plays alone on Groundworks (FactoryWorks ADR-0127): nothing but Groundworks and its own nested libworks is
+ * loaded beside it, and every tag its code reads or its data names holds an entry of Minecraft or Beltworks.
  */
 final class PlaysAloneTests {
 

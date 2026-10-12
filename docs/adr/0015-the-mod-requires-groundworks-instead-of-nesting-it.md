@@ -13,3 +13,4 @@ The cost is that a player who installs Beltworks alone by hand must now install 
 - `build.gradle` no longer calls `jarJar`; the range feeds `neoforge.mods.toml` and the `-PsiblingBuilds` check.
 - `modrinth_dependencies` and `curseforge_dependencies` name Groundworks, and `scripts/upload.py` no longer checks a nested licence.
 - ADR 0010 and ADR 0011 are superseded on bundling only.
+- This covers Groundworks only. The libworks runtime is nested by jar-in-jar (FactoryWorks ADR-0128, 5thlayer/beltworks#97): it must load as a mod to register the shared Works tab, and when several Modules nest it NeoForge loads only the newest copy, so the Pack still loads one.
