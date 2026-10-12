@@ -85,6 +85,7 @@ public final class BeltGameTests {
         FeederTests.register(tests);
         TierSwapTests.register(tests);
         FastReplaceTests.register(tests);
+        CreativeTabTests.register(tests);
         RecipeTests.register(tests);
     }
 

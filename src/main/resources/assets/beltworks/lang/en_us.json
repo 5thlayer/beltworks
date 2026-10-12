@@ -11,7 +11,6 @@
   "message.beltworks.dismantle_off_line": "That is not a tile of the line the dismantle started on.",
   "message.beltworks.filter_set": "Item Filter Set",
   "message.beltworks.filter_reset": "Item Filter Reset",
-  "itemgroup.beltworks.items": "Beltworks",
   "block.beltworks.loader": "Loader",
   "item.beltworks.loader": "Loader",
   "item.beltworks.loader.tooltip": "Moves 15 items a second between an inventory and a belt, whatever the belt's tier.",
