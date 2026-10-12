@@ -109,7 +109,6 @@ public final class Beltworks {
         BeltGameTests.register(modBus);
     }
 
-    /** Every item of the Mod's, in the order it registers them. */
     private static void addToWorksTab(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() != WorksTab.KEY) return;
         ItemContent.ITEMS.getEntries().forEach(item -> event.accept(item.get()));
