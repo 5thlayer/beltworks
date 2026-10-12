@@ -11,9 +11,11 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /** The Mod's items show in the suite's shared Works tab, and it keeps no tab of its own (5thlayer/beltworks#97). */
 final class CreativeTabTests {
@@ -22,10 +24,10 @@ final class CreativeTabTests {
     }
 
     static void register(BeltGameTests.Registrar tests) {
-        tests.test("every_item_shows_in_the_works_tab_and_the_mod_has_no_tab", 1, CreativeTabTests::worksTab);
+        tests.test("every_item_shows_in_the_works_tab_and_the_mod_has_no_tab", 1, CreativeTabTests::everyItemShowsInTheWorksTab);
     }
 
-    private static void worksTab(GameTestHelper helper) {
+    private static void everyItemShowsInTheWorksTab(GameTestHelper helper) {
         var level = helper.getLevel();
         CreativeModeTabs.tryRebuildTabContents(level.enabledFeatures(), true, level.registryAccess());
         var tabs = BuiltInRegistries.CREATIVE_MODE_TAB;
@@ -33,13 +35,11 @@ final class CreativeTabTests {
         var ownTabs = tabs.listElementIds().filter(key -> key.identifier().getNamespace().equals(Beltworks.MOD_ID)).toList();
         helper.assertTrue(ownTabs.isEmpty(), "the Mod registers creative tabs " + ownTabs);
 
-        CreativeModeTab works = tabs.getValueOrThrow(WorksTab.KEY);
-        List<Item> missing = new ArrayList<>();
-        for (var item : ItemContent.ITEMS.getEntries()) {
-            if (works.getDisplayItems().stream().noneMatch(stack -> stack.is(item.get()))) missing.add(item.get());
-        }
-        helper.assertTrue(missing.isEmpty(), "the Works tab lacks " + missing.stream().map(BuiltInRegistries.ITEM::getKey).toList());
         helper.assertTrue(!ItemContent.ITEMS.getEntries().isEmpty(), "the Mod registers no items");
+        CreativeModeTab works = tabs.getValueOrThrow(WorksTab.KEY);
+        Set<Item> shown = works.getDisplayItems().stream().map(ItemStack::getItem).collect(Collectors.toSet());
+        List<Item> missing = ItemContent.ITEMS.getEntries().stream().<Item>map(item -> item.get()).filter(item -> !shown.contains(item)).toList();
+        helper.assertTrue(missing.isEmpty(), "the Works tab lacks " + missing.stream().map(BuiltInRegistries.ITEM::getKey).toList());
         helper.succeed();
     }
 }
