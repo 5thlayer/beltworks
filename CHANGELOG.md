@@ -5,6 +5,7 @@
 - Requires Groundworks 0.5.7 or later.
 - Beltworks' items are in the Works creative tab, which every FactoryWorks mod shares, and Beltworks has no tab of its own. The tab comes from libworks, which is inside the Beltworks jar, so there is nothing more to install.
 - Loaders and feeders no longer lose or duplicate an item when another mod's inventory says it will take an item and then refuses it. Each move now goes through only once the item is really in, and otherwise the item stays where it was (5thlayer/beltworks#29).
+- A loader set with its mouth against the side of a straight belt tile now side-loads onto that line, as a belt there would: the line's own items go first and the loader's fill the gaps (5thlayer/beltworks#24).
 
 ## 0.4.1
 

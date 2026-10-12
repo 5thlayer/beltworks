@@ -18,7 +18,8 @@ import io.github._5thlayer.beltworks.model.BeltTier;
 /**
  * A side-load merges into the line it feeds (PlanetaryFactory #409): the line from behind goes first, the side's
  * items fill its gaps, nothing is lost, and a ring loaded from its side fills to eight a tile and
- * keeps moving. Tiles are placed downstream first, as in {@link BeltCornerTests}.
+ * keeps moving. A loader whose mouth faces the tile's side side-loads as a tile there
+ * does (#24). Tiles are placed downstream first, as in {@link BeltCornerTests}.
  */
 final class BeltSideLoadTests {
 
@@ -32,11 +33,17 @@ final class BeltSideLoadTests {
     private static final int COLUMN = 3;
     private static final BlockPos SIDE_FROM = FED.north(COLUMN + 1);
     private static final BlockPos SIDE_SOURCE = SIDE_FROM.north();
+    // A loader against the side of the same middle tile, with no tiles between.
+    private static final BlockPos BESIDE_FROM = FED.north();
+    private static final BlockPos BESIDE_SOURCE = BESIDE_FROM.north();
 
     private static final int THROUGH_ITEMS = 64;
     private static final int SIDE_ITEMS = 32;
     // Before the through chest runs dry at 15 items/s, well after the side's first item could arrive.
     private static final int THROUGH_ONLY_TICKS = 70;
+    // A loader beside the tile would fill it before the line from behind first reaches it, a tile
+    // and a bit at 0.09375 blocks a tick, so its chest is filled once that line runs past.
+    private static final int BESIDE_SUPPLY_TICKS = 20;
 
     // A ring round a 3x3, loaded from the north into the middle of its north side.
     private static final BlockPos RING_CORNER = new BlockPos(2, 1, 4);
@@ -57,7 +64,10 @@ final class BeltSideLoadTests {
     }
 
     static void register(BeltGameTests.Registrar tests) {
-        tests.test("a_side_load_delivers_both_inputs_through_line_first", 400, BeltSideLoadTests::sideLoadDeliversBoth);
+        tests.test("a_side_load_delivers_both_inputs_through_line_first", 400,
+                helper -> sideLoadDeliversBoth(helper, false));
+        tests.test("a_loader_beside_a_mid_line_tile_side_loads_both_inputs_through_line_first", 400,
+                helper -> sideLoadDeliversBoth(helper, true));
         tests.test("a_side_loaded_ring_holds_8_a_tile_and_moves", RING_FILL_TICKS + MOVE_TICKS + 20, BeltSideLoadTests::sideLoadedRing);
         tests.test("a_tile_facing_the_side_of_a_foot_does_not_feed_it", SLOPE_SIDE_TICKS + 20,
                 helper -> slopeTakesNoSideLoad(helper, 1, BeltTileBlock.PitchState.FOOT_UP));
@@ -100,18 +110,23 @@ final class BeltSideLoadTests {
         }).thenSucceed();
     }
 
-    private static void sideLoadDeliversBoth(GameTestHelper helper) {
+    /** The row and a side input into its middle tile: a column of tiles from a loader, or a loader {@code beside} it. */
+    private static void sideLoadDeliversBoth(GameTestHelper helper, boolean beside) {
         helper.setBlock(TARGET, Blocks.CHEST);
         helper.setBlock(ROW_TO, BeltTileTests.loader(BeltTier.BELT, Direction.WEST));
         for (int tile = 2; tile >= 0; tile--) helper.setBlock(ROW_FIRST.east(tile), BeltTileTests.tile(BeltTier.BELT, Direction.EAST));
         helper.setBlock(THROUGH_FROM, BeltTileTests.loader(BeltTier.BELT, Direction.EAST));
         helper.setBlock(THROUGH_SOURCE, Blocks.CHEST);
-        for (int tile = 1; tile <= COLUMN; tile++) helper.setBlock(FED.north(tile), BeltTileTests.tile(BeltTier.BELT, Direction.SOUTH));
-        helper.setBlock(SIDE_FROM, BeltTileTests.loader(BeltTier.BELT, Direction.SOUTH));
-        helper.setBlock(SIDE_SOURCE, Blocks.CHEST);
+        BlockPos sideSource = beside ? BESIDE_SOURCE : SIDE_SOURCE;
+        if (!beside) {
+            for (int tile = 1; tile <= COLUMN; tile++) helper.setBlock(FED.north(tile), BeltTileTests.tile(BeltTier.BELT, Direction.SOUTH));
+        }
+        helper.setBlock(beside ? BESIDE_FROM : SIDE_FROM, BeltTileTests.loader(BeltTier.BELT, Direction.SOUTH));
+        helper.setBlock(sideSource, Blocks.CHEST);
         fill(helper, THROUGH_SOURCE, Items.COBBLESTONE, THROUGH_ITEMS);
-        fill(helper, SIDE_SOURCE, Items.IRON_INGOT, SIDE_ITEMS);
-        helper.startSequence().thenIdle(THROUGH_ONLY_TICKS).thenExecute(() -> {
+        int supplyTicks = beside ? BESIDE_SUPPLY_TICKS : 0;
+        helper.startSequence().thenIdle(supplyTicks).thenExecute(() -> fill(helper, sideSource, Items.IRON_INGOT, SIDE_ITEMS))
+                .thenIdle(THROUGH_ONLY_TICKS - supplyTicks).thenExecute(() -> {
             int side = count(helper, TARGET, Items.IRON_INGOT);
             if (side != 0 || count(helper, THROUGH_SOURCE, Items.COBBLESTONE) == 0) {
                 helper.fail("the side got " + side + " items in while the line from behind was still full", TARGET);
@@ -120,6 +135,9 @@ final class BeltSideLoadTests {
             int through = count(helper, TARGET, Items.COBBLESTONE);
             int side = count(helper, TARGET, Items.IRON_INGOT);
             var dropped = helper.getLevel().getEntitiesOfClass(ItemEntity.class, helper.getBounds().inflate(2.0)).size();
+            if (beside && helper.getBlockState(FED).getValue(BeltTileBlock.CORNER) != BeltTileBlock.Shape.STRAIGHT) {
+                helper.fail("the loader beside the middle tile turned it into a corner", FED);
+            }
             if (through != THROUGH_ITEMS || side != SIDE_ITEMS || dropped != 0) {
                 helper.fail("a side-load delivered " + through + " of " + THROUGH_ITEMS + " through and " + side
                         + " of " + SIDE_ITEMS + " from the side, with " + dropped + " on the ground", TARGET);

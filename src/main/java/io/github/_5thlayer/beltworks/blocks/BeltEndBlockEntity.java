@@ -47,6 +47,7 @@ import io.github._5thlayer.beltworks.model.TransportLine;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Predicate;
 
 /** A belt end that is a block: a loader or a splitter half. */
 public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker<BeltEndBlockEntity> {
@@ -92,6 +93,14 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
         }
 
         if (splitter) tickHalf(level, pos, state);
+        else if (!level.isClientSide()) sideLoad(level);
+    }
+
+    // A loader whose mouth faces the side of a straight, level tile side-loads onto its line, as a
+    // tile there would (#24). A line's first tile or a corner's entry asks it instead, through extractOne.
+    private void sideLoad(Level level) {
+        var side = BeltOutlet.sideOf(level, worldPosition.relative(getOwnFacing()), getOwnFacing());
+        if (side != null) loadInto(item -> side.offer(item, 0));
     }
 
     private void send(Track track, BeltContents<ItemStack> belt) {
@@ -363,23 +372,36 @@ public class BeltEndBlockEntity extends BlockEntity implements BlockEntityTicker
      * (#344), and one committed extract (ADR 0008). A transport line's first tile asks here
      * (PlanetaryFactory #398).
      */
-    @SuppressWarnings("DataFlowIssue")
     public @Nullable ItemStack extractOne() {
-        if (splitter) return null;
-        if (!flow.ready(level.getGameTime()) || !energy.canMove()) return null;
+        var loaded = new ItemStack[1];
+        return loadInto(item -> {
+            loaded[0] = item;
+            return true;
+        }) ? loaded[0] : null;
+    }
+
+    /**
+     * Loads one item out of the inventory behind this loader's facing into {@code into}, at its own
+     * tier's rate and for its own energy, answering whether it went. The extract is committed only
+     * once {@code into} took the item, so one it refuses stays in the inventory (ADR 0008).
+     */
+    @SuppressWarnings("DataFlowIssue")
+    boolean loadInto(Predicate<ItemStack> into) {
+        if (splitter) return false;
+        if (!flow.ready(level.getGameTime()) || !energy.canMove()) return false;
         var source = behind();
-        if (source == null) return null;
-        ItemStack taken;
+        if (source == null) return false;
         try (var move = Transaction.openRoot()) {
-            taken = Inventories.extractOne(source, item -> filter.matches(level, item), move);
-            if (taken == null) return null;
+            var taken = Inventories.extractOne(source, item -> filter.matches(level, item), move);
+            if (taken == null || !into.test(taken)) return false;
             move.commit();
         }
         flow.pass();
         energy.move();
-        return taken;
+        setChanged();
+        return true;
     }
-    
+
     // The inventory this loader's back is set against, through the face that touches it.
     private @Nullable ResourceHandler<ItemResource> behind() {
         return Inventories.at(level, worldPosition.relative(getOwnFacing().getOpposite()), getOwnFacing());

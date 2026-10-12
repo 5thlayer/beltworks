@@ -47,10 +47,20 @@ sealed interface BeltOutlet extends Outlet<ItemStack> {
             case BeltTileBlockEntity tile -> {
                 var entry = tile.entryHandoff(facing);
                 if (entry != null) yield new FirstTile(tile, Outlet.entry(entry));
-                yield sideLoadable(tile, facing) ? new SideLoad(tile, null) : null;
+                yield sideOf(level, pos, facing);
             }
             case null, default -> null;
         };
+    }
+
+    /**
+     * The side of the straight, level tile at {@code pos} that something running {@code travel} faces,
+     * or null where there is none: what a splitter half or a loader whose mouth faces it side-loads
+     * onto (#89, #24).
+     */
+    static @Nullable BeltOutlet sideOf(Level level, BlockPos pos, Direction travel) {
+        if (!level.isLoaded(pos) || !(level.getBlockEntity(pos) instanceof BeltTileBlockEntity tile)) return null;
+        return sideLoadable(tile, travel) ? new SideLoad(tile, null) : null;
     }
 
     // A corner's side is its entry, head-on is no feed (PlanetaryFactory #409), and a slope takes no side-load (#417).
@@ -89,7 +99,7 @@ sealed interface BeltOutlet extends Outlet<ItemStack> {
 
     /**
      * The side of another line's tile, which merges the item into a gap at that tile. {@code from}
-     * is the sending line's last tile, or null for a splitter half, which is no line's.
+     * is the sending line's last tile, or null for a splitter half or a loader, which are no line's.
      */
     record SideLoad(BeltTileBlockEntity fed, @Nullable BeltTileBlockEntity from) implements BeltOutlet {
 

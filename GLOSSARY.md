@@ -45,11 +45,11 @@ One block of belt, placed and broken on its own, facing the way items travel thr
 _Avoid_: belt block, conveyor block, segment
 
 **Transport line**:
-The contiguous run of tiles each feeding the next, around corners and across slopes, merged at runtime so the whole run ticks once. A line is derived state: each tile keeps its own share of the items, so merging and splitting a line loses nothing. It runs at its slowest tile, is loaded by the loader behind its first tile and unloaded by the one past its last, and never spans an unloaded chunk. A line closed on itself is a ring, with no first tile and no last.
+The contiguous run of tiles each feeding the next, around corners and across slopes, merged at runtime so the whole run ticks once. A line is derived state: each tile keeps its own share of the items, so merging and splitting a line loses nothing. It runs at its slowest tile, is loaded by the loader behind its first tile, or at a straight tile's side by one whose mouth faces it, and unloaded by the one past its last, and never spans an unloaded chunk. A line closed on itself is a ring, with no first tile and no last.
 _Avoid_: belt line, chain, run
 
 **Side-load**:
-A tile or other belt piece feeding the side of a straight tile. It does not join the line it feeds: two lines meet there, and the side-loading line's items merge into gaps on the other, which goes first. Factorio's side-load reduced to a merge, since one lane has no far lane to fill.
+A tile or other belt piece feeding the side of a straight tile, or a loader whose mouth faces that side. It does not join the line it feeds: two lines meet there, or a loader and a line, and the side's items merge into gaps on the line it feeds, which goes first. Factorio's side-load reduced to a merge, since one lane has no far lane to fill.
 _Avoid_: T-junction, merge belt
 
 **Tier colour**:
