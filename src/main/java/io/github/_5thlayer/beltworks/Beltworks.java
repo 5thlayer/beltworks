@@ -15,6 +15,7 @@ import io.github._5thlayer.groundworks.Dismantles;
 import io.github._5thlayer.groundworks.Placements;
 import io.github._5thlayer.groundworks.Rotate;
 import io.github._5thlayer.groundworks.Stretches;
+import io.github._5thlayer.libworks.WorksTab;
 
 import io.github._5thlayer.beltworks.api.item.ItemApi;
 import io.github._5thlayer.beltworks.blocks.BeltFamily;
@@ -47,6 +48,7 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.ChunkEvent;
 import net.neoforged.neoforge.event.level.ChunkWatchEvent;
@@ -89,7 +91,7 @@ public final class Beltworks {
         ItemContent.ITEMS.register(modBus);
         DataComponentsContent.TYPES.register(modBus);
         BlockEntitiesContent.TYPES.register(modBus);
-        ItemGroupContent.GROUPS.register(modBus);
+        modBus.addListener(Beltworks::addToWorksTab);
         MenuContent.TYPES.register(modBus);
         NeoForge.EVENT_BUS.addListener(LevelTickEvent.Pre.class, event -> {
             if (!event.getLevel().isClientSide()) BeltCollisionRegistry.moveServerEntities(event.getLevel());
@@ -105,6 +107,12 @@ public final class Beltworks {
         });
 
         BeltGameTests.register(modBus);
+    }
+
+    /** Every item of the Mod's, in the order it registers them. */
+    private static void addToWorksTab(BuildCreativeModeTabContentsEvent event) {
+        if (event.getTabKey() != WorksTab.KEY) return;
+        ItemContent.ITEMS.getEntries().forEach(item -> event.accept(item.get()));
     }
 
     public static Identifier id(String path) {

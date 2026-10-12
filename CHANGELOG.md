@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Requires Groundworks 0.5.7 or later.
+- Beltworks' items are in the Works creative tab, which every FactoryWorks mod shares, and Beltworks has no tab of its own. The tab comes from libworks, which is inside the Beltworks jar, so there is nothing more to install.
 
 ## 0.4.1
 
