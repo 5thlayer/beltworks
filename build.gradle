@@ -1,7 +1,7 @@
 // ModDevGradle on Java 25, the game test server that names each test, the jar's licensing, ~/.m2-only
 // publishing and the release and upload tasks come from the libworks convention plugin (libworks ADR 0003).
 plugins {
-    id 'io.github.5thlayer.libworks.module' version '0.2.1'
+    id 'io.github.5thlayer.libworks.module' version '0.3.0'
 }
 
 // What the Mod requires of the other Libraries, each as a range whose lower bound is a released version:
@@ -16,7 +16,7 @@ libworks {
         range = '[0.5.8,0.6)'
     }
     // Nested, unlike Groundworks: the shared Works tab needs it loaded as a mod (FactoryWorks ADR-0128).
-    runtime = '0.1.1'
+    runtime = '0.1.8'
 }
 
 repositories {
@@ -26,6 +26,7 @@ repositories {
         content {
             includeModule 'io.github.5thlayer', 'groundworks'
             includeModule 'io.github.5thlayer', 'libworks-runtime'
+            includeModule 'io.github.5thlayer', 'libworks-gametest'
         }
     }
     maven { url = 'https://cursemaven.com' }
