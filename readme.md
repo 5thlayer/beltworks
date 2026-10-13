@@ -10,6 +10,8 @@ Because I want my belts to work just like Factorio and I found no other mods to 
 
 It runs on **NeoForge** for **Minecraft 26.1.2**. It is early work, so please report any issues you find on [GitHub](https://github.com/5thlayer/beltworks/issues).
 
+To play Beltworks beside every other FactoryWorks mod, install the [FactoryWorks Showcase](https://www.curseforge.com/minecraft/modpacks/factoryworks-showcase) modpack from CurseForge.
+
 ## Features
 
 - **Tiles merged into transport lines.** A belt is laid one tile per block, one belt item per tile, facing the way you look. Tiles feeding one another join into a transport line that moves as one, around corners and up and down slopes. A tile holds eight items, so a line is a buffer as well as a route, and when its end backs up you can see the items waiting.
