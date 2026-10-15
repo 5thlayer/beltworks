@@ -4,7 +4,7 @@ plugins {
     id 'io.github.5thlayer.libworks.module' version '0.3.0'
 }
 
-// What the Mod requires of the other Libraries, each as a range whose lower bound is a released version:
+// What the Mod requires of the other Modules, each as a range whose lower bound is a released version:
 // the one the Mod is built and run against and the one CI builds from its tag. neoforge.mods.toml names
 // each as ${<name>_range}. Beltworks' own tags are the default, beltworks-v<version>.
 libworks {
