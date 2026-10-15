@@ -8,6 +8,10 @@ Conventional commits: `<type>(<optional scope>): <summary>`, with the summary in
 
 Vanilla's and NeoForge's own code is in `build/moddev/artifacts/minecraft-patched-*-sources.jar`, read with `unzip -p <jar> net/minecraft/.../X.java`. Check a claim about vanilla behaviour there before stating it.
 
+## Workflow
+
+Commit on the current branch; open a feature branch only when the user asks for one. Nothing is pushed without the user's word. Asking a session to steward a PR is the user's word for that PR's pushes, its rebases onto `main`, and its merge, under the `steward` skill.
+
 ## Agent skills
 
 ### Issue tracker
