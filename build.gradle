@@ -1,7 +1,7 @@
 // ModDevGradle on Java 25, the game test server that names each test, the jar's licensing, ~/.m2-only
 // publishing and the release and upload tasks come from the libworks convention plugin (libworks ADR 0003).
 plugins {
-    id 'io.github.5thlayer.libworks.module' version '0.3.0'
+    id 'io.github.5thlayer.libworks.module' version '0.4.0'
 }
 
 // What the Mod requires of the other Modules, each as a range whose lower bound is a released version:
@@ -20,15 +20,6 @@ libworks {
 }
 
 repositories {
-    // From the local maven only, where their releases publish them (Groundworks: 5thlayer/groundworks#2;
-    // libworks-runtime: FactoryWorks ADR-0128). CI builds their tags there first.
-    mavenLocal {
-        content {
-            includeModule 'io.github.5thlayer', 'groundworks'
-            includeModule 'io.github.5thlayer', 'libworks-runtime'
-            includeModule 'io.github.5thlayer', 'libworks-gametest'
-        }
-    }
     maven { url = 'https://cursemaven.com' }
     exclusiveContent { // Energized Power, the dev client's FE source
         forRepository { maven { url = 'https://api.modrinth.com/maven' } }

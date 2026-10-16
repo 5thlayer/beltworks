@@ -13,10 +13,13 @@ import net.minecraft.gametest.framework.TestEnvironmentDefinition;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.Rotation;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.event.lifecycle.FMLConstructModEvent;
 import net.neoforged.neoforge.event.RegisterGameTestsEvent;
-import net.neoforged.neoforge.gametest.GameTestHooks;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import io.github._5thlayer.beltworks.Beltworks;
+import io.github._5thlayer.beltworks.BlockUpdatesSent;
 import io.github._5thlayer.beltworks.model.BeltTier;
 
 import java.util.List;
@@ -29,8 +32,11 @@ import java.util.function.Consumer;
  * splitter's belts and a three-block climb, or on its {@code gametest/long_platform}, 66x3x3, for a
  * 64-tile line, and places what it needs itself, so the setup is in the diff. Both are committed .nbt
  * files of the Mod's own: the libworks plugin's {@code buildGametestStructures} writes only its 9x5x9
- * default platform, and refuses to replace this one.
+ * default platform, and refuses to replace this one. It lives in the {@code gametest} source set, which
+ * only the Mod's own runs load, and hooks itself in, so the {@code @Mod} class names no game-test code
+ * and nothing gates it (libworks ADR 0011).
  */
+@EventBusSubscriber(modid = Beltworks.MOD_ID)
 public final class BeltGameTests {
 
     private static final Identifier PLATFORM = Beltworks.id("gametest/platform");
@@ -52,13 +58,19 @@ public final class BeltGameTests {
     private BeltGameTests() {
     }
 
+    @SubscribeEvent
+    static void construct(FMLConstructModEvent event) {
+        register(event.getContainer().getEventBus());
+    }
+
     public static void register(IEventBus modBus) {
         TEST_TYPES.register(modBus);
         ENVIRONMENT_TYPES.register(modBus);
-        // Posted only when game tests are enabled, so a production server never registers the tests.
+        // Posted only when game tests are enabled, which a production game never is.
         modBus.addListener(BeltGameTests::registerTests);
-        // The proving set's stand-in for a fickle target answers at a lodestone, in the Mod's own runs only.
-        if (GameTestHooks.isGametestEnabled()) modBus.addListener(FickleInventory::registerCapabilities);
+        // The proving set's stand-in for a fickle target answers at a lodestone.
+        modBus.addListener(FickleInventory::registerCapabilities);
+        BlockUpdatesSent.listen(BlockUpdateWatch::saw);
     }
 
     private static void registerTests(RegisterGameTestsEvent event) {

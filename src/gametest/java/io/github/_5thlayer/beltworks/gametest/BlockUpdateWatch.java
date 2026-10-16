@@ -26,7 +26,8 @@ public final class BlockUpdateWatch {
         return count == null ? 0 : count;
     }
 
-    public static void saw(BlockPos pos) {
+    /** Hears every block update sent, from {@link BeltGameTests#register} on. */
+    static void saw(BlockPos pos) {
         if (!COUNTS.isEmpty()) COUNTS.computeIfPresent(pos, (watched, count) -> count + 1);
     }
 }

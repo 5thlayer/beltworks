@@ -48,6 +48,7 @@ SPDX-License-Identifier = "CC-BY-4.0 AND MIT"
 path = [
     "src/main/resources/assets/**",
     "src/main/resources/data/**",
+    "src/gametest/resources/data/**",
 ]
 SPDX-FileCopyrightText = "2026 5thlayer"
 SPDX-License-Identifier = "CC-BY-4.0"

@@ -10,14 +10,14 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import io.github._5thlayer.beltworks.gametest.BlockUpdateWatch;
+import io.github._5thlayer.beltworks.BlockUpdatesSent;
 
-/** Lets a game test see a block update being sent, which nothing else observes on a server. */
+/** Tells {@link BlockUpdatesSent} of each block update a server level sends. */
 @Mixin(ServerLevel.class)
 public abstract class ServerLevelUpdateMixin {
 
     @Inject(method = "sendBlockUpdated", at = @At("HEAD"))
-    private void beltworks$watch(BlockPos pos, BlockState oldState, BlockState newState, int flags, CallbackInfo callback) {
-        BlockUpdateWatch.saw(pos);
+    private void beltworks$sent(BlockPos pos, BlockState oldState, BlockState newState, int flags, CallbackInfo callback) {
+        BlockUpdatesSent.sent(pos);
     }
 }

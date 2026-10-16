@@ -22,7 +22,6 @@ import io.github._5thlayer.beltworks.blocks.BeltFamily;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
 import io.github._5thlayer.beltworks.collision.BeltCollisionRegistry;
-import io.github._5thlayer.beltworks.gametest.BeltGameTests;
 import io.github._5thlayer.beltworks.items.BeltLegs;
 import io.github._5thlayer.beltworks.items.BeltReplaces;
 import io.github._5thlayer.beltworks.neoforge.BeltChangesPayload;
@@ -106,8 +105,6 @@ public final class Beltworks {
             event.setCanceled(true);
             event.setCancellationResult(result);
         });
-
-        BeltGameTests.register(modBus);
     }
 
     private static void addToWorksTab(BuildCreativeModeTabContentsEvent event) {

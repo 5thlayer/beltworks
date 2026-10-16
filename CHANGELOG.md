@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- No change in game: Beltworks' game-test code and structures no longer ship in its jar (libworks ADR 0011), so a game no longer registers its test type `beltworks:code` nor carries its `gametest/platform` and `gametest/long_platform` structures. Beltworks is now built with libworks-plugin 0.4.0.
+
 ## 0.5.0
 
 - A belt tile climbs only where you set it to, so lines laid one over another, a block apart, no longer join on their own, whatever order you lay them in. A new Climb key, unbound by default, cycles up, down and level, and a tile set to climb places as a slope at once, into the open until the tile it climbs to is laid: with tiles in hand it sets the next one placed, shown in the preview and, while it isn't level, above the action bar, and aimed at a placed tile it sets that one. A stretch sets its slopes as before. Slopes in a world saved before this version flatten when a tile beside them changes, and must be set again (5thlayer/beltworks#107).
