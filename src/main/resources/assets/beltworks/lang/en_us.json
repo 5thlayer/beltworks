@@ -124,8 +124,16 @@
   "beltworks.gallery.feeders.1": "one belt for",
   "beltworks.gallery.feeders.2": "a row of",
   "beltworks.gallery.feeders.3": "machines",
-  "beltworks.gallery.dismantle": "Dismantle",
-  "beltworks.gallery.dismantle.1": "sneak-click tile",
-  "beltworks.gallery.dismantle.2": "with a pickaxe,",
-  "beltworks.gallery.dismantle.3": "click another"
+  "beltworks.gallery.filtered_splitter": "Filtered",
+  "beltworks.gallery.filtered_splitter.1": "a splitter set",
+  "beltworks.gallery.filtered_splitter.2": "to iron sends",
+  "beltworks.gallery.filtered_splitter.3": "it to one side",
+  "beltworks.gallery.filtered_loader": "Filtered",
+  "beltworks.gallery.filtered_loader.1": "a loader set",
+  "beltworks.gallery.filtered_loader.2": "to iron moves",
+  "beltworks.gallery.filtered_loader.3": "only iron",
+  "beltworks.gallery.filtered_feeder": "Filtered",
+  "beltworks.gallery.filtered_feeder.1": "each feeder",
+  "beltworks.gallery.filtered_feeder.2": "takes only",
+  "beltworks.gallery.filtered_feeder.3": "its own ingot"
 }

@@ -22,16 +22,19 @@ import net.minecraft.gametest.framework.GameTestRunner;
 import net.minecraft.gametest.framework.StructureUtils;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.phys.AABB;
 
 /**
- * The Gallery pack builds a scene of each README feature, in README order, through libworks'
- * {@link GalleryCheck} (libworks ADR 0010). Beyond the key blocks, every scene that carries items
- * to a container delivers them there, and a scene's sign builds it again. Each test turns the pack on,
- * which reloads the server's data, so each runs in a batch of its own.
+ * The Gallery pack builds a scene of each README feature but Dismantle, in README order, through libworks'
+ * {@link GalleryCheck} (libworks ADR 0010), with a filtered splitter, loader and feeder after the
+ * plain ones. Beyond the key blocks, every scene that carries items to a container delivers them
+ * there, a filter lets only its item through, and a scene's sign builds it again. Each test turns
+ * the pack on, which reloads the server's data, so each runs in a batch of its own.
  */
 final class GalleryTests {
 
@@ -44,18 +47,29 @@ final class GalleryTests {
             new Scene("slopes", new BlockPos(13, 1, -6), BlockContent.tileFor(BeltTier.BELT)),
             new Scene("tiers", new BlockPos(10, 0, -4), BlockContent.tileFor(BeltTier.TURBO)),
             new Scene("splitters", new BlockPos(12, 0, -7), BlockContent.splitterFor(BeltTier.BELT)),
+            new Scene("filtered_splitter", new BlockPos(12, 0, -6), BlockContent.splitterFor(BeltTier.BELT)),
             new Scene("loaders", new BlockPos(5, 0, -6), Blocks.BARREL),
+            new Scene("filtered_loader", new BlockPos(6, 0, -6), BlockContent.loaderFor(BeltTier.BELT)),
             new Scene("feeders", new BlockPos(13, 0, -7), BlockContent.feederFor(BeltTier.BELT)),
-            new Scene("dismantle", new BlockPos(10, 0, -7), BlockContent.tileFor(BeltTier.BELT)));
+            new Scene("filtered_feeder", new BlockPos(17, 0, -7), BlockContent.feederFor(BeltTier.BELT)));
 
     /** Where each scene's items end up, from where the scene is run, by the scene's name. */
     private static final Map<String, List<BlockPos>> DELIVERIES = Map.of(
             "slopes", List.of(new BlockPos(13, 0, -1), new BlockPos(22, 0, -6)),
             "tiers", List.of(new BlockPos(22, 0, -10), new BlockPos(22, 0, -8), new BlockPos(22, 0, -6), new BlockPos(22, 0, -4)),
             "splitters", List.of(new BlockPos(22, 0, -7), new BlockPos(22, 0, -6)),
+            "filtered_splitter", List.of(new BlockPos(22, 0, -7), new BlockPos(22, 0, -6)),
             "loaders", List.of(new BlockPos(22, 0, -6)),
+            "filtered_loader", List.of(new BlockPos(22, 0, -6)),
             "feeders", List.of(new BlockPos(9, 0, -6), new BlockPos(13, 0, -6), new BlockPos(17, 0, -6), new BlockPos(22, 0, -8)),
-            "dismantle", List.of(new BlockPos(22, 0, -7)));
+            "filtered_feeder", List.of(new BlockPos(9, 0, -6), new BlockPos(13, 0, -6), new BlockPos(17, 0, -6), new BlockPos(22, 0, -8)));
+
+    /** What a filter lets through to each container it fills, from where the scene is run, by the scene's name. */
+    private static final Map<String, Map<BlockPos, Item>> FILTERED = Map.of(
+            "filtered_splitter", Map.of(new BlockPos(22, 0, -7), Items.IRON_INGOT),
+            "filtered_loader", Map.of(new BlockPos(22, 0, -6), Items.IRON_INGOT),
+            "filtered_feeder", Map.of(new BlockPos(9, 0, -6), Items.IRON_INGOT, new BlockPos(13, 0, -6), Items.COPPER_INGOT,
+                    new BlockPos(17, 0, -6), Items.GOLD_INGOT));
 
     /** The lines scene's sign, from where the scene is run. */
     private static final BlockPos SIGN = new BlockPos(14, 0, 0);
@@ -66,7 +80,7 @@ final class GalleryTests {
     static void register(BeltGameTests.Registrar tests) {
         tests.testOnItsOwn("gallery_builds_a_scene_of_each_feature", GalleryCheck.TICKS,
                 helper -> GalleryCheck.builds(helper, Beltworks.MOD_ID, ORIGIN, SCENES));
-        tests.testOnItsOwn("gallery_scenes_carry_items_to_the_ends_of_their_lines", GalleryCheck.TICKS, GalleryTests::deliver);
+        tests.testOnItsOwn("gallery_scenes_carry_items_to_the_ends_of_their_lines_and_filters_only_theirs", GalleryCheck.TICKS, GalleryTests::deliver);
         tests.testOnItsOwn("gallery_sign_builds_its_scene_again_leaving_nothing_loose", GalleryCheck.TICKS, GalleryTests::replay);
     }
 
@@ -81,6 +95,14 @@ final class GalleryTests {
                     var container = helper.getLevel().getBlockEntity(pos) instanceof Container found ? found : null;
                     helper.assertTrue(container != null && !container.isEmpty(),
                             "scene " + name + " has carried nothing to " + pos.toShortString());
+                }
+                for (var only : FILTERED.getOrDefault(name, Map.of()).entrySet()) {
+                    var pos = GalleryCheck.sceneOrigin(at, index).offset(only.getKey());
+                    var container = (Container) helper.getLevel().getBlockEntity(pos);
+                    for (var stack : container) {
+                        helper.assertTrue(stack.isEmpty() || stack.is(only.getValue()),
+                                "scene " + name + "'s filter let " + stack + " through to " + pos.toShortString());
+                    }
                 }
             }
         });

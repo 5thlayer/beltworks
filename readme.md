@@ -25,7 +25,7 @@ To play Beltworks beside every other FactoryWorks mod, install the [FactoryWorks
 
 ## Gallery
 
-Beltworks carries a gallery of its features: one working scene each, with a sign naming it, built in a row east of where you stand, its lines already carrying items. It is a datapack in the jar, **Beltworks Gallery**, off until you turn it on in a world's Data Packs screen or with `/datapack enable "mod/beltworks:gallery_pack"`. Then `/function beltworks:gallery/build` builds every scene, and `/function beltworks:gallery/<scene>` one of them, such as `splitters`. Click a scene's sign to build it again from the start, once its chests have run dry. A function needs cheats in single player (on at world creation, or Open to LAN with cheats) or operator rights on a server. The gallery clears the ground it builds on and changes nothing else; it adds no recipes, loot or worldgen.
+Beltworks carries a gallery of its features: one working scene each but Dismantle, and a filtered splitter, loader and feeder, with a sign naming it, built in a row east of where you stand, its lines already carrying items. It is a datapack in the jar, **Beltworks Gallery**, off until you turn it on in a world's Data Packs screen or with `/datapack enable "mod/beltworks:gallery_pack"`. Then `/function beltworks:gallery/build` builds every scene, and `/function beltworks:gallery/<scene>` one of them, such as `splitters`. Click a scene's sign to build it again from the start, once its chests have run dry. A function needs cheats in single player (on at world creation, or Open to LAN with cheats) or operator rights on a server. The gallery clears the ground it builds on and changes nothing else; it adds no recipes, loot or worldgen.
 
 ## Dependencies
 
