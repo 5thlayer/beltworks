@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.5.0
+
 - A belt tile climbs only where you set it to, so lines laid one over another, a block apart, no longer join on their own, whatever order you lay them in. A new Climb key, unbound by default, cycles up, down and level, and a tile set to climb places as a slope at once, into the open until the tile it climbs to is laid: with tiles in hand it sets the next one placed, shown in the preview and, while it isn't level, above the action bar, and aimed at a placed tile it sets that one. A stretch sets its slopes as before. Slopes in a world saved before this version flatten when a tile beside them changes, and must be set again (5thlayer/beltworks#107).
 - A Beltworks Gallery datapack, off by default, builds a working scene of each feature with `/function beltworks:gallery/build`; click a scene's sign to build it again (5thlayer/beltworks#106).
 
