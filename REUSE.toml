@@ -12,6 +12,7 @@ path = [
     "**/*.gradle",
     "**/gradle.properties",
     ".gitignore",
+    ".gitattributes",
     ".gitmodules",
     "**/*.mods.toml",
     "**/*.mixins.json",
