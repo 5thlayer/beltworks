@@ -22,6 +22,7 @@ path = [
     "publish/summary.txt",
     ".github/**",
     ".claude/settings.json",
+    "src/main/resources/gallery_pack/**",
 ]
 SPDX-FileCopyrightText = "2026 5thlayer"
 SPDX-License-Identifier = "MIT"

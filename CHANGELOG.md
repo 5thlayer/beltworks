@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A Beltworks Gallery datapack, off by default, builds a working scene of each feature with `/function beltworks:gallery/build`; click a scene's sign to build it again (5thlayer/beltworks#106).
+
 ## 0.4.3
 
 - The server config sets what a loader of each tier pays per item, in a new `loaderJoulesPerItem` section, when `loadersNeedPower` is on. A tier set above 0 takes FE and moves nothing without it, tier 1 included; a tier set to 0 runs unpowered. The defaults are today's figures, with tier 1 unpowered, so nothing changes until a pack sets them (5thlayer/beltworks#84).

@@ -97,6 +97,7 @@ public final class BeltGameTests {
         FastReplaceTests.register(tests);
         CreativeTabTests.register(tests);
         RecipeTests.register(tests);
+        GalleryTests.register(tests);
     }
 
     /**
@@ -121,9 +122,22 @@ public final class BeltGameTests {
         }
 
         void test(String name, int maxTicks, Identifier structure, Consumer<GameTestHelper> body) {
+            register(name, maxTicks, structure, body, environment);
+        }
+
+        /**
+         * A test in a batch of its own, for one that reloads the server's data, as turning the Gallery pack
+         * on does, under every test running beside it (libworks ADR 0010).
+         */
+        void testOnItsOwn(String name, int maxTicks, Consumer<GameTestHelper> body) {
+            register(name, maxTicks, PLATFORM, body, event.registerEnvironment(Beltworks.id("on_its_own/" + name), new TestEnvironmentDefinition.AllOf(List.of())));
+        }
+
+        private void register(String name, int maxTicks, Identifier structure, Consumer<GameTestHelper> body,
+                              Holder<TestEnvironmentDefinition<?>> batch) {
             var id = Beltworks.id(name);
             CodeGameTest.define(id, body);
-            event.registerTest(id, new CodeGameTest(id, new TestData<>(environment, structure, maxTicks, 0, true, Rotation.NONE)));
+            event.registerTest(id, new CodeGameTest(id, new TestData<>(batch, structure, maxTicks, 0, true, Rotation.NONE)));
         }
     }
 }

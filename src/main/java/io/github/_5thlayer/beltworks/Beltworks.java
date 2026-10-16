@@ -16,6 +16,7 @@ import io.github._5thlayer.groundworks.Placements;
 import io.github._5thlayer.groundworks.Rotate;
 import io.github._5thlayer.groundworks.Stretches;
 import io.github._5thlayer.libworks.WorksTab;
+import io.github._5thlayer.libworks.gallery.GalleryPack;
 
 import io.github._5thlayer.beltworks.blocks.BeltFamily;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
@@ -90,6 +91,8 @@ public final class Beltworks {
         BlockEntitiesContent.TYPES.register(modBus);
         modBus.addListener(Beltworks::addToWorksTab);
         MenuContent.TYPES.register(modBus);
+        // Off until a player turns it on in a world's Data Packs screen (libworks ADR 0010).
+        GalleryPack.register(modBus, MOD_ID);
         NeoForge.EVENT_BUS.addListener(LevelTickEvent.Pre.class, event -> {
             if (!event.getLevel().isClientSide()) BeltCollisionRegistry.moveServerEntities(event.getLevel());
         });

@@ -23,6 +23,10 @@ To play Beltworks beside every other FactoryWorks mod, install the [FactoryWorks
 - **Feeders, one belt for a row of machines.** A feeder moves items one at a time from what its head reaches to what its tail reaches: a chest, a machine, or any level tile along a line, which runs on past it. Its head also picks up items lying on the ground, and its tail never drops items loose: with nowhere to put them, it waits. Each arm reaches one, two or three blocks, over whatever stands between; press Head Reach (`H`) or Tail Reach (`J`) on a held feeder or while aiming at a placed one, and the tail can turn left or right. Feeders come in the four tiers, moving 1.5, 3, 4.5 and 6 items a second, and take a filter the way a loader does.
 - **Dismantle.** Sneak-click a line's tile with a wrench or a pickaxe, then click another tile of the same line: everything between them comes up with its items.
 
+## Gallery
+
+Beltworks carries a gallery of its features: one working scene each, with a sign naming it, built in a row east of where you stand, its lines already carrying items. It is a datapack in the jar, **Beltworks Gallery**, off until you turn it on in a world's Data Packs screen or with `/datapack enable "mod/beltworks:gallery_pack"`. Then `/function beltworks:gallery/build` builds every scene, and `/function beltworks:gallery/<scene>` one of them, such as `splitters`. Click a scene's sign to build it again from the start, once its chests have run dry. A function needs cheats in single player (on at world creation, or Open to LAN with cheats) or operator rights on a server. The gallery clears the ground it builds on and changes nothing else; it adds no recipes, loot or worldgen.
+
 ## Dependencies
 
 NeoForge and Groundworks, the library that plans and previews placements. Install Groundworks alongside Beltworks.
