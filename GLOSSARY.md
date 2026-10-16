@@ -41,7 +41,7 @@ A run of tiles carrying items from one belt end to another, paid for at one belt
 _Avoid_: conveyor, belt segment, lane
 
 **Tile**:
-One block of belt, placed and broken on its own, facing the way items travel through it: the way the player looks when placing it, turned by any **Rotate the Plan**. It holds eight items and carries them at its tier's speed. An item that lands on a tile, thrown, spilled or dropped from above, joins the tile's line at the point under it when the line has room there, and while it has none rests on the line's items and is carried as far as they move, joining once the point has room and never looking to another tile; a player on a tile rides at the tile's speed. A tile fed from exactly one side, with nothing feeding it from behind, is a **corner** and turns the line through one block; otherwise it is straight. Its shape and its **pitch** are derived from its neighbours, never chosen, and re-derived when a neighbour is placed, broken or turned; a corner is always level (ADR 0004).
+One block of belt, placed and broken on its own, facing the way items travel through it: the way the player looks when placing it, turned by any **Rotate the Plan**. It holds eight items and carries them at its tier's speed. An item that lands on a tile, thrown, spilled or dropped from above, joins the tile's line at the point under it when the line has room there, and while it has none rests on the line's items and is carried as far as they move, joining once the point has room and never looking to another tile; a player on a tile rides at the tile's speed. A tile fed from exactly one side, with nothing feeding it from behind, is a **corner** and turns the line through one block; otherwise it is straight. Its shape and its **pitch** are derived from its neighbours and their **climbs**, never chosen, and re-derived when a neighbour is placed, broken, turned or set to climb; a corner is always level (ADR 0004, ADR 0017).
 _Avoid_: belt block, conveyor block, segment
 
 **Transport line**:
@@ -71,15 +71,19 @@ _Avoid_: throw onto belt, belt insert
 ### Climbing
 
 **Pitch**:
-Whether a tile rises, is level or descends along its travel, derived from the height of the tile feeding it and of the tile it feeds: one block up, level or one block down. A tile whose feeder and fed tile are both higher, or both lower, does not connect to them: there is no crest and no valley (ADR 0005).
+Whether a tile rises, is level or descends along its travel, derived from the height of the tile feeding it and of the tile it feeds: one block up, level or one block down. The tile it feeds is the one its **climb** leads to, and the tile feeding it the one whose climb leads to it. A tile whose feeder and fed tile are both higher, or both lower, does not connect to them: there is no crest and no valley (ADR 0005, ADR 0017).
 _Avoid_: incline, grade
+
+**Climb**:
+A tile's way out, set and never derived: down, level or up, and level unless set. An up tile feeds the tile facing its way a block up ahead, so a one-block climb is its lower tile set up, and lines a block apart never join unless a tile is set to. Also the Mod's key that sets it, unbound by default: it cycles up, down and level, on a held tile stack for its next placement, kept until its last item is placed and drawn by the **Placement Preview**, or on the placed tile under the crosshair, refused where its reshape would be. A stretch sets it from the heights it lays (ADR 0017).
+_Avoid_: pitch (the derived shape), pin, incline
 
 **Slope**:
 A tile whose pitch is not level: a **foot**, a **middle** or a **top**. Together they draw one straight 45° line, one block of height per block of travel. A slope is one block of line like any tile, however long its surface draws; the climb is drawn, not counted. It carries riders and a hand as a level tile does. It never turns, is refused **Rotate in Place**, takes no side-load, and a loader or splitter never meets one.
 _Avoid_: ramp, incline, half slope, full slope
 
 **Foot**:
-The last tile at the lower height of a climb: level for its back six pixels, then rising to its block's top. Placing a tile above and ahead of a level tile turns that tile into a foot.
+The last tile at the lower height of a climb: level for its back six pixels, then rising to its block's top. A level tile set to climb up turns into a foot once a tile facing its way stands a block up ahead of it.
 
 **Middle**:
 A slope rising a whole block within its own block, between a foot and a top when a climb is more than one block high.
@@ -147,7 +151,7 @@ _Avoid_: balancer block
 ### Rotating
 
 **Rotate**:
-Groundworks' one action on one key (`R` by default, and **Reverse Rotate** the other way on `Shift+R`) that turns a quarter at a time. It **Rotates the Plan** when the held item is rotatable, and otherwise **Rotates in Place** the block under the crosshair. The Mod gets Rotate from the library it requires, so a tile turns by Rotate in any pack; its only keys of its own are **Head Reach** and **Tail Reach**.
+Groundworks' one action on one key (`R` by default, and **Reverse Rotate** the other way on `Shift+R`) that turns a quarter at a time. It **Rotates the Plan** when the held item is rotatable, and otherwise **Rotates in Place** the block under the crosshair. The Mod gets Rotate from the library it requires, so a tile turns by Rotate in any pack; its only keys of its own are **Head Reach**, **Tail Reach** and **Climb**.
 _Avoid_: rotate key, turn, wrench rotate
 
 **Rotate the Plan**:

@@ -1,5 +1,7 @@
 # Belts climb by derived slopes
 
+_Amended by ADR 0017: a tile slopes only where a climb is set, and the heights below are those its climb and its feeder's lead to; a tile beside a line side-loads it unless set to climb over it._
+
 _Amended by Groundworks ADR 0003: Rotate in Place is Groundworks', and the Mod's blocks answer it themselves. A slope and the wedge under it refuse it, and a level tile refuses it where the turn would slope a corner or leave its wedge no room._
 
 A tile has a **pitch**, level, rising or descending along its travel, at one block of height per block of travel. Like a corner, it is derived and never chosen. It follows from two heights relative to the tile, each one up, level or one down: the tile feeding it and the tile it feeds.

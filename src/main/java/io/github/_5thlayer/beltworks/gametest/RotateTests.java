@@ -22,6 +22,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import io.github._5thlayer.beltworks.Beltworks;
 import io.github._5thlayer.beltworks.BlockContent;
+import io.github._5thlayer.beltworks.DataComponentsContent;
 import io.github._5thlayer.beltworks.ItemContent;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.FeederBlock;
@@ -167,8 +168,8 @@ final class RotateTests {
     }
 
     /**
-     * A corner fed from its left, and a level tile a block up ahead of it, facing away. Turned to
-     * run on from the corner, the tile would make the corner a foot, and a slope never turns.
+     * A corner fed from its left and set up, and a level tile a block up ahead of it, facing away. Turned
+     * to run on from the corner, the tile would make the corner a foot, and a slope never turns.
      */
     private static void wouldSlopeACorner(GameTestHelper helper) {
         var player = emptyHanded(helper);
@@ -176,7 +177,7 @@ final class RotateTests {
         var tile = corner.east().above();
         helper.setBlock(corner.east(), Blocks.STONE);
         placeTile(helper, player, corner.north(), Direction.SOUTH);
-        placeTile(helper, player, corner, LOOK);
+        placeTile(helper, player, corner, LOOK, BeltTileBlock.ClimbState.UP);
         placeTile(helper, player, tile, Direction.NORTH);
         if (helper.getBlockState(corner).getValue(BeltTileBlock.CORNER) == BeltTileBlock.Shape.STRAIGHT) {
             helper.fail("the tile fed from its side is " + helper.getBlockState(corner) + ", expected a corner", corner);
@@ -185,12 +186,12 @@ final class RotateTests {
         helper.succeed();
     }
 
-    /** A level tile standing on a loader, facing away from a tile a block down behind it. Turned to run on from that tile, it would be a top with its wedge on the loader. */
+    /** A level tile standing on a loader, facing away from a tile set up a block down behind it. Turned to run on from that tile, it would be a top with its wedge on the loader. */
     private static void wedgeOnALoader(GameTestHelper helper) {
         var player = emptyHanded(helper);
         var tile = AIMED.east().above();
         helper.setBlock(AIMED.east(), BeltTileTests.loader(BeltTier.BELT, Direction.NORTH));
-        placeTile(helper, player, AIMED, LOOK);
+        placeTile(helper, player, AIMED, LOOK, BeltTileBlock.ClimbState.UP);
         placeTile(helper, player, tile, Direction.NORTH);
         refused(helper, player, tile, AIMED, List.of(BeltRefusal.WEDGE_BLOCKED.messageKey()));
         helper.succeed();
@@ -209,8 +210,15 @@ final class RotateTests {
 
     /** A tile placed by hand at {@code at}, looking {@code look}. */
     private static void placeTile(GameTestHelper helper, ListeningPlayer player, BlockPos at, Direction look) {
+        placeTile(helper, player, at, look, BeltTileBlock.ClimbState.LEVEL);
+    }
+
+    /** A tile placed by hand at {@code at}, looking {@code look}, held set to {@code climb}. */
+    private static void placeTile(GameTestHelper helper, ListeningPlayer player, BlockPos at, Direction look, BeltTileBlock.ClimbState climb) {
         player.setYRot(look.toYRot());
-        BeltWedgeTests.use(helper, player, new ItemStack(ItemContent.tileFor(BeltTier.BELT)), at);
+        var stack = new ItemStack(ItemContent.tileFor(BeltTier.BELT));
+        if (climb != BeltTileBlock.ClimbState.LEVEL) stack.set(DataComponentsContent.HELD_CLIMB.get(), climb);
+        BeltWedgeTests.use(helper, player, stack, at);
         player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
     }
 

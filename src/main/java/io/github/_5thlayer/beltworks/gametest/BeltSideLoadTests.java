@@ -76,7 +76,7 @@ final class BeltSideLoadTests {
     }
 
     /**
-     * A slope with nothing behind it, stepping {@code rise} to a level tile and a chest, and a column
+     * A slope with nothing behind it, set to step {@code rise} to a level tile and a chest, and a column
      * of tiles from a loaded chest facing its side (PlanetaryFactory #419). Placed downstream first.
      */
     private static void slopeTakesNoSideLoad(GameTestHelper helper, int rise, BeltTileBlock.PitchState expected) {
@@ -88,7 +88,7 @@ final class BeltSideLoadTests {
         helper.setBlock(next.east(), BeltTileTests.tile(BeltTier.BELT, Direction.EAST));
         helper.setBlock(next, BeltTileTests.tile(BeltTier.BELT, Direction.EAST));
         if (rise < 0) helper.setBlock(slope.below(), Blocks.STONE);
-        helper.setBlock(slope, BeltTileTests.tile(BeltTier.BELT, Direction.EAST));
+        helper.setBlock(slope, BeltTileTests.tile(BeltTier.BELT, Direction.EAST).setValue(BeltTileBlock.CLIMB, BeltTileBlock.ClimbState.of(rise)));
         for (int tile = 1; tile <= COLUMN; tile++) helper.setBlock(slope.north(tile), BeltTileTests.tile(BeltTier.BELT, Direction.SOUTH));
         helper.setBlock(slope.north(COLUMN + 1), BeltTileTests.loader(BeltTier.BELT, Direction.SOUTH));
         helper.setBlock(slope.north(COLUMN + 2), Blocks.CHEST);

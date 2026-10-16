@@ -63,7 +63,6 @@ public class BeltTileItem extends TooltipBlockItem implements PlansPlacement {
         if (updated == null || !updated.canPlace()) return null;
         var state = getBlock().getStateForPlacement(updated);
         if (state == null) return null;
-        var travel = BeltTileBlock.travel(state.getValue(BlockStateProperties.HORIZONTAL_FACING));
-        return BeltTileBlock.reshape(context.getLevel(), Map.of(BeltTileBlock.spot(updated.getClickedPos()), travel), getBlock());
+        return BeltTileBlock.reshape(context.getLevel(), Map.of(BeltTileBlock.spot(updated.getClickedPos()), BeltTileBlock.laid(state)), getBlock());
     }
 }

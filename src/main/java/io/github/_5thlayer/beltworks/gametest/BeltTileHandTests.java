@@ -21,6 +21,7 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
+import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.TransportLine;
@@ -117,7 +118,9 @@ final class BeltTileHandTests {
     }
 
     // Up or down a step, the item is put on the row's first tile and the row's last tile feeds a loader.
+    // The tile before the step is set to climb it (ADR 0017).
     private static void itemJoinsAndArrivesOverAStep(GameTestHelper helper, boolean up) {
+        BeltTileBlock.ClimbState climb = up ? BeltTileBlock.ClimbState.UP : BeltTileBlock.ClimbState.DOWN;
         List<BlockPos> tiles = new ArrayList<>();
         for (int tile = 0; tile < STEP_RIDE_TILES; tile++) {
             BlockPos at = STEP_RIDE_FIRST.east(tile);
@@ -125,7 +128,8 @@ final class BeltTileHandTests {
                 helper.setBlock(at, Blocks.STONE);
                 at = at.above();
             }
-            helper.setBlock(at, BeltTileTests.tile(BeltTier.BELT, Direction.EAST));
+            helper.setBlock(at, BeltTileTests.tile(BeltTier.BELT, Direction.EAST).setValue(BeltTileBlock.CLIMB,
+                    tile == STEP_RIDE_AT - 1 ? climb : BeltTileBlock.ClimbState.LEVEL));
             tiles.add(at);
         }
         BlockPos loader = tiles.getLast().east();

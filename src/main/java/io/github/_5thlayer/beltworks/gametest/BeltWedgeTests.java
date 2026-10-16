@@ -31,6 +31,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import io.github._5thlayer.beltworks.BlockContent;
+import io.github._5thlayer.beltworks.DataComponentsContent;
 import io.github._5thlayer.beltworks.ItemContent;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
@@ -164,7 +165,9 @@ final class BeltWedgeTests {
     private static void refused(GameTestHelper helper, BlockState occupant) {
         helper.setBlock(TOP_WEDGE, occupant);
         ServerPlayer player = player(helper);
-        byHand(helper, player, FIRST, Direction.EAST, 0, 0);
+        // The foot is set up, so the tile placed at the top would slope it (ADR 0017).
+        BlockPos foot = byHand(helper, player, FIRST, Direction.EAST, 0, 0).getLast();
+        helper.setBlock(foot, helper.getBlockState(foot).setValue(BeltTileBlock.CLIMB, BeltTileBlock.ClimbState.UP));
         Map<BlockPos, BlockState> before = around(helper, TOP);
 
         ItemStack stack = new ItemStack(ItemContent.tileFor(BeltTier.BELT));
@@ -295,13 +298,18 @@ final class BeltWedgeTests {
                 .thenSucceed();
     }
 
-    /** Tiles placed by hand upstream first, from {@code first} along {@code facing}, each at its height, through air. */
+    /**
+     * Tiles placed by hand upstream first, from {@code first} along {@code facing}, each at its height, through air,
+     * each set to climb to the next one's height (ADR 0017).
+     */
     static List<BlockPos> byHand(GameTestHelper helper, ServerPlayer player, BlockPos first, Direction facing, int... heights) {
         player.setYRot(facing.toYRot());
         List<BlockPos> tiles = new ArrayList<>();
         for (int tile = 0; tile < heights.length; tile++) {
             BlockPos at = first.relative(facing, tile).above(heights[tile]);
             ItemStack stack = new ItemStack(ItemContent.tileFor(BeltTier.BELT));
+            int climb = tile + 1 < heights.length ? heights[tile + 1] - heights[tile] : 0;
+            if (climb != 0) stack.set(DataComponentsContent.HELD_CLIMB.get(), BeltTileBlock.ClimbState.of(climb));
             PlacementPlan plan = planOf(helper, player, stack, at);
             if (plan == null || plan.isRefused()) {
                 helper.fail("tile " + tile + " is planned " + (plan == null ? "as nothing" : "refused, " + plan.refusal()), at);

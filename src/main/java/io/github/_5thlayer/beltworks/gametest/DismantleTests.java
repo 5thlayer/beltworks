@@ -39,6 +39,7 @@ import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 import io.github._5thlayer.beltworks.BlockContent;
 import io.github._5thlayer.beltworks.ItemContent;
+import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
 import io.github._5thlayer.beltworks.blocks.BeltWedgeBlock;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
@@ -121,13 +122,14 @@ final class DismantleTests {
         takesUp(helper, tiles, tiles.getFirst(), tiles.getLast());
     }
 
-    // Level, then a block up over air: the top stands on a wedge.
+    // Level, then a block up over air, the foot set up: the top stands on a wedge.
     private static void slope(GameTestHelper helper) {
         List<BlockPos> tiles = new ArrayList<>();
         int[] heights = {0, 0, 1, 1};
         for (int i = 0; i < heights.length; i++) {
             BlockPos at = START.east(i).above(heights[i]);
-            helper.setBlock(at, BeltTileTests.tile(BeltTier.BELT, Direction.EAST));
+            helper.setBlock(at, BeltTileTests.tile(BeltTier.BELT, Direction.EAST).setValue(BeltTileBlock.CLIMB,
+                    i + 1 < heights.length && heights[i + 1] > heights[i] ? BeltTileBlock.ClimbState.UP : BeltTileBlock.ClimbState.LEVEL));
             tiles.add(at);
         }
         if (!(helper.getBlockState(START.east(2)).getBlock() instanceof BeltWedgeBlock)) {

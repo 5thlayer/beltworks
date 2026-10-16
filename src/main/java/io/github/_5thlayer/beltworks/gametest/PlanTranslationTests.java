@@ -27,6 +27,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 import io.github._5thlayer.beltworks.ItemContent;
+import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.items.BeltTileItem;
 import io.github._5thlayer.beltworks.items.SplitterItem;
 import io.github._5thlayer.beltworks.items.BeltRefusal;
@@ -73,10 +74,12 @@ final class PlanTranslationTests {
         agrees(helper, FLOOR, libraryPlan(player, hit), blocks, own.replaced(), own.refusal());
     }
 
-    // The tile vanilla would place, and the wedges its reshape puts down with it.
+    // The tile vanilla would place, and the wedges its reshape puts down with it. The tile behind is
+    // set up, so the placed tile is its top (ADR 0017).
     private static void tile(GameTestHelper helper, BlockState underTop) {
         helper.setBlock(FIRST, BeltTileTests.tile(BeltTier.BELT, Direction.EAST));
-        helper.setBlock(FIRST.east(), BeltTileTests.tile(BeltTier.BELT, Direction.EAST));
+        helper.setBlock(FIRST.east(), BeltTileTests.tile(BeltTier.BELT, Direction.EAST)
+                .setValue(BeltTileBlock.CLIMB, BeltTileBlock.ClimbState.UP));
         helper.setBlock(TOP.below(), underTop);
         Player player = helper.makeMockPlayer(GameType.SURVIVAL);
         player.setYRot(Direction.EAST.toYRot());

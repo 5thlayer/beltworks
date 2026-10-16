@@ -5,11 +5,13 @@ package io.github._5thlayer.beltworks;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.model.FeederArms;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.util.StringRepresentable;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -20,6 +22,13 @@ public class DataComponentsContent {
     /** The reach a held feeder's next placement takes (ADR 0013). A held feeder's tail never turns, so only reach is kept. */
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<FeederArms>> HELD_REACH =
             TYPES.register("held_reach", DataComponentsContent::heldReach);
+
+    /** The climb a held tile's next placement takes, where a press has set one other than level (ADR 0017). */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<BeltTileBlock.ClimbState>> HELD_CLIMB =
+            TYPES.register("held_climb", () -> DataComponentType.<BeltTileBlock.ClimbState>builder()
+                    .persistent(StringRepresentable.fromEnum(BeltTileBlock.ClimbState::values))
+                    .networkSynchronized(ByteBufCodecs.VAR_INT.map(BeltTileBlock.ClimbState::of, BeltTileBlock.ClimbState::rise))
+                    .build());
 
     private static DataComponentType<FeederArms> heldReach() {
         var reach = Codec.intRange(FeederArms.MIN_REACH, FeederArms.MAX_REACH);

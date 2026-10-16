@@ -32,6 +32,7 @@ import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.neoforged.neoforge.transfer.energy.EnergyHandler;
 import io.github._5thlayer.beltworks.BlockContent;
+import io.github._5thlayer.beltworks.DataComponentsContent;
 import io.github._5thlayer.beltworks.ItemContent;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
@@ -166,8 +167,8 @@ final class BeltTileTests {
                 helper -> tilePlacedPastTheEnd(helper, false));
         tests.test("a_tile_placed_past_a_loaded_lines_end_joins_it", 200,
                 helper -> tilePlacedPastTheEnd(helper, true));
-        tests.test("a_tile_placed_above_ahead_makes_a_foot_and_a_top", 40, BeltTileTests::stepUpByHand);
-        tests.test("a_tile_placed_below_ahead_makes_a_descent", 40, BeltTileTests::stepDownByHand);
+        tests.test("a_tile_placed_above_ahead_of_a_tile_set_up_makes_a_foot_and_a_top", 40, BeltTileTests::stepUpByHand);
+        tests.test("a_tile_placed_below_ahead_of_a_tile_set_down_makes_a_descent", 40, BeltTileTests::stepDownByHand);
         tests.test("a_crest_and_a_valley_connect_to_neither", 40, BeltTileTests::crestAndValley);
         tests.test("belt_tiles_over_a_climb_tier_1_deliver_" + TIER_1_ITEMS_PER_SECOND,
                 RATE_WARMUP_TICKS + RATE_WINDOW_TICKS + 20,
@@ -202,15 +203,23 @@ final class BeltTileTests {
         return stairs(helper, tier, first, heights);
     }
 
-    /** Tiles running east from {@code first}, each on a column of stone as tall as its height. */
+    /**
+     * Tiles running east from {@code first}, each on a column of stone as tall as its height and set
+     * to climb to the next one's (ADR 0017).
+     */
     static List<BlockPos> stairs(GameTestHelper helper, BeltTier tier, BlockPos first, int... heights) {
         List<BlockPos> tiles = new ArrayList<>();
         for (int tile = 0; tile < heights.length; tile++) {
             BlockPos at = stone(helper, first.east(tile), heights[tile]);
-            helper.setBlock(at, tile(tier, Direction.EAST));
+            helper.setBlock(at, tile(tier, Direction.EAST).setValue(BeltTileBlock.CLIMB, climbTo(heights, tile)));
             tiles.add(at);
         }
         return tiles;
+    }
+
+    // The climb from the tile at index to the next one, level for the last.
+    private static BeltTileBlock.ClimbState climbTo(int[] heights, int index) {
+        return BeltTileBlock.ClimbState.of(index + 1 < heights.length ? heights[index + 1] - heights[index] : 0);
     }
 
     // Returns the block on top of the column.
@@ -236,9 +245,11 @@ final class BeltTileTests {
 
     // Placed by a player's click on the step's top, read on the same tick: the placed state is the
     // one derived, and the tile it reshapes is a block down and behind, which no neighbour update reaches.
+    // The tile behind is set up, so the placement gives it the tile its climb leads to (ADR 0017).
     private static void stepUpByHand(GameTestHelper helper) {
         helper.setBlock(FIRST_TILE, tile(BeltTier.BELT, Direction.EAST));
-        helper.setBlock(FIRST_TILE.east(), tile(BeltTier.BELT, Direction.EAST));
+        helper.setBlock(FIRST_TILE.east(), tile(BeltTier.BELT, Direction.EAST)
+                .setValue(BeltTileBlock.CLIMB, BeltTileBlock.ClimbState.UP));
         BlockPos step = FIRST_TILE.east(2);
         helper.setBlock(step, Blocks.STONE);
         BlockPos top = step.above();
@@ -260,7 +271,8 @@ final class BeltTileTests {
         List<BlockPos> upper = List.of(FIRST_TILE.above(), FIRST_TILE.east().above());
         for (BlockPos tile : upper) {
             helper.setBlock(tile.below(), Blocks.STONE);
-            helper.setBlock(tile, tile(BeltTier.BELT, Direction.EAST));
+            helper.setBlock(tile, tile(BeltTier.BELT, Direction.EAST)
+                    .setValue(BeltTileBlock.CLIMB, tile == upper.getLast() ? BeltTileBlock.ClimbState.DOWN : BeltTileBlock.ClimbState.LEVEL));
         }
         BlockPos foot = FIRST_TILE.east(2);
         ServerPlayer player = FakePlayerFactory.getMinecraft(helper.getLevel());
@@ -372,8 +384,10 @@ final class BeltTileTests {
     private static List<BlockPos> stairsByHand(GameTestHelper helper, ServerPlayer player, BlockPos first, int[] heights) {
         List<BlockPos> tiles = new ArrayList<>();
         for (int tile = 0; tile < heights.length; tile++) tiles.add(stone(helper, first.east(tile), heights[tile]));
-        for (BlockPos tile : tiles) {
-            use(helper, player, new ItemStack(ItemContent.tileFor(BeltTier.BELT)), tile.below(), Direction.UP);
+        for (int tile = 0; tile < tiles.size(); tile++) {
+            ItemStack stack = new ItemStack(ItemContent.tileFor(BeltTier.BELT));
+            stack.set(DataComponentsContent.HELD_CLIMB.get(), climbTo(heights, tile));
+            use(helper, player, stack, tiles.get(tile).below(), Direction.UP);
         }
         return tiles;
     }

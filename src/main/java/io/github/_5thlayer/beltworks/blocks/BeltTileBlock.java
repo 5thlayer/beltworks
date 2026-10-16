@@ -52,12 +52,13 @@ import java.util.OptionalDouble;
 /**
  * One block of belt (PlanetaryFactory #398). Its facing is its direction of travel, and its shape,
  * straight or a corner, follows from what feeds it (#391), as its pitch follows from the heights of
- * what feeds it and what it feeds (#417).
+ * what feeds it and what it feeds (#417), and those from each tile's climb, which is set (ADR 0017).
  */
 public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityBlock, TurnsInPlace {
 
     public static final EnumProperty<Shape> CORNER = EnumProperty.create("shape", Shape.class);
     public static final EnumProperty<PitchState> PITCH = EnumProperty.create("pitch", PitchState.class);
+    public static final EnumProperty<ClimbState> CLIMB = EnumProperty.create("climb", ClimbState.class);
 
     private static final VoxelShape SHAPE = Block.box(0, 0, 0, 16, 6, 16);
     private static final Map<Direction, Map<PitchState, VoxelShape>> SLOPE_SHAPES = slopeShapes();
@@ -75,7 +76,8 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
         super(settings);
         this.tier = tier;
         registerDefaultState(defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH)
-                               .setValue(CORNER, Shape.STRAIGHT).setValue(PITCH, PitchState.LEVEL));
+                               .setValue(CORNER, Shape.STRAIGHT).setValue(PITCH, PitchState.LEVEL)
+                               .setValue(CLIMB, ClimbState.LEVEL));
     }
 
     /** The tier whose speed this tile runs at; a line runs at its slowest tile (ADR 0007). */
@@ -126,13 +128,14 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(BlockStateProperties.HORIZONTAL_FACING, CORNER, PITCH);
+        builder.add(BlockStateProperties.HORIZONTAL_FACING, CORNER, PITCH, CLIMB);
     }
 
     // The way the player looks, as a Factorio belt is laid; Groundworks' Rotate turns the look itself.
     @Override
     public @Nullable BlockState getStateForPlacement(BlockPlaceContext ctx) {
-        var state = defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, ctx.getHorizontalDirection());
+        var state = defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, ctx.getHorizontalDirection())
+                      .setValue(CLIMB, Climb.held(ctx.getItemInHand()));
         return shaped(state, ctx.getLevel(), ctx.getClickedPos());
     }
 
@@ -142,7 +145,7 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
     public TurnsInPlace.Verdict<BlockState> turnInPlace(BlockState state, Level level, BlockPos pos, boolean reverse) {
         if (state.getValue(PITCH) != PitchState.LEVEL) return TurnsInPlace.refused(SLOPE_NOT_TURNED);
         var turned = state.rotate(level, pos, reverse ? Rotation.COUNTERCLOCKWISE_90 : Rotation.CLOCKWISE_90);
-        var reshape = reshape(level, Map.of(spot(pos), travel(turned.getValue(BlockStateProperties.HORIZONTAL_FACING))), this);
+        var reshape = reshape(level, Map.of(spot(pos), laid(turned)), this);
         return reshape.refused() ? TurnsInPlace.refused(reshape.refusal().messageKey()) : TurnsInPlace.turned(shaped(turned, level, pos));
     }
 
@@ -158,12 +161,13 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
 
     // A slope's other end is a block up or down, which no neighbour update reaches, so a placed,
     // turned or broken tile re-derives every tile it could change. Only a change of facing or of
-    // block starts one, so the tiles it re-derives start none (#417).
+    // block or of climb starts one, so the tiles it re-derives start none (#417, ADR 0017).
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
         keepWedge(level, pos, state);
-        if (oldState.is(this) && oldState.getValue(BlockStateProperties.HORIZONTAL_FACING) == state.getValue(BlockStateProperties.HORIZONTAL_FACING)) return;
+        if (oldState.is(this) && oldState.getValue(BlockStateProperties.HORIZONTAL_FACING) == state.getValue(BlockStateProperties.HORIZONTAL_FACING)
+            && oldState.getValue(CLIMB) == state.getValue(CLIMB)) return;
         reshapeAround(level, pos);
         // Placed in a state it did not derive; its block entity does not exist yet, so it is
         // re-derived on the next tick rather than now.
@@ -230,13 +234,15 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
      * since a slope never turns (#419). A wedge a reshape removes is not named: its tile's upkeep
      * removes it.
      */
-    public static Reshape reshape(Level level, Map<LineScan.Spot, LineScan.Travel> planned, Block tile) {
+    public static Reshape reshape(Level level, Map<LineScan.Spot, TileShape.Laid> planned, Block tile) {
         var around = around(level, planned);
         var candidates = new LinkedHashMap<BlockPos, BlockState>();
         for (var entry : planned.entrySet()) {
             var pos = pos(entry.getKey());
-            var facing = Direction.getApproximateNearest(entry.getValue().x(), 0, entry.getValue().z());
-            candidates.put(pos, tile.defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, facing));
+            var travel = entry.getValue().travel();
+            var facing = Direction.getApproximateNearest(travel.x(), 0, travel.z());
+            candidates.put(pos, tile.defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, facing)
+                                  .setValue(CLIMB, ClimbState.of(entry.getValue().climb())));
         }
         for (var spot : planned.keySet()) tilesAround(level, pos(spot)).forEach(candidates::putIfAbsent);
 
@@ -299,7 +305,7 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
     }
 
     private static BlockState shaped(BlockState state, BlockGetter level, BlockPos pos) {
-        return formed(state, spot(pos), around(level, Map.of(spot(pos), travel(state.getValue(BlockStateProperties.HORIZONTAL_FACING)))));
+        return formed(state, spot(pos), around(level, Map.of(spot(pos), laid(state))));
     }
 
     /** A tile's state with the shape and pitch its neighbours give it. */
@@ -313,14 +319,22 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
      * The world as a tile's shape and pitch read it, with {@code planned} tiles standing where they
      * are about to be placed. Only loaded blocks are read, since a derivation reaches two blocks off.
      */
-    public static TileShape.Around around(BlockGetter level, Map<LineScan.Spot, LineScan.Travel> planned) {
+    public static TileShape.Around around(BlockGetter level, Map<LineScan.Spot, TileShape.Laid> planned) {
         return new TileShape.Around() {
             @Override
             public LineScan.@Nullable Travel tile(LineScan.Spot spot) {
-                var travel = planned.get(spot);
-                if (travel != null) return travel;
+                var laid = planned.get(spot);
+                if (laid != null) return laid.travel();
                 var state = stateAt(spot);
                 return state.getBlock() instanceof BeltTileBlock ? travel(state.getValue(HorizontalDirectionalBlock.FACING)) : null;
+            }
+
+            @Override
+            public int climb(LineScan.Spot spot) {
+                var laid = planned.get(spot);
+                if (laid != null) return laid.climb();
+                var state = stateAt(spot);
+                return state.getBlock() instanceof BeltTileBlock ? state.getValue(CLIMB).rise() : 0;
             }
 
             @Override
@@ -396,6 +410,11 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
         return travel.equals(travel(state.getValue(HorizontalDirectionalBlock.FACING)));
     }
 
+    /** The tile {@code state} as a plan lays it: its travel and its climb. */
+    public static TileShape.Laid laid(BlockState state) {
+        return new TileShape.Laid(travel(state.getValue(BlockStateProperties.HORIZONTAL_FACING)), state.getValue(CLIMB).rise());
+    }
+
     public static LineScan.Travel travel(Direction facing) {
         return new LineScan.Travel(facing.getStepX(), facing.getStepZ());
     }
@@ -425,6 +444,40 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
         public static PitchState of(Pitch model) {
             for (var pitch : values()) if (pitch.model == model) return pitch;
             throw new IllegalArgumentException(model.name());
+        }
+
+        @Override
+        public String getSerializedName() {
+            return name;
+        }
+    }
+
+    /** A tile's climb as a block state property: its way out a block down, level or a block up (ADR 0017). */
+    public enum ClimbState implements StringRepresentable {
+        DOWN(-1, "down"),
+        LEVEL(0, "level"),
+        UP(1, "up");
+
+        private final int rise;
+        private final String name;
+
+        ClimbState(int rise, String name) {
+            this.rise = rise;
+            this.name = name;
+        }
+
+        public int rise() {
+            return rise;
+        }
+
+        /** The climb after this one on the Climb key: down, level, up and round again. */
+        public ClimbState next() {
+            return values()[(ordinal() + 1) % values().length];
+        }
+
+        public static ClimbState of(int rise) {
+            for (var climb : values()) if (climb.rise == rise) return climb;
+            throw new IllegalArgumentException(Integer.toString(rise));
         }
 
         @Override

@@ -1,5 +1,7 @@
 # The feeder owns its reach keys, the Mod's first keys of its own
 
+_Amended by ADR 0017: the Mod has a third key, Climb._
+
 Until now the Mod had no keys: it took **Rotate** from Groundworks, so a tile turned by the same key in any pack. The **feeder** needs two settings Rotate cannot express: how far its **head** reaches and how far its **tail** reaches, each one to three blocks. Both are set on the held feeder before placing, drawn by the **Placement Preview**, and changed on a placed feeder under the crosshair. So the Mod registers two keys of its own, **Head Reach** and **Tail Reach**. Each lengthens its arm a block per press and wraps from three to one, with no reverse key. A held reach stays with the stack until its last item is placed, as a held rotation does.
 
 ## Considered Options

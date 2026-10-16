@@ -135,8 +135,8 @@ class SupportTest {
 
     // Level from x = 0, a climb from a foot at x = 5 through middles at x = 6 to 10 up to a top at x = 11.
     private void longClimb() {
-        for (var x = 0; x <= 5; x++) tile(x, 10, 0, EAST);
-        for (var x = 6; x <= 11; x++) tile(x, 10 + x - 5, 0, EAST);
+        for (var x = 0; x <= 5; x++) tile(x, 10, 0, EAST, x == 5 ? 1 : 0);
+        for (var x = 6; x <= 11; x++) tile(x, 10 + x - 5, 0, EAST, x <= 10 ? 1 : 0);
         for (var x = 12; x <= 14; x++) tile(x, 16, 0, EAST);
     }
 
@@ -162,8 +162,8 @@ class SupportTest {
     // Level from x = 0, a descent from a top at x = 5 through middles at x = 6 to 10 down to a foot at x = 11.
     @Test
     void aDescentMidLineShowsASupportOnlyWhereTheSpacingFallsOnIt() {
-        for (var x = 0; x <= 5; x++) tile(x, 16, 0, EAST);
-        for (var x = 6; x <= 11; x++) tile(x, 16 - (x - 5), 0, EAST);
+        for (var x = 0; x <= 5; x++) tile(x, 16, 0, EAST, x == 5 ? -1 : 0);
+        for (var x = 6; x <= 11; x++) tile(x, 16 - (x - 5), 0, EAST, x <= 10 ? -1 : 0);
         for (var x = 12; x <= 14; x++) tile(x, 10, 0, EAST);
 
         assertEquals(Pitch.MIDDLE_DOWN, Pitch.at(spot(8, 13, 0), EAST, around()));
@@ -205,8 +205,8 @@ class SupportTest {
     // A climb east from y = 10 to y = 12: level, foot, middle, top, level.
     private void climb() {
         tile(0, 10, 0, EAST);
-        tile(1, 10, 0, EAST);
-        tile(2, 11, 0, EAST);
+        tile(1, 10, 0, EAST, 1);
+        tile(2, 11, 0, EAST, 1);
         tile(3, 12, 0, EAST);
         tile(4, 12, 0, EAST);
     }
@@ -214,7 +214,7 @@ class SupportTest {
     @Test
     void aFloatingLineEndingOnATopShowsASupport() {
         tile(0, 10, 0, EAST);
-        tile(1, 10, 0, EAST);
+        tile(1, 10, 0, EAST, 1);
         tile(2, 11, 0, EAST);
 
         assertEquals(Pitch.TOP_UP, Pitch.at(spot(2, 11, 0), EAST, around()));
@@ -223,7 +223,7 @@ class SupportTest {
 
     @Test
     void aFloatingLineStartingOnAFootShowsASupport() {
-        tile(0, 10, 0, EAST);
+        tile(0, 10, 0, EAST, 1);
         tile(1, 11, 0, EAST);
 
         assertEquals(Pitch.FOOT_UP, Pitch.at(spot(0, 10, 0), EAST, around()));
@@ -233,7 +233,7 @@ class SupportTest {
     @Test
     void aFloatingLineEndingOnADescentsFootShowsASupport() {
         tile(0, 11, 0, EAST);
-        tile(1, 11, 0, EAST);
+        tile(1, 11, 0, EAST, -1);
         tile(2, 10, 0, EAST);
 
         assertEquals(Pitch.FOOT_DOWN, Pitch.at(spot(2, 10, 0), EAST, around()));
@@ -255,8 +255,8 @@ class SupportTest {
     @Test
     void aDescentMidLineShowsASupportAtItsTopAndFootButNotItsMiddle() {
         tile(0, 12, 0, EAST);
-        tile(1, 12, 0, EAST);
-        tile(2, 11, 0, EAST);
+        tile(1, 12, 0, EAST, -1);
+        tile(2, 11, 0, EAST, -1);
         tile(3, 10, 0, EAST);
         tile(4, 10, 0, EAST);
 
@@ -274,8 +274,8 @@ class SupportTest {
     void aLevelTileBesideAClimbMidLineShowsNone() {
         tile(0, 10, 0, EAST);
         tile(1, 10, 0, EAST);
-        tile(2, 10, 0, EAST);
-        tile(3, 11, 0, EAST);
+        tile(2, 10, 0, EAST, 1);
+        tile(3, 11, 0, EAST, 1);
         tile(4, 12, 0, EAST);
         tile(5, 12, 0, EAST);
         tile(6, 12, 0, EAST);
@@ -288,7 +288,7 @@ class SupportTest {
     @Test
     void aSlopesLegsPassItsWedge() {
         tile(0, 10, 0, EAST);
-        tile(1, 10, 0, EAST);
+        tile(1, 10, 0, EAST, 1);
         tile(2, 11, 0, EAST);
         fill(2, 10, 0, Support.Fill.OPEN);
         fill(2, 8, 0, Support.Fill.SOLID);
@@ -304,7 +304,7 @@ class SupportTest {
     @Test
     void aTopsLegsStopAtItsSurfaceWhereTheyStand() {
         tile(0, 10, 0, EAST);
-        tile(1, 10, 0, EAST);
+        tile(1, 10, 0, EAST, 1);
         tile(2, 11, 0, EAST);
 
         for (var leg : support(2, 11, 0).legs()) assertEquals(leg.x() == 0 ? 0 : Pitch.SURFACE, leg.top(), leg.toString());
@@ -313,7 +313,7 @@ class SupportTest {
     // A foot's front edge is a block up, and its legs stop at a level tile's surface.
     @Test
     void aFootsLegsStopAtALevelTilesSurface() {
-        tile(0, 10, 0, EAST);
+        tile(0, 10, 0, EAST, 1);
         tile(1, 11, 0, EAST);
 
         for (var leg : support(0, 10, 0).legs()) assertEquals(Pitch.SURFACE, leg.top(), leg.toString());
@@ -323,7 +323,7 @@ class SupportTest {
     @Test
     void aDescentsTopsLegsStopAtItsSurfaceWhereTheyStand() {
         tile(0, 11, 0, EAST);
-        tile(1, 11, 0, EAST);
+        tile(1, 11, 0, EAST, -1);
         tile(2, 10, 0, EAST);
 
         assertEquals(Pitch.TOP_DOWN, Pitch.at(spot(1, 11, 0), EAST, around()));
@@ -349,7 +349,7 @@ class SupportTest {
 
     @Test
     void aSlopeOnASolidTopShowsNone() {
-        tile(0, 10, 0, EAST);
+        tile(0, 10, 0, EAST, 1);
         tile(1, 11, 0, EAST);
         fill(0, 9, 0, Support.Fill.SOLID);
 
@@ -358,7 +358,7 @@ class SupportTest {
 
     @Test
     void aSlopeIsFixedToASolidBlockLeftOrRight() {
-        tile(0, 10, 0, EAST);
+        tile(0, 10, 0, EAST, 1);
         tile(1, 11, 0, EAST);
         fixes(0, 10, -1, SOUTH);
 
@@ -687,13 +687,20 @@ class SupportTest {
 
     private Support.Setting setting = Support.Setting.DEFAULT;
     private final Map<LineScan.Spot, LineScan.Travel> tiles = new HashMap<>();
+    private final Map<LineScan.Spot, Integer> climbs = new HashMap<>();
     private final Map<LineScan.Spot, LineScan.Travel> mouths = new HashMap<>();
     private final Map<LineScan.Spot, Support.Fill> fills = new HashMap<>();
     private final Map<LineScan.Spot, Double> tops = new HashMap<>();
     private final Map<LineScan.Spot, LineScan.Travel> fixing = new HashMap<>();
 
     private void tile(int x, int y, int z, LineScan.Travel travel) {
+        tile(x, y, z, travel, 0);
+    }
+
+    /** A tile set to climb {@code climb}, its way out one block up, level or one down (ADR 0017). */
+    private void tile(int x, int y, int z, LineScan.Travel travel, int climb) {
         tiles.put(spot(x, y, z), travel);
+        climbs.put(spot(x, y, z), climb);
     }
 
     /** A loader or splitter half facing {@code facing}. */
@@ -742,6 +749,11 @@ class SupportTest {
             @Override
             public boolean feeds(LineScan.Spot from, LineScan.Travel travel) {
                 return travel.equals(tiles.get(from)) || travel.equals(mouths.get(from));
+            }
+
+            @Override
+            public int climb(LineScan.Spot spot) {
+                return climbs.getOrDefault(spot, 0);
             }
         };
     }

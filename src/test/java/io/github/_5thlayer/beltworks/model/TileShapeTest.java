@@ -71,7 +71,7 @@ class TileShapeTest {
 
     @Test
     void aTileFedFromBehindAndBelowIsStraight() {
-        tile(-1, -1, 0, EAST);
+        tile(-1, -1, 0, EAST, 1);
         tile(0, 0, 0, EAST);
         tile(0, 0, -1, SOUTH);
 
@@ -89,21 +89,37 @@ class TileShapeTest {
         assertEquals(TileShape.FROM_LEFT, TileShape.at(spot(0, 0, 0), EAST, around()));
     }
 
-    // A tile beside another climbs over it rather than feeding its side (#412).
+    // A tile beside another climbs over it rather than feeding its side only where it is set to (ADR 0017).
     @Test
-    void aTileClimbingPastASideIsNoFeeder() {
+    void aTileSetToClimbPastASideIsNoFeeder() {
         tile(0, 0, 0, EAST);
-        tile(0, 0, -1, SOUTH);
+        tile(0, 0, -1, SOUTH, 1);
         tile(0, 1, 0, SOUTH);
 
         assertEquals(TileShape.STRAIGHT, TileShape.at(spot(0, 0, 0), EAST, around()));
     }
 
+    @Test
+    void aLevelTileBesideALineFeedsItsSideThoughATileStandsAboveIt() {
+        tile(0, 0, 0, EAST);
+        tile(0, 0, -1, SOUTH);
+        tile(0, 1, 0, SOUTH);
+
+        assertEquals(TileShape.FROM_LEFT, TileShape.at(spot(0, 0, 0), EAST, around()));
+    }
+
     private final Map<LineScan.Spot, LineScan.Travel> tiles = new HashMap<>();
+    private final Map<LineScan.Spot, Integer> climbs = new HashMap<>();
     private final Map<LineScan.Spot, LineScan.Travel> mouths = new HashMap<>();
 
     private void tile(int x, int y, int z, LineScan.Travel travel) {
+        tile(x, y, z, travel, 0);
+    }
+
+    /** A tile set to climb {@code climb}, its way out one block up, level or one down (ADR 0017). */
+    private void tile(int x, int y, int z, LineScan.Travel travel, int climb) {
         tiles.put(spot(x, y, z), travel);
+        climbs.put(spot(x, y, z), climb);
     }
 
     /** A loader or splitter half facing {@code facing}. */
@@ -125,6 +141,11 @@ class TileShapeTest {
             @Override
             public boolean feeds(LineScan.Spot from, LineScan.Travel travel) {
                 return travel.equals(tiles.get(from)) || travel.equals(mouths.get(from));
+            }
+
+            @Override
+            public int climb(LineScan.Spot spot) {
+                return climbs.getOrDefault(spot, 0);
             }
         };
     }
@@ -148,9 +169,9 @@ class TileShapeTest {
     }
 
     @Test
-    void aTilePlacedAboveAndAheadMakesAFootAndATop() {
+    void aTileSetToClimbBelowATileAheadMakesAFootAndATop() {
         tile(0, 0, 0, EAST);
-        tile(1, 0, 0, EAST);
+        tile(1, 0, 0, EAST, 1);
         tile(2, 1, 0, EAST);
 
         assertEquals(Pitch.LEVEL, pitch(0, 0, 0));
@@ -158,10 +179,42 @@ class TileShapeTest {
         assertEquals(Pitch.TOP_UP, pitch(2, 1, 0));
     }
 
+    // A tile a block up ahead is no reason to climb: only the tile's own climb makes the slope (ADR 0017).
     @Test
-    void aTilePlacedBelowAndAheadMakesTheMirroredDescent() {
+    void aLevelTileBehindATileAboveAheadStaysLevelUnlessSetToClimb() {
         tile(0, 0, 0, EAST);
-        tile(1, 0, 0, EAST);
+        tile(1, 1, 0, EAST);
+
+        assertEquals(Pitch.LEVEL, pitch(0, 0, 0));
+        assertEquals(Pitch.LEVEL, pitch(1, 1, 0));
+
+        tile(0, 0, 0, EAST, 1);
+
+        assertEquals(Pitch.FOOT_UP, pitch(0, 0, 0));
+        assertEquals(Pitch.TOP_UP, pitch(1, 1, 0));
+    }
+
+    // Each line's tiles have a tile of the line above ahead and up, but none is set to climb to it.
+    @Test
+    void stackedParallelLinesABlockApartAreAllLevelWhateverTheOrderTheyStandIn() {
+        for (var reversed : new boolean[] {false, true}) {
+            tiles.clear();
+            climbs.clear();
+            for (int i = 0; i < 9; i++) {
+                var n = reversed ? 8 - i : i;
+                tile(n % 3, n / 3, 0, EAST);
+            }
+
+            for (int y = 0; y < 3; y++) {
+                for (int x = 0; x < 3; x++) assertEquals(Pitch.LEVEL, pitch(x, y, 0), x + ", " + y);
+            }
+        }
+    }
+
+    @Test
+    void aTileSetToDescendAboveATileAheadMakesTheMirroredDescent() {
+        tile(0, 0, 0, EAST);
+        tile(1, 0, 0, EAST, -1);
         tile(2, -1, 0, EAST);
 
         assertEquals(Pitch.TOP_DOWN, pitch(1, 0, 0));
@@ -170,8 +223,8 @@ class TileShapeTest {
 
     @Test
     void aClimbOfTwoBlocksHasAMiddle() {
-        tile(0, 0, 0, EAST);
-        tile(1, 1, 0, EAST);
+        tile(0, 0, 0, EAST, 1);
+        tile(1, 1, 0, EAST, 1);
         tile(2, 2, 0, EAST);
 
         assertEquals(Pitch.FOOT_UP, pitch(0, 0, 0));
@@ -181,7 +234,7 @@ class TileShapeTest {
 
     @Test
     void aClimbOfThreeBlocksHasTwoMiddles() {
-        for (int x = 0; x < 6; x++) tile(x, Math.clamp(x - 1, 0, 3), 0, EAST);
+        for (int x = 0; x < 6; x++) tile(x, Math.clamp(x - 1, 0, 3), 0, EAST, x >= 1 && x <= 3 ? 1 : 0);
 
         assertEquals(Pitch.LEVEL, pitch(0, 0, 0));
         assertEquals(Pitch.FOOT_UP, pitch(1, 0, 0));
@@ -193,7 +246,7 @@ class TileShapeTest {
 
     @Test
     void aDescentOfThreeBlocksHasTwoMiddles() {
-        for (int x = 0; x < 6; x++) tile(x, 3 - Math.clamp(x - 1, 0, 3), 0, EAST);
+        for (int x = 0; x < 6; x++) tile(x, 3 - Math.clamp(x - 1, 0, 3), 0, EAST, x >= 1 && x <= 3 ? -1 : 0);
 
         assertEquals(Pitch.TOP_DOWN, pitch(1, 3, 0));
         assertEquals(Pitch.MIDDLE_DOWN, pitch(2, 2, 0));
@@ -204,7 +257,7 @@ class TileShapeTest {
     // Two blocks apart is no step: the tiles either side of a broken middle each level out.
     @Test
     void aClimbWithAMiddleGoneConnectsNothingAcrossTheGap() {
-        for (int x = 0; x < 6; x++) if (x != 2) tile(x, Math.clamp(x - 1, 0, 3), 0, EAST);
+        for (int x = 0; x < 6; x++) if (x != 2) tile(x, Math.clamp(x - 1, 0, 3), 0, EAST, x >= 1 && x <= 3 ? 1 : 0);
 
         assertEquals(Pitch.LEVEL, pitch(1, 0, 0));
         assertEquals(Pitch.FOOT_UP, pitch(3, 2, 0));
@@ -246,7 +299,7 @@ class TileShapeTest {
 
     @Test
     void aTileFacingAnotherWayIsNoStep() {
-        tile(0, 0, 0, EAST);
+        tile(0, 0, 0, EAST, 1);
         tile(1, 1, 0, NORTH);
 
         assertEquals(Pitch.LEVEL, pitch(0, 0, 0));
@@ -256,7 +309,7 @@ class TileShapeTest {
     // a placement that turns a corner into one is refused instead (#419).
     @Test
     void aSlopeIsNeverACorner() {
-        tile(0, 0, 0, EAST);
+        tile(0, 0, 0, EAST, 1);
         tile(0, 0, -1, SOUTH);
         tile(1, 1, 0, EAST);
 
@@ -267,7 +320,7 @@ class TileShapeTest {
 
     @Test
     void aTileFacingTheSideOfATopDoesNotTurnIt() {
-        tile(0, 0, 0, EAST);
+        tile(0, 0, 0, EAST, -1);
         tile(1, -1, 0, EAST);
         tile(0, 0, -1, SOUTH);
 
@@ -277,7 +330,7 @@ class TileShapeTest {
 
     @Test
     void aLoaderBesideAFootDoesNotTurnIt() {
-        tile(0, 0, 0, EAST);
+        tile(0, 0, 0, EAST, 1);
         tile(1, 1, 0, EAST);
         mouth(0, 0, -1, SOUTH);
 

@@ -23,13 +23,20 @@ class LineScanTest {
     private static final LineScan.Travel SOUTH = new LineScan.Travel(0, 1);
 
     private final Map<LineScan.Spot, LineScan.Travel> world = new HashMap<>();
+    private final Map<LineScan.Spot, Integer> climbs = new HashMap<>();
 
     private void tile(int x, int z, LineScan.Travel travel) {
         tile(x, 0, z, travel);
     }
 
     private void tile(int x, int y, int z, LineScan.Travel travel) {
+        tile(x, y, z, travel, 0);
+    }
+
+    /** A tile set to climb {@code climb}, its way out one block up, level or one down (ADR 0017). */
+    private void tile(int x, int y, int z, LineScan.Travel travel, int climb) {
         world.put(new LineScan.Spot(x, y, z), travel);
+        climbs.put(new LineScan.Spot(x, y, z), climb);
     }
 
     private final TileShape.Around around = new TileShape.Around() {
@@ -41,6 +48,11 @@ class LineScanTest {
         @Override
         public boolean feeds(LineScan.Spot from, LineScan.Travel travel) {
             return travel.equals(world.get(from));
+        }
+
+        @Override
+        public int climb(LineScan.Spot spot) {
+            return climbs.getOrDefault(spot, 0);
         }
     };
 
@@ -199,7 +211,7 @@ class LineScanTest {
     @Test
     void aClimbIsOneLine() {
         tile(0, 0, 0, EAST);
-        tile(1, 0, 0, EAST);
+        tile(1, 0, 0, EAST, 1);
         tile(2, 1, 0, EAST);
         tile(3, 1, 0, EAST);
 
@@ -212,7 +224,7 @@ class LineScanTest {
     @Test
     void aDescentIsOneLine() {
         tile(0, 0, 0, EAST);
-        tile(1, 0, 0, EAST);
+        tile(1, 0, 0, EAST, -1);
         tile(2, -1, 0, EAST);
 
         assertEquals(List.of(at(0, 0, 0), at(1, 0, 0), at(2, -1, 0)), through(2, -1, 0));
@@ -220,8 +232,8 @@ class LineScanTest {
 
     @Test
     void aClimbOfTwoBlocksIsOneLine() {
-        tile(0, 0, 0, EAST);
-        tile(1, 1, 0, EAST);
+        tile(0, 0, 0, EAST, 1);
+        tile(1, 1, 0, EAST, 1);
         tile(2, 2, 0, EAST);
 
         assertEquals(3, through(1, 1, 0).size());
@@ -229,7 +241,7 @@ class LineScanTest {
 
     @Test
     void aClimbOfThreeBlocksIsOneLine() {
-        for (int x = 0; x < 6; x++) tile(x, Math.clamp(x - 1, 0, 3), 0, EAST);
+        for (int x = 0; x < 6; x++) tile(x, Math.clamp(x - 1, 0, 3), 0, EAST, x >= 1 && x <= 3 ? 1 : 0);
 
         assertEquals(6, through(0, 0, 0).size());
         assertEquals(6, through(5, 3, 0).size());
@@ -237,7 +249,7 @@ class LineScanTest {
 
     @Test
     void aClimbWithAMiddleGoneIsTwoLines() {
-        for (int x = 0; x < 6; x++) if (x != 2) tile(x, Math.clamp(x - 1, 0, 3), 0, EAST);
+        for (int x = 0; x < 6; x++) if (x != 2) tile(x, Math.clamp(x - 1, 0, 3), 0, EAST, x >= 1 && x <= 3 ? 1 : 0);
 
         assertEquals(List.of(at(0, 0, 0), at(1, 0, 0)), through(0, 0, 0));
         assertEquals(List.of(at(3, 2, 0), at(4, 3, 0), at(5, 3, 0)), through(5, 3, 0));
@@ -253,10 +265,25 @@ class LineScanTest {
         assertEquals(List.of(at(0, 0, 0)), through(0, 0, 0));
     }
 
-    // A column meeting a row's side climbs onto the row's tile rather than side-loading it: a
-    // same-facing tile a block up ahead is fed before a level tile facing another way (#412).
+    // A column meeting a row's side climbs onto the row's tile rather than side-loading it where
+    // its last tile before the row is set to climb (ADR 0017).
     @Test
-    void aTileClimbsOverALinesSideRatherThanFeedingIt() {
+    void aTileSetToClimbOverALinesSideDoesNotFeedIt() {
+        tile(0, 0, 0, EAST);
+        tile(1, 0, 0, EAST);
+        tile(2, 0, 0, EAST);
+        tile(1, 0, 2, NORTH);
+        tile(1, 0, 1, NORTH, 1);
+        tile(1, 1, 0, NORTH);
+        tile(1, 1, -1, NORTH);
+
+        assertEquals(List.of(at(0, 0, 0), at(1, 0, 0), at(2, 0, 0)), through(1, 0, 0));
+        assertEquals(List.of(at(1, 0, 2), at(1, 0, 1), at(1, 1, 0), at(1, 1, -1)), through(1, 0, 2));
+    }
+
+    // Unset, the same column side-loads the row, and the tiles a block up are a line of their own.
+    @Test
+    void aLevelTileMeetingALinesSideFeedsItThoughATileStandsAboveIt() {
         tile(0, 0, 0, EAST);
         tile(1, 0, 0, EAST);
         tile(2, 0, 0, EAST);
@@ -266,7 +293,8 @@ class LineScanTest {
         tile(1, 1, -1, NORTH);
 
         assertEquals(List.of(at(0, 0, 0), at(1, 0, 0), at(2, 0, 0)), through(1, 0, 0));
-        assertEquals(List.of(at(1, 0, 2), at(1, 0, 1), at(1, 1, 0), at(1, 1, -1)), through(1, 0, 2));
+        assertEquals(List.of(at(1, 0, 2), at(1, 0, 1)), through(1, 0, 2));
+        assertEquals(List.of(at(1, 1, 0), at(1, 1, -1)), through(1, 1, 0));
     }
 
     // A foot, a top, a level tile on the crossed tile, a top and a foot: one line over another (#420).
@@ -276,7 +304,8 @@ class LineScanTest {
         tile(0, 0, 0, SOUTH);
         tile(0, 0, 1, SOUTH);
         int[] heights = {0, 1, 1, 1, 0};
-        for (int x = -2; x <= 2; x++) tile(x, heights[x + 2], 0, EAST);
+        int[] sets = {1, 0, 0, -1, 0};
+        for (int x = -2; x <= 2; x++) tile(x, heights[x + 2], 0, EAST, sets[x + 2]);
 
         assertEquals(List.of(at(0, 0, -1), at(0, 0, 0), at(0, 0, 1)), through(0, 0, -1));
         assertEquals(List.of(at(-2, 0, 0), at(-1, 1, 0), at(0, 1, 0), at(1, 1, 0), at(2, 0, 0)), through(-2, 0, 0));
@@ -285,7 +314,7 @@ class LineScanTest {
     // A slope takes no side-load: a foot with a tile facing its side stays one line with its top (#419).
     @Test
     void aTileFacingAFootsSideIsALineOfItsOwn() {
-        tile(0, 0, 0, EAST);
+        tile(0, 0, 0, EAST, 1);
         tile(1, 1, 0, EAST);
         tile(0, 0, -1, SOUTH);
 

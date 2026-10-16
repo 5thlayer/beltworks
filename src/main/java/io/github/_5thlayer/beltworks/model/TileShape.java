@@ -23,6 +23,19 @@ public enum TileShape {
 
         /** Whether the belt piece at {@code from}, a tile, loader or splitter half, outputs {@code travel}. */
         boolean feeds(LineScan.Spot from, LineScan.Travel travel);
+
+        /** The climb of the belt tile at {@code spot}, one block up, level or one down, and level where there is no tile (ADR 0017). */
+        default int climb(LineScan.Spot spot) {
+            return 0;
+        }
+    }
+
+    /** A tile as a plan lays it, before it stands: the way it travels and its climb, -1, 0 or 1 (ADR 0017). */
+    public record Laid(LineScan.Travel travel, int climb) {
+
+        public static Laid level(LineScan.Travel travel) {
+            return new Laid(travel, 0);
+        }
     }
 
     public static TileShape of(boolean behind, boolean left, boolean right) {
@@ -32,28 +45,23 @@ public enum TileShape {
 
     /**
      * The shape of a tile at {@code spot} travelling {@code travel}, asked of its three neighbours.
-     * A tile a block up or down behind it counts as behind it, and a tile beside it that climbs
-     * over it does not feed it (#417). A slope takes no side-load, so it is never a corner (#419).
+     * A tile a block up or down behind it whose climb leads here counts as behind it, and a tile
+     * beside it set to climb does not feed it (ADR 0017). A slope takes no side-load, so it is never a corner (#419).
      */
     public static TileShape at(LineScan.Spot spot, LineScan.Travel travel, Around around) {
         var left = left(travel);
         var right = right(travel);
         var back = spot.step(travel, -1);
         var shape = of(
-          around.feeds(back, travel) || feedsFrom(back, 1, spot, travel, around) || feedsFrom(back, -1, spot, travel, around),
+          around.feeds(back, travel) || Pitch.feeder(spot, travel, around) != null,
           sideFeeds(spot.step(left, 1), right, around),
           sideFeeds(spot.step(right, 1), left, around));
         return shape == STRAIGHT || Pitch.at(spot, travel, around) == Pitch.LEVEL ? shape : STRAIGHT;
     }
 
-    // A tile a block up or down behind feeds this one only if it has no level tile ahead of its own.
-    private static boolean feedsFrom(LineScan.Spot back, int rise, LineScan.Spot spot, LineScan.Travel travel, Around around) {
-        return travel.equals(around.tile(back.up(rise))) && Pitch.height(spot.up(rise), travel, around) == -rise;
-    }
-
     private static boolean sideFeeds(LineScan.Spot from, LineScan.Travel travel, Around around) {
         if (!around.feeds(from, travel)) return false;
-        return around.tile(from) == null || Pitch.height(from.step(travel, 1), travel, around) == 0;
+        return around.tile(from) == null || around.climb(from) == 0;
     }
 
     /** The way items travel as they enter a tile of this shape travelling {@code travel}. */

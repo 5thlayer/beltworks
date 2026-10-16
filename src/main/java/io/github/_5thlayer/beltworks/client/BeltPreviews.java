@@ -43,6 +43,7 @@ import io.github._5thlayer.beltworks.client.renderers.BeltEndRenderer;
 import io.github._5thlayer.beltworks.client.renderers.FeederRenderer;
 import io.github._5thlayer.beltworks.client.renderers.SupportRenderer;
 import io.github._5thlayer.beltworks.model.LineScan;
+import io.github._5thlayer.beltworks.model.TileShape;
 import io.github._5thlayer.beltworks.model.Support;
 
 /**
@@ -164,12 +165,12 @@ final class BeltPreviews {
     }
 
     private static Map<BlockPos, BlockState> wedges(Level level, PlacementPlan plan) {
-        var travels = new LinkedHashMap<LineScan.Spot, LineScan.Travel>();
+        var travels = new LinkedHashMap<LineScan.Spot, TileShape.Laid>();
         Block tile = null;
         for (var placed : plan.blocks()) {
             if (!(placed.state().getBlock() instanceof BeltTileBlock)) continue;
             tile = placed.state().getBlock();
-            travels.put(BeltTileBlock.spot(placed.pos()), BeltTileBlock.travel(placed.state().getValue(BlockStateProperties.HORIZONTAL_FACING)));
+            travels.put(BeltTileBlock.spot(placed.pos()), BeltTileBlock.laid(placed.state()));
         }
         if (tile == null) return Map.of();
         var planned = plan.blocks().stream().map(PlacementPlan.Placed::pos).toList();

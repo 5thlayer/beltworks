@@ -22,6 +22,7 @@ import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.BeltWedgeBlock;
 import io.github._5thlayer.beltworks.model.BeltLeg;
 import io.github._5thlayer.beltworks.model.LineScan;
+import io.github._5thlayer.beltworks.model.TileShape;
 import io.github._5thlayer.beltworks.model.Wedge;
 
 import java.util.ArrayList;
@@ -54,31 +55,43 @@ public final class BeltLegs implements LegBuilder {
         var from = BeltTileBlock.spot(leg.from());
         var shaped = BeltLeg.shape(from, leg.rise(), route, arrives, leg.endsStretch(), terrain(level));
 
-        var travels = new LinkedHashMap<LineScan.Spot, LineScan.Travel>();
-        for (var step : shaped.tiles()) {
+        var travels = new LinkedHashMap<LineScan.Spot, TileShape.Laid>();
+        var steps = shaped.tiles();
+        for (var i = 0; i < steps.size(); i++) {
+            var step = steps.get(i);
+            var climb = climb(step, i + 1 < steps.size() ? steps.get(i + 1) : null);
             var there = level.getBlockState(pos(step.spot()));
-            // A tile of the held tier already running the leg's way is the leg's as it stands.
-            if (there.is(tile) && BeltTileBlock.travel(there.getValue(BlockStateProperties.HORIZONTAL_FACING)).equals(step.travel())) continue;
-            travels.put(step.spot(), step.travel());
+            // A tile of the held tier already running the leg's way at the leg's climb is the leg's as it stands.
+            if (there.is(tile) && BeltTileBlock.laid(there).equals(new TileShape.Laid(step.travel(), climb))) continue;
+            travels.put(step.spot(), new TileShape.Laid(step.travel(), climb));
         }
         // The earlier leg's tile feeding the first anchor is no block of this leg, and still shapes it:
         // an anchor where the stretch turns is a corner.
         var shaping = new LinkedHashMap<>(travels);
-        if (arrives != null) shaping.putIfAbsent(from.step(arrives, -1), arrives);
+        if (arrives != null) shaping.putIfAbsent(from.step(arrives, -1), TileShape.Laid.level(arrives));
         var around = BeltTileBlock.around(level, shaping);
         var blocks = new ArrayList<PlacementPlan.Placed>();
         var replaces = new ArrayList<BlockPos>();
-        travels.forEach((spot, travel) -> {
+        travels.forEach((spot, laid) -> {
             var pos = pos(spot);
-            var facing = Direction.getApproximateNearest(travel.x(), 0, travel.z());
-            blocks.add(new PlacementPlan.Placed(pos, BeltTileBlock.formed(
-                    tile.defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, facing), spot, around)));
+            var facing = Direction.getApproximateNearest(laid.travel().x(), 0, laid.travel().z());
+            blocks.add(new PlacementPlan.Placed(pos, BeltTileBlock.formed(tile.defaultBlockState()
+                    .setValue(BlockStateProperties.HORIZONTAL_FACING, facing)
+                    .setValue(BeltTileBlock.CLIMB, BeltTileBlock.ClimbState.of(laid.climb())), spot, around)));
             if (level.getBlockState(pos).getBlock() instanceof BeltTileBlock) replaces.add(pos);
         });
         return new PlacementPlan(blocks, replaces, refusal(level, shaped, travels, tile));
     }
 
-    private static @Nullable Refusal refusal(Level level, BeltLeg.Shaped shaped, Map<LineScan.Spot, LineScan.Travel> travels, Block tile) {
+    // A step climbs to the next where the next stands a block up or down ahead of it (ADR 0017).
+    private static int climb(BeltLeg.Step step, BeltLeg.@Nullable Step next) {
+        if (next == null) return 0;
+        var ahead = step.spot().step(step.travel(), 1);
+        if (ahead.x() != next.spot().x() || ahead.z() != next.spot().z()) return 0;
+        return next.spot().y() - step.spot().y();
+    }
+
+    private static @Nullable Refusal refusal(Level level, BeltLeg.Shaped shaped, Map<LineScan.Spot, TileShape.Laid> travels, Block tile) {
         if (shaped.stop() != null) {
             return switch (shaped.stop()) {
                 case RISE_DOES_NOT_FIT -> BeltRefusal.RISE_DOES_NOT_FIT;

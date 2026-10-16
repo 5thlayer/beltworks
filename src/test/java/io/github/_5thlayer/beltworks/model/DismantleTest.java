@@ -21,6 +21,7 @@ class DismantleTest {
     private static final LineScan.Travel SOUTH = new LineScan.Travel(0, 1);
 
     private final Map<LineScan.Spot, LineScan.Travel> world = new HashMap<>();
+    private final Map<LineScan.Spot, Integer> climbs = new HashMap<>();
 
     private final TileShape.Around around = new TileShape.Around() {
         @Override
@@ -32,10 +33,21 @@ class DismantleTest {
         public boolean feeds(LineScan.Spot from, LineScan.Travel travel) {
             return travel.equals(world.get(from));
         }
+
+        @Override
+        public int climb(LineScan.Spot spot) {
+            return climbs.getOrDefault(spot, 0);
+        }
     };
 
     private void tile(int x, int y, int z, LineScan.Travel travel) {
+        tile(x, y, z, travel, 0);
+    }
+
+    /** A tile set to climb {@code climb}, its way out one block up, level or one down (ADR 0017). */
+    private void tile(int x, int y, int z, LineScan.Travel travel, int climb) {
         world.put(at(x, y, z), travel);
+        climbs.put(at(x, y, z), climb);
     }
 
     private LineScan.Piece piece(LineScan.Spot spot) {
@@ -89,7 +101,8 @@ class DismantleTest {
     @Test
     void aSpanFollowsItsLineUpAndDownASlope() {
         int[] heights = {0, 0, 1, 1, 0, 0};
-        for (var x = 0; x < heights.length; x++) tile(x, heights[x], 0, EAST);
+        int[] sets = {0, 1, 0, -1, 0, 0};
+        for (var x = 0; x < heights.length; x++) tile(x, heights[x], 0, EAST, sets[x]);
 
         assertEquals(List.of(at(5, 0, 0), at(4, 0, 0), at(3, 1, 0), at(2, 1, 0), at(1, 0, 0), at(0, 0, 0)),
           span(at(5, 0, 0), at(0, 0, 0)).spots());

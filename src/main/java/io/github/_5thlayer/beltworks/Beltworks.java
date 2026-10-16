@@ -28,6 +28,7 @@ import io.github._5thlayer.beltworks.items.BeltReplaces;
 import io.github._5thlayer.beltworks.neoforge.BeltChangesPayload;
 import io.github._5thlayer.beltworks.neoforge.BeltHandPayload;
 import io.github._5thlayer.beltworks.neoforge.SplitterFilterPayload;
+import io.github._5thlayer.beltworks.neoforge.ClimbPayload;
 import io.github._5thlayer.beltworks.neoforge.FeederReachPayload;
 import io.github._5thlayer.beltworks.neoforge.FeederSuckedPayload;
 import io.github._5thlayer.beltworks.neoforge.BeltLinePayload;
@@ -119,8 +120,9 @@ public final class Beltworks {
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
-        event.registrar("6")
+        event.registrar("7")
           .playToServer(BeltHandPayload.TYPE, BeltHandPayload.STREAM_CODEC, BeltHandPayload::handle)
+          .playToServer(ClimbPayload.TYPE, ClimbPayload.STREAM_CODEC, ClimbPayload::handle)
           .playToServer(FeederReachPayload.TYPE, FeederReachPayload.STREAM_CODEC, FeederReachPayload::handle)
           .playToServer(SplitterFilterPayload.TYPE, SplitterFilterPayload.STREAM_CODEC, SplitterFilterPayload::handle)
           .playToClient(BeltChangesPayload.TYPE, BeltChangesPayload.STREAM_CODEC, BeltChangesPayload::handle)

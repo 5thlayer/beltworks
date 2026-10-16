@@ -73,34 +73,47 @@ public enum Pitch {
     }
 
     /**
-     * The pitch of a tile at {@code spot} travelling {@code travel}. A step is taken only where the
-     * tile at the other end would take it too, so a connection is both tiles' or neither's; the
-     * neighbour is asked from the tiles alone, which keeps the derivation from recursing.
+     * The pitch of a tile at {@code spot} travelling {@code travel}, from its feeder's height and its
+     * fed height (ADR 0017). Each end is asked of the tiles alone, so a connection is both tiles' or
+     * neither's and the derivation never recurses.
      */
     public static Pitch at(LineScan.Spot spot, LineScan.Travel travel, TileShape.Around around) {
-        var own = unpaired(spot, travel, around);
-        var feeder = own.feeder;
-        if (feeder != 0 && unpaired(spot.step(travel, -1).up(feeder), travel, around).fed != -feeder) feeder = 0;
-        var fed = own.fed;
-        if (fed != 0 && unpaired(spot.step(travel, 1).up(fed), travel, around).feeder != -fed) fed = 0;
-        return of(feeder, fed);
-    }
-
-    private static Pitch unpaired(LineScan.Spot spot, LineScan.Travel travel, TileShape.Around around) {
-        var pitch = of(height(spot.step(travel, -1), travel, around), height(spot.step(travel, 1), travel, around));
+        var feeder = feeder(spot, travel, around);
+        var pitch = of(feeder == null ? 0 : feeder, fed(spot, travel, around));
         return pitch == null ? LEVEL : pitch;
     }
 
     /**
-     * Which of a column's pieces travelling {@code travel} a tile meets, in blocks relative to it: a
-     * level one first, then a tile a block up, then one a block down, and level where there is none.
-     * A level tile facing another way is met only after both, so a tile beside a line climbs over it
-     * rather than feeding its side (#412).
+     * The height of the tile feeding the tile at {@code spot} from behind, in blocks relative to it,
+     * or null where nothing does: a level piece behind outputting {@code travel} first, then a tile a
+     * block up or down behind whose climb leads here. A tile whose own fed height would make a crest
+     * or a valley of it takes none from a block up or down.
      */
-    static int height(LineScan.Spot column, LineScan.Travel travel, TileShape.Around around) {
-        if (around.feeds(column, travel)) return 0;
-        if (travel.equals(around.tile(column.up(1)))) return 1;
-        if (travel.equals(around.tile(column.up(-1)))) return -1;
-        return 0;
+    public static @Nullable Integer feeder(LineScan.Spot spot, LineScan.Travel travel, TileShape.Around around) {
+        var back = spot.step(travel, -1);
+        if (around.feeds(back, travel) && (around.tile(back) == null || around.climb(back) == 0)) return 0;
+        var out = reach(spot, travel, around);
+        for (var rise : new int[] {1, -1}) {
+            var from = back.up(rise);
+            if (travel.equals(around.tile(from)) && around.climb(from) == -rise && reach(from, travel, around) == -rise
+                && of(rise, out) != null) {
+                return rise;
+            }
+        }
+        return null;
+    }
+
+    // The fed end only where the tile there takes this one as its feeder.
+    private static int fed(LineScan.Spot spot, LineScan.Travel travel, TileShape.Around around) {
+        var out = reach(spot, travel, around);
+        if (out == 0) return 0;
+        var feeder = feeder(spot.step(travel, 1).up(out), travel, around);
+        return feeder != null && feeder == -out ? out : 0;
+    }
+
+    // A tile's climb, where a tile facing its way stands there to take it, and level where none does.
+    private static int reach(LineScan.Spot spot, LineScan.Travel travel, TileShape.Around around) {
+        var climb = around.climb(spot);
+        return climb != 0 && travel.equals(around.tile(spot.step(travel, 1).up(climb))) ? climb : 0;
     }
 }
