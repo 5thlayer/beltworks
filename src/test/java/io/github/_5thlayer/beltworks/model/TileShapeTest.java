@@ -256,10 +256,10 @@ class TileShapeTest {
 
     // Two blocks apart is no step: the tiles either side of a broken middle each level out.
     @Test
-    void aClimbWithAMiddleGoneConnectsNothingAcrossTheGap() {
+    void aClimbWithAMiddleGoneSlopesIntoTheGap() {
         for (int x = 0; x < 6; x++) if (x != 2) tile(x, Math.clamp(x - 1, 0, 3), 0, EAST, x >= 1 && x <= 3 ? 1 : 0);
 
-        assertEquals(Pitch.LEVEL, pitch(1, 0, 0));
+        assertEquals(Pitch.FOOT_UP, pitch(1, 0, 0));
         assertEquals(Pitch.FOOT_UP, pitch(3, 2, 0));
         assertEquals(Pitch.TOP_UP, pitch(4, 3, 0));
     }
@@ -303,6 +303,13 @@ class TileShapeTest {
         tile(1, 1, 0, NORTH);
 
         assertEquals(Pitch.LEVEL, pitch(0, 0, 0));
+    }
+
+    @Test
+    void aTileSetToClimbIsAFootIntoTheOpenBeforeTheTileItClimbsToStands() {
+        tile(0, 0, 0, EAST, 1);
+
+        assertEquals(Pitch.FOOT_UP, pitch(0, 0, 0));
     }
 
     // A slope takes no side-load, so a tile that would be both a corner and a slope is a slope, and

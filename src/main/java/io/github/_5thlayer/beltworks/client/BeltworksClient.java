@@ -33,6 +33,7 @@ public final class BeltworksClient {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         eventBus.addListener(BeltworksClient::registerRenderers);
         eventBus.addListener(BeltworksKeys::onRegisterKeys);
+        eventBus.addListener(ClimbHud::onRegisterLayers);
         eventBus.addListener(BeltworksClient::registerScreens);
         NeoForge.EVENT_BUS.addListener(BeltworksKeys::onClientTick);
         NeoForge.EVENT_BUS.addListener(BeltHandClient::tick);

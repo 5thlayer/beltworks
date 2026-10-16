@@ -177,8 +177,14 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         var shaped = shaped(state, level, pos);
-        if (!shaped.equals(state)) level.setBlock(pos, shaped, Block.UPDATE_ALL);
-        else keepWedge(level, pos, state);
+        if (!shaped.equals(state)) {
+            level.setBlock(pos, shaped, Block.UPDATE_ALL);
+            return;
+        }
+        keepWedge(level, pos, state);
+        // A tile its own placement reshaped, as a neighbour it reshaped re-derives it, was handed the
+        // placed state after, so its line reads that until it is told the state it stands in.
+        if (level.getBlockEntity(pos) instanceof BeltTileBlockEntity tile && !tile.getBlockState().equals(state)) tile.setBlockState(state);
     }
 
     @Override

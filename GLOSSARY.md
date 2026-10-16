@@ -75,7 +75,7 @@ Whether a tile rises, is level or descends along its travel, derived from the he
 _Avoid_: incline, grade
 
 **Climb**:
-A tile's way out, set and never derived: down, level or up, and level unless set. An up tile feeds the tile facing its way a block up ahead, so a one-block climb is its lower tile set up, and lines a block apart never join unless a tile is set to. Also the Mod's key that sets it, unbound by default: it cycles up, down and level, on a held tile stack for its next placement, kept until its last item is placed and drawn by the **Placement Preview**, or on the placed tile under the crosshair, refused where its reshape would be. A stretch sets it from the heights it lays (ADR 0017).
+A tile's way out, set and never derived: down, level or up, and level unless set. An up tile feeds the tile facing its way a block up ahead, so a one-block climb is its lower tile set up, and lines a block apart never join unless a tile is set to. Also the Mod's key that sets it, unbound by default: it cycles up, down and level, on a held tile stack for its next placement, kept until its last item is placed, drawn by the **Placement Preview** and shown above the action bar while it isn't level, or on the placed tile under the crosshair, refused where its reshape would be. A stretch sets it from the heights it lays (ADR 0017).
 _Avoid_: pitch (the derived shape), pin, incline
 
 **Slope**:

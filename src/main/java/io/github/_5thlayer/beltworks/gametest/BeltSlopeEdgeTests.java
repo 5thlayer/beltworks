@@ -3,7 +3,6 @@
 
 package io.github._5thlayer.beltworks.gametest;
 
-import io.github._5thlayer.groundworks.PlacementPlan;
 
 import java.util.List;
 import java.util.Map;
@@ -23,12 +22,11 @@ import io.github._5thlayer.beltworks.DataComponentsContent;
 import io.github._5thlayer.beltworks.ItemContent;
 import io.github._5thlayer.beltworks.blocks.Climb;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
-import io.github._5thlayer.beltworks.items.BeltRefusal;
 import io.github._5thlayer.beltworks.model.BeltTier;
 
 /**
- * A slope's edges (PlanetaryFactory #419, ADR 0005): a slope never turns, so a tile placed by hand that would turn a
- * corner into one is refused with its reason and changes nothing, while a tile across another a
+ * A slope's edges (PlanetaryFactory #419, ADR 0005, ADR 0017): a slope never turns, so a corner pressed to climb is
+ * refused and changes nothing, while a tile across another a
  * block up is a crossing and places level. Each tile is asked for its plan first, and the world and
  * the stack are held to it.
  */
@@ -57,8 +55,17 @@ final class BeltSlopeEdgeTests {
             level(helper, ABOVE_AHEAD);
             helper.succeed();
         });
-        tests.test("a_tile_that_would_slope_a_corner_is_refused", 40, BeltSlopeEdgeTests::slopingACorner);
+        tests.test("climb_pressed_on_a_corner_is_refused", 40, BeltSlopeEdgeTests::slopingACorner);
         // Lines a block apart join only where a tile is set to climb, whatever order they are laid in (#107, ADR 0017).
+        tests.test("climb_unset_turns_a_corner_laid_by_hand", 40, helper -> {
+            ServerPlayer player = BeltWedgeTests.player(helper);
+            BeltWedgeTests.byHand(helper, player, FIRST.south(2), Direction.NORTH, 0, 0);
+            BeltWedgeTests.byHand(helper, player, FIRST, Direction.EAST, 0);
+            helper.succeedWhen(() -> {
+                BlockState state = helper.getBlockState(FIRST);
+                if (state.getValue(BeltTileBlock.CORNER) == BeltTileBlock.Shape.STRAIGHT) helper.fail("a tile fed from its side stands " + state, FIRST);
+            });
+        });
         tests.test("climb_unset_leaves_a_tile_level_under_a_line_laid_before_it", 40, helper -> {
             ServerPlayer player = BeltWedgeTests.player(helper);
             BeltWedgeTests.byHand(helper, player, ABOVE_AHEAD, Direction.EAST, 0, 0);
@@ -134,30 +141,12 @@ final class BeltSlopeEdgeTests {
         if (helper.getBlockState(FIRST).getValue(BeltTileBlock.CORNER) == BeltTileBlock.Shape.STRAIGHT) {
             helper.fail("a tile fed only from its side is straight, so this proves little", FIRST);
         }
-        // Set to climb with nothing up ahead yet, so it stays a level corner until the tile there would slope it.
+        // Set to climb, a tile is a slope at once, into the open, so a corner is refused it and changes nothing.
         player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
         player.snapTo(Vec3.atCenterOf(helper.absolutePos(FIRST.west())));
+        Map<BlockPos, BlockState> before = BeltWedgeTests.around(helper, FIRST);
         Climb.press(player, helper.absolutePos(FIRST));
-        if (helper.getBlockState(FIRST).getValue(BeltTileBlock.CLIMB) != BeltTileBlock.ClimbState.UP) {
-            helper.fail("a level corner was not set to climb", FIRST);
-        }
-        refused(helper, ABOVE_AHEAD, Direction.EAST, BeltRefusal.SLOPE_TURNS);
-    }
-
-    /** A tile placed by hand at {@code at} facing {@code facing} is planned refused for {@code expected}, and changes nothing. */
-    private static void refused(GameTestHelper helper, BlockPos at, Direction facing, BeltRefusal expected) {
-        ServerPlayer player = BeltWedgeTests.player(helper);
-        player.setYRot(facing.toYRot());
-        Map<BlockPos, BlockState> before = BeltWedgeTests.around(helper, at);
-        ItemStack stack = new ItemStack(ItemContent.tileFor(BeltTier.BELT));
-        PlacementPlan plan = BeltWedgeTests.planOf(helper, player, stack, at);
-        if (plan == null || plan.refusal() != expected) {
-            helper.fail("a tile facing " + facing + " is planned " + (plan == null ? "as nothing" : "with " + plan.refusal())
-                    + ", expected refused for " + expected, at);
-        }
-        BeltWedgeTests.use(helper, player, stack, at);
-        if (!BeltWedgeTests.around(helper, at).equals(before)) helper.fail("a refused tile changed the world", at);
-        if (stack.getCount() != 1) helper.fail("a refused tile was spent", at);
+        if (!BeltWedgeTests.around(helper, FIRST).equals(before)) helper.fail("a corner pressed to climb changed the world", FIRST);
         helper.succeed();
     }
 
@@ -207,7 +196,7 @@ final class BeltSlopeEdgeTests {
                 .thenExecute(() -> Climb.press(player, aimed))
                 .thenExecute(() -> climbs(helper, BeltTileBlock.ClimbState.DOWN))
                 .thenWaitUntil(() -> {
-                    pitched(helper, FIRST, BeltTileBlock.PitchState.LEVEL);
+                    pitched(helper, FIRST, BeltTileBlock.PitchState.TOP_DOWN);
                     pitched(helper, ABOVE_AHEAD, BeltTileBlock.PitchState.LEVEL);
                 })
                 .thenExecute(() -> Climb.press(player, aimed))

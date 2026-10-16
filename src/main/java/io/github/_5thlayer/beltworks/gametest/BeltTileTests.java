@@ -263,7 +263,8 @@ final class BeltTileTests {
         expectPitch(helper, FIRST_TILE.east(), BeltTileBlock.PitchState.FOOT_UP, "with a tile placed above and ahead");
         expectPitch(helper, FIRST_TILE, BeltTileBlock.PitchState.LEVEL, "behind a foot");
         helper.destroyBlock(top);
-        expectPitch(helper, FIRST_TILE.east(), BeltTileBlock.PitchState.LEVEL, "with its top broken");
+        // Still set to climb, it slopes into the open its top left (ADR 0017).
+        expectPitch(helper, FIRST_TILE.east(), BeltTileBlock.PitchState.FOOT_UP, "with its top broken");
         helper.succeed();
     }
 
@@ -284,7 +285,7 @@ final class BeltTileTests {
         expectPitch(helper, foot, BeltTileBlock.PitchState.FOOT_DOWN, "placed below and ahead");
         expectPitch(helper, upper.getLast(), BeltTileBlock.PitchState.TOP_DOWN, "with a tile placed below and ahead");
         helper.destroyBlock(foot);
-        expectPitch(helper, upper.getLast(), BeltTileBlock.PitchState.LEVEL, "with its foot broken");
+        expectPitch(helper, upper.getLast(), BeltTileBlock.PitchState.TOP_DOWN, "with its foot broken");
         helper.succeed();
     }
 
@@ -392,7 +393,8 @@ final class BeltTileTests {
         return tiles;
     }
 
-    // The tiles either side of the gap are two blocks apart, which is no step.
+    // The tiles either side of the gap are two blocks apart, which is no step: the foot below it
+    // slopes into the open, and the line ends there.
     private static void breakingAMiddle(GameTestHelper helper) {
         List<BlockPos> tiles = stairs(helper, BeltTier.BELT, FIRST_TILE, THREE_BLOCK_CLIMB);
         helper.startSequence()
@@ -403,7 +405,7 @@ final class BeltTileTests {
                 })
                 .thenIdle(MERGE_SETTLE_TICKS)
                 .thenExecute(() -> {
-                    expectPitch(helper, tiles.get(1), BeltTileBlock.PitchState.LEVEL, "below a broken middle");
+                    expectPitch(helper, tiles.get(1), BeltTileBlock.PitchState.FOOT_UP, "below a broken middle");
                     expectPitch(helper, tiles.get(3), BeltTileBlock.PitchState.FOOT_UP, "above a broken middle");
                     expectPitch(helper, tiles.get(4), BeltTileBlock.PitchState.TOP_UP, "at the top of a broken climb");
                     expectLine(helper, tiles.get(1), 2, "below a broken middle");

@@ -103,17 +103,23 @@ public enum Pitch {
         return null;
     }
 
-    // The fed end only where the tile there takes this one as its feeder.
+    // The fed end where nothing stands to take it, so a tile set to climb slopes into the open; where a
+    // tile does, only if it takes this one as its feeder.
     private static int fed(LineScan.Spot spot, LineScan.Travel travel, TileShape.Around around) {
         var out = reach(spot, travel, around);
         if (out == 0) return 0;
-        var feeder = feeder(spot.step(travel, 1).up(out), travel, around);
+        var ahead = spot.step(travel, 1).up(out);
+        if (around.tile(ahead) == null) return out;
+        var feeder = feeder(ahead, travel, around);
         return feeder != null && feeder == -out ? out : 0;
     }
 
-    // A tile's climb, where a tile facing its way stands there to take it, and level where none does.
+    // A tile's climb, where nothing stands a block up or down ahead or a tile facing its way does,
+    // and level where a tile facing another way does.
     private static int reach(LineScan.Spot spot, LineScan.Travel travel, TileShape.Around around) {
         var climb = around.climb(spot);
-        return climb != 0 && travel.equals(around.tile(spot.step(travel, 1).up(climb))) ? climb : 0;
+        if (climb == 0) return 0;
+        var ahead = around.tile(spot.step(travel, 1).up(climb));
+        return ahead == null || travel.equals(ahead) ? climb : 0;
     }
 }
