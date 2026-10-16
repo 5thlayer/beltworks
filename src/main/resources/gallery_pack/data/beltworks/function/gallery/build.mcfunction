@@ -10,3 +10,5 @@ execute positioned ~144 ~ ~ run function beltworks:gallery/loaders
 execute positioned ~168 ~ ~ run function beltworks:gallery/filtered_loader
 execute positioned ~192 ~ ~ run function beltworks:gallery/feeders
 execute positioned ~216 ~ ~ run function beltworks:gallery/filtered_feeder
+execute positioned ~240 ~ ~ run function beltworks:gallery/smelting
+execute positioned ~264 ~ ~ run function beltworks:gallery/iron_smelting

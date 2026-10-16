@@ -140,5 +140,13 @@
   "beltworks.gallery.filtered_feeder": "Filtered",
   "beltworks.gallery.filtered_feeder.1": "each feeder",
   "beltworks.gallery.filtered_feeder.2": "takes only",
-  "beltworks.gallery.filtered_feeder.3": "its own ingot"
+  "beltworks.gallery.filtered_feeder.3": "its own ingot",
+  "beltworks.gallery.smelting": "Smelting",
+  "beltworks.gallery.smelting.1": "coal straight in",
+  "beltworks.gallery.smelting.2": "the side; ore and",
+  "beltworks.gallery.smelting.3": "ingots by hopper",
+  "beltworks.gallery.iron_smelting": "Iron",
+  "beltworks.gallery.iron_smelting.1": "a feeder per belt:",
+  "beltworks.gallery.iron_smelting.2": "coal in the side,",
+  "beltworks.gallery.iron_smelting.3": "ore in the top"
 }

@@ -32,9 +32,9 @@ import net.minecraft.world.phys.AABB;
 /**
  * The Gallery pack builds a scene of each README feature but Dismantle, in README order, through libworks'
  * {@link GalleryCheck} (libworks ADR 0010), with a filtered splitter, loader and feeder after the
- * plain ones. Beyond the key blocks, every scene that carries items to a container delivers them
- * there, a filter lets only its item through, and a scene's sign builds it again. Each test turns
- * the pack on, which reloads the server's data, so each runs in a batch of its own.
+ * plain ones, then feeders working smelting columns and a furnace fed from two belts. Beyond the
+ * key blocks, every scene that carries items to a container delivers them there, a filter or furnace
+ * lets only its item through, and a scene's sign builds it again. Each test turns the pack on, which reloads the server's data, so each runs in a batch of its own.
  */
 final class GalleryTests {
 
@@ -51,7 +51,9 @@ final class GalleryTests {
             new Scene("loaders", new BlockPos(5, 0, -6), Blocks.BARREL),
             new Scene("filtered_loader", new BlockPos(6, 0, -6), BlockContent.loaderFor(BeltTier.BELT)),
             new Scene("feeders", new BlockPos(13, 0, -7), BlockContent.feederFor(BeltTier.BELT)),
-            new Scene("filtered_feeder", new BlockPos(17, 0, -7), BlockContent.feederFor(BeltTier.BELT)));
+            new Scene("filtered_feeder", new BlockPos(17, 0, -7), BlockContent.feederFor(BeltTier.BELT)),
+            new Scene("smelting", new BlockPos(13, 1, -6), Blocks.FURNACE),
+            new Scene("iron_smelting", new BlockPos(13, 1, -6), Blocks.FURNACE));
 
     /** Where each scene's items end up, from where the scene is run, by the scene's name. */
     private static final Map<String, List<BlockPos>> DELIVERIES = Map.of(
@@ -62,14 +64,17 @@ final class GalleryTests {
             "loaders", List.of(new BlockPos(22, 0, -6)),
             "filtered_loader", List.of(new BlockPos(22, 0, -6)),
             "feeders", List.of(new BlockPos(9, 0, -6), new BlockPos(13, 0, -6), new BlockPos(17, 0, -6), new BlockPos(22, 0, -8)),
-            "filtered_feeder", List.of(new BlockPos(9, 0, -6), new BlockPos(13, 0, -6), new BlockPos(17, 0, -6), new BlockPos(22, 0, -8)));
+            "filtered_feeder", List.of(new BlockPos(9, 0, -6), new BlockPos(13, 0, -6), new BlockPos(17, 0, -6), new BlockPos(22, 0, -8)),
+            "smelting", List.of(new BlockPos(22, 0, -4)),
+            "iron_smelting", List.of(new BlockPos(15, 0, -6)));
 
     /** What a filter lets through to each container it fills, from where the scene is run, by the scene's name. */
     private static final Map<String, Map<BlockPos, Item>> FILTERED = Map.of(
             "filtered_splitter", Map.of(new BlockPos(22, 0, -7), Items.IRON_INGOT),
             "filtered_loader", Map.of(new BlockPos(22, 0, -6), Items.IRON_INGOT),
             "filtered_feeder", Map.of(new BlockPos(9, 0, -6), Items.IRON_INGOT, new BlockPos(13, 0, -6), Items.COPPER_INGOT,
-                    new BlockPos(17, 0, -6), Items.GOLD_INGOT));
+                    new BlockPos(17, 0, -6), Items.GOLD_INGOT),
+            "iron_smelting", Map.of(new BlockPos(15, 0, -6), Items.IRON_INGOT));
 
     /** The lines scene's sign, from where the scene is run. */
     private static final BlockPos SIGN = new BlockPos(14, 0, 0);
