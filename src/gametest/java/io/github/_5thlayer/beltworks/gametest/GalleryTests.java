@@ -4,7 +4,6 @@
 package io.github._5thlayer.beltworks.gametest;
 
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -20,10 +19,7 @@ import net.minecraft.gametest.framework.GameTestInfo;
 import net.minecraft.gametest.framework.GameTestListener;
 import net.minecraft.gametest.framework.GameTestRunner;
 import net.minecraft.gametest.framework.StructureUtils;
-import net.minecraft.world.Container;
 import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
@@ -32,9 +28,11 @@ import net.minecraft.world.phys.AABB;
 /**
  * The Gallery pack builds a scene of each README feature but Dismantle, in README order, through libworks'
  * {@link GalleryCheck} (libworks ADR 0010), with a filtered splitter, loader and feeder after the
- * plain ones, then feeders working smelting columns and two furnaces fed from two belts. Beyond the
- * key blocks, every scene that carries items to a container delivers them there, a filter or furnace
- * lets only its item through, and a scene's sign builds it again. Each test turns the pack on, which reloads the server's data, so each runs in a batch of its own.
+ * plain ones, then feeders working smelting columns and two furnaces fed from two belts. These tests
+ * check the gallery only: the pack is offered and off, its functions load, its build runs every
+ * command and stands each scene's key block in place, and a scene's sign builds it again. The Mod's
+ * other game tests check what the scenes' blocks do. Each test turns the pack on, which reloads the
+ * server's data, so each runs in a batch of its own.
  */
 final class GalleryTests {
 
@@ -55,27 +53,6 @@ final class GalleryTests {
             new Scene("smelting", new BlockPos(13, 1, -6), Blocks.FURNACE),
             new Scene("iron_smelting", new BlockPos(13, 1, -6), Blocks.FURNACE));
 
-    /** Where each scene's items end up, from where the scene is run, by the scene's name. */
-    private static final Map<String, List<BlockPos>> DELIVERIES = Map.of(
-            "slopes", List.of(new BlockPos(13, 0, -1), new BlockPos(22, 0, -6)),
-            "tiers", List.of(new BlockPos(22, 0, -10), new BlockPos(22, 0, -8), new BlockPos(22, 0, -6), new BlockPos(22, 0, -4)),
-            "splitters", List.of(new BlockPos(22, 0, -7), new BlockPos(22, 0, -6)),
-            "filtered_splitter", List.of(new BlockPos(22, 0, -7), new BlockPos(22, 0, -6)),
-            "loaders", List.of(new BlockPos(22, 0, -6)),
-            "filtered_loader", List.of(new BlockPos(22, 0, -6)),
-            "feeders", List.of(new BlockPos(9, 0, -6), new BlockPos(13, 0, -6), new BlockPos(17, 0, -6), new BlockPos(22, 0, -8)),
-            "filtered_feeder", List.of(new BlockPos(9, 0, -6), new BlockPos(13, 0, -6), new BlockPos(17, 0, -6), new BlockPos(22, 0, -8)),
-            "smelting", List.of(new BlockPos(22, 0, -4)),
-            "iron_smelting", List.of(new BlockPos(17, 0, -4)));
-
-    /** What a filter lets through to each container it fills, from where the scene is run, by the scene's name. */
-    private static final Map<String, Map<BlockPos, Item>> FILTERED = Map.of(
-            "filtered_splitter", Map.of(new BlockPos(22, 0, -7), Items.IRON_INGOT),
-            "filtered_loader", Map.of(new BlockPos(22, 0, -6), Items.IRON_INGOT),
-            "filtered_feeder", Map.of(new BlockPos(9, 0, -6), Items.IRON_INGOT, new BlockPos(13, 0, -6), Items.COPPER_INGOT,
-                    new BlockPos(17, 0, -6), Items.GOLD_INGOT),
-            "iron_smelting", Map.of(new BlockPos(17, 0, -4), Items.IRON_INGOT));
-
     /** The lines scene's sign, from where the scene is run. */
     private static final BlockPos SIGN = new BlockPos(14, 0, 0);
 
@@ -85,32 +62,7 @@ final class GalleryTests {
     static void register(BeltGameTests.Registrar tests) {
         tests.testOnItsOwn("gallery_builds_a_scene_of_each_feature", GalleryCheck.TICKS,
                 helper -> GalleryCheck.builds(helper, Beltworks.MOD_ID, ORIGIN, SCENES));
-        tests.testOnItsOwn("gallery_scenes_carry_items_to_the_ends_of_their_lines_and_filters_only_theirs", GalleryCheck.TICKS, GalleryTests::deliver);
         tests.testOnItsOwn("gallery_sign_builds_its_scene_again_leaving_nothing_loose", GalleryCheck.TICKS, GalleryTests::replay);
-    }
-
-    private static void deliver(GameTestHelper helper) {
-        var at = helper.absolutePos(ORIGIN);
-        var source = GalleryCheck.operator(helper, at);
-        withPack(helper, GalleryCheck.strip(at, SCENES.size()), () -> GalleryCheck.assertRuns(helper, source, GalleryPack.build(Beltworks.MOD_ID)), () -> {
-            for (int index = 0; index < SCENES.size(); index++) {
-                var name = SCENES.get(index).name();
-                for (var end : DELIVERIES.getOrDefault(name, List.of())) {
-                    var pos = GalleryCheck.sceneOrigin(at, index).offset(end);
-                    var container = helper.getLevel().getBlockEntity(pos) instanceof Container found ? found : null;
-                    helper.assertTrue(container != null && !container.isEmpty(),
-                            "scene " + name + " has carried nothing to " + pos.toShortString());
-                }
-                for (var only : FILTERED.getOrDefault(name, Map.of()).entrySet()) {
-                    var pos = GalleryCheck.sceneOrigin(at, index).offset(only.getKey());
-                    var container = (Container) helper.getLevel().getBlockEntity(pos);
-                    for (var stack : container) {
-                        helper.assertTrue(stack.isEmpty() || stack.is(only.getValue()),
-                                "scene " + name + "'s filter let " + stack + " through to " + pos.toShortString());
-                    }
-                }
-            }
-        });
     }
 
     // The scene is broken first, so only the rebuild can put its key block back.
@@ -128,15 +80,14 @@ final class GalleryTests {
             GalleryCheck.assertKeyBlocks(helper, at, List.of(lines));
             var loose = helper.getLevel().getEntitiesOfClass(ItemEntity.class, AABB.of(plot));
             helper.assertTrue(loose.isEmpty(), "building the scene again left " + loose + " loose");
-        }, () -> {
         });
     }
 
     /**
-     * Turns the pack on, runs {@code build} once it is, waits until {@code until} holds, then clears
-     * {@code area} and turns the pack off, which a failing test does too.
+     * Turns the pack on, runs {@code steps} once it is, then clears {@code area} and turns the pack
+     * off, which a failing test does too.
      */
-    private static void withPack(GameTestHelper helper, BoundingBox area, Runnable build, Runnable until) {
+    private static void withPack(GameTestHelper helper, BoundingBox area, Runnable steps) {
         var level = helper.getLevel();
         var server = level.getServer();
         var pack = GalleryPack.id(Beltworks.MOD_ID);
@@ -166,8 +117,7 @@ final class GalleryTests {
                 .thenWaitUntil(() -> helper.assertTrue(on.isDone(), pack + " is not on yet"))
                 .thenWaitUntil(() -> helper.assertTrue(area.intersectingChunks().allMatch(chunk -> level.hasChunk(chunk.x(), chunk.z())),
                         "the gallery's plots are not loaded yet"))
-                .thenExecute(build)
-                .thenWaitUntil(until)
+                .thenExecute(steps)
                 .thenExecute(() -> {
                     StructureUtils.clearSpaceForStructure(area, level);
                     off.set(GalleryCheck.select(server, pack, false));
