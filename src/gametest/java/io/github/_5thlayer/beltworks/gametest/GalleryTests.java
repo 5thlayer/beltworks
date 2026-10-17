@@ -4,8 +4,6 @@
 package io.github._5thlayer.beltworks.gametest;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
 
 import io.github._5thlayer.beltworks.Beltworks;
 import io.github._5thlayer.beltworks.BlockContent;
@@ -15,14 +13,9 @@ import io.github._5thlayer.libworks.testkit.GalleryCheck;
 import io.github._5thlayer.libworks.testkit.GalleryCheck.Scene;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.minecraft.gametest.framework.GameTestInfo;
-import net.minecraft.gametest.framework.GameTestListener;
-import net.minecraft.gametest.framework.GameTestRunner;
-import net.minecraft.gametest.framework.StructureUtils;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
-import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.phys.AABB;
 
 /**
@@ -68,61 +61,16 @@ final class GalleryTests {
     // The scene is broken first, so only the rebuild can put its key block back.
     private static void replay(GameTestHelper helper) {
         var at = helper.absolutePos(ORIGIN);
-        var source = GalleryCheck.operator(helper, at);
         var lines = SCENES.getFirst();
-        var plot = GalleryCheck.plot(at);
-        withPack(helper, plot, () -> {
+        GalleryCheck.withPack(helper, Beltworks.MOD_ID, ORIGIN, GalleryCheck.Layout.ONE_ROW, 1, (source, steps) -> steps.thenExecute(() -> {
             GalleryCheck.assertRuns(helper, source, GalleryPack.scene(Beltworks.MOD_ID, lines.name()));
             helper.getLevel().setBlockAndUpdate(at.offset(lines.key()), Blocks.AIR.defaultBlockState());
             var sign = (SignBlockEntity) helper.getLevel().getBlockEntity(at.offset(SIGN));
             helper.assertTrue(sign != null && sign.executeClickCommandsIfPresent(helper.getLevel(), source.getPlayer(), at.offset(SIGN), true),
                     "the lines scene's sign runs no command");
             GalleryCheck.assertKeyBlocks(helper, at, List.of(lines));
-            var loose = helper.getLevel().getEntitiesOfClass(ItemEntity.class, AABB.of(plot));
+            var loose = helper.getLevel().getEntitiesOfClass(ItemEntity.class, AABB.of(GalleryCheck.plot(at)));
             helper.assertTrue(loose.isEmpty(), "building the scene again left " + loose + " loose");
-        });
-    }
-
-    /**
-     * Turns the pack on, runs {@code steps} once it is, then clears {@code area} and turns the pack
-     * off, which a failing test does too.
-     */
-    private static void withPack(GameTestHelper helper, BoundingBox area, Runnable steps) {
-        var level = helper.getLevel();
-        var server = level.getServer();
-        var pack = GalleryPack.id(Beltworks.MOD_ID);
-        area.intersectingChunks().forEach(chunk -> level.setChunkForced(chunk.x(), chunk.z(), true));
-        var on = GalleryCheck.select(server, pack, true);
-        helper.testInfo.addListener(new GameTestListener() {
-            @Override
-            public void testStructureLoaded(GameTestInfo testInfo) {
-            }
-
-            @Override
-            public void testPassed(GameTestInfo testInfo, GameTestRunner runner) {
-            }
-
-            @Override
-            public void testFailed(GameTestInfo testInfo, GameTestRunner runner) {
-                StructureUtils.clearSpaceForStructure(area, level);
-                on.whenComplete((done, failed) -> server.execute(() -> GalleryCheck.select(server, pack, false)));
-            }
-
-            @Override
-            public void testAddedForRerun(GameTestInfo original, GameTestInfo copy, GameTestRunner runner) {
-            }
-        });
-        var off = new AtomicReference<CompletableFuture<Void>>();
-        helper.startSequence()
-                .thenWaitUntil(() -> helper.assertTrue(on.isDone(), pack + " is not on yet"))
-                .thenWaitUntil(() -> helper.assertTrue(area.intersectingChunks().allMatch(chunk -> level.hasChunk(chunk.x(), chunk.z())),
-                        "the gallery's plots are not loaded yet"))
-                .thenExecute(steps)
-                .thenExecute(() -> {
-                    StructureUtils.clearSpaceForStructure(area, level);
-                    off.set(GalleryCheck.select(server, pack, false));
-                })
-                .thenWaitUntil(() -> helper.assertTrue(off.get() != null && off.get().isDone(), pack + " is not off yet"))
-                .thenSucceed();
+        })).thenSucceed();
     }
 }
