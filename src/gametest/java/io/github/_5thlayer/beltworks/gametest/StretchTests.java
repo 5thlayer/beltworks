@@ -71,6 +71,7 @@ final class StretchTests {
         tests.test("a_flat_stretch_goes_round_a_bump_in_the_ground_and_never_climbs_it", 20, StretchTests::bump);
         tests.test("raise_after_the_start_climbs_right_after_it_and_ends_in_mid_air", 20, StretchTests::raised);
         tests.test("lower_after_the_start_descends_right_after_it", 20, StretchTests::lowered);
+        tests.test("a_wedge_in_fluid_waterlogs_under_a_stretchs_climb", 20, StretchTests::raisedOverWater);
         tests.test("a_crossing_by_raise_an_anchor_and_lower_leaves_the_crossed_line_carrying",
                 LOAD_TICKS + DELIVERY_TICKS + 20, StretchTests::crossesALoadedLine);
         tests.test("a_line_across_a_level_stretch_is_gone_round", 20, StretchTests::roundALine);
@@ -279,6 +280,21 @@ final class StretchTests {
             }
         }
         wedged(helper, START.east(2));
+        helper.succeed();
+    }
+
+    // Raised as above, with water where the top's wedge goes.
+    private static void raisedOverWater(GameTestHelper helper) {
+        BlockPos wedge = START.east(2);
+        helper.setBlock(wedge, Blocks.WATER);
+        var player = started(helper, Direction.EAST);
+        press(player, 1);
+        if (accepted(helper, player, START.east(5), 6) == null) return;
+        pitched(helper, wedge.above(), BeltTileBlock.PitchState.TOP_UP);
+        wedged(helper, wedge);
+        if (!helper.getBlockState(wedge).getValue(BlockStateProperties.WATERLOGGED)) {
+            helper.fail("a stretch's wedge placed into water is " + helper.getBlockState(wedge) + ", not waterlogged", wedge);
+        }
         helper.succeed();
     }
 

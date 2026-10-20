@@ -25,7 +25,11 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.block.LiquidBlock;
+import net.minecraft.world.level.block.SlabBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.SlabType;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -40,7 +44,7 @@ import io.github._5thlayer.beltworks.model.BeltTier;
 
 /**
  * A middle or top over air stands on a wedge (PlanetaryFactory #420, ADR 0005): placed with its tile for nothing,
- * broken with it for one tile, taking a replaceable block's place and refused over a belt or a
+ * broken with it for one tile, taking a replaceable block's or a fluid's place and refused over a belt or a
  * machine, gone when its tile levels. A belt built by hand crosses another over two wedges.
  *
  * <p>Every tile placed by hand is asked for its plan first, and the world is held to it.
@@ -96,6 +100,21 @@ final class BeltWedgeTests {
         tests.test("breaking_a_sloped_tile_leaves_no_wedge_and_drops_one_tile", 40, helper -> breaking(helper, TOP));
         tests.test("breaking_a_wedge_leaves_no_tile_and_drops_one_tile", 40, helper -> breaking(helper, TOP_WEDGE));
         tests.test("a_wedge_takes_the_place_of_grass", 40, BeltWedgeTests::replacesGrass);
+        tests.test("a_wedge_in_fluid_waterlogs_in_a_water_source", 40,
+                helper -> inFluid(helper, Blocks.WATER.defaultBlockState(), true));
+        // Only a source waterlogs a block, in vanilla as here.
+        tests.test("a_wedge_in_fluid_stays_dry_in_flowing_water", 40,
+                helper -> inFluid(helper, Blocks.WATER.defaultBlockState().setValue(LiquidBlock.LEVEL, 1), false));
+        tests.test("a_wedge_in_fluid_takes_the_place_of_lava", 40,
+                helper -> inFluid(helper, Blocks.LAVA.defaultBlockState(), false));
+        tests.test("a_wedge_in_fluid_is_refused_by_a_waterlogged_fence", 40,
+                helper -> refused(helper, waterlogged(Blocks.OAK_FENCE.defaultBlockState())));
+        tests.test("a_wedge_in_fluid_is_refused_by_a_waterlogged_stair", 40,
+                helper -> refused(helper, waterlogged(Blocks.STONE_STAIRS.defaultBlockState())));
+        tests.test("a_wedge_in_fluid_is_not_needed_over_a_waterlogged_top_slab", 40, BeltWedgeTests::waterloggedSlab);
+        tests.test("a_wedge_in_fluid_leaves_its_water_when_its_slope_is_broken", 40, helper -> leavesWater(helper, TOP));
+        tests.test("a_wedge_in_fluid_leaves_its_water_when_it_is_broken", 40, helper -> leavesWater(helper, TOP_WEDGE));
+        tests.test("a_wedge_in_fluid_leaves_its_water_when_its_slope_levels", 40, BeltWedgeTests::levelledLeavesWater);
         tests.test("a_slope_whose_wedge_would_stand_on_a_loader_is_refused", 40,
                 helper -> refused(helper, BeltTileTests.loader(BeltTier.BELT, Direction.NORTH)));
         tests.test("a_slope_whose_wedge_would_stand_on_a_tile_is_refused", 40,
@@ -160,6 +179,61 @@ final class BeltWedgeTests {
         byHand(helper, player(helper), FIRST, Direction.EAST, ONE_BLOCK_CLIMB);
         expectWedge(helper, TOP_WEDGE, "where grass grew under a top");
         helper.succeed();
+    }
+
+    // Placed in the same tick as the fluid, before it spreads.
+    private static void inFluid(GameTestHelper helper, BlockState fluid, boolean waterlogged) {
+        helper.setBlock(TOP_WEDGE, fluid);
+        byHand(helper, player(helper), FIRST, Direction.EAST, ONE_BLOCK_CLIMB);
+        expectWedge(helper, TOP_WEDGE, "where " + fluid + " stood under a top");
+        if (helper.getBlockState(TOP_WEDGE).getValue(BlockStateProperties.WATERLOGGED) != waterlogged) {
+            helper.fail("a wedge placed into " + fluid + " is " + helper.getBlockState(TOP_WEDGE) + ", expected "
+                    + (waterlogged ? "waterlogged" : "dry"), TOP_WEDGE);
+        }
+        helper.succeed();
+    }
+
+    private static void waterloggedSlab(GameTestHelper helper) {
+        BlockState slab = waterlogged(Blocks.STONE_SLAB.defaultBlockState().setValue(SlabBlock.TYPE, SlabType.TOP));
+        helper.setBlock(TOP_WEDGE, slab);
+        byHand(helper, player(helper), FIRST, Direction.EAST, ONE_BLOCK_CLIMB);
+        expectPitch(helper, TOP, BeltTileBlock.PitchState.TOP_UP, "over a waterlogged top slab");
+        if (!helper.getBlockState(TOP_WEDGE).equals(slab)) {
+            helper.fail("a top over a waterlogged slab left " + helper.getBlockState(TOP_WEDGE) + " under it", TOP_WEDGE);
+        }
+        helper.succeed();
+    }
+
+    private static void leavesWater(GameTestHelper helper, BlockPos target) {
+        helper.setBlock(TOP_WEDGE, Blocks.WATER);
+        byHand(helper, player(helper), FIRST, Direction.EAST, ONE_BLOCK_CLIMB);
+        ServerPlayer player = player(helper);
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        player.gameMode.destroyBlock(helper.absolutePos(target));
+        if (!helper.getBlockState(TOP).isAir()) {
+            helper.fail("breaking " + target + " left " + helper.getBlockState(TOP) + " standing", TOP);
+        }
+        expectWater(helper, TOP_WEDGE, "where a waterlogged wedge was broken with its slope");
+        helper.succeed();
+    }
+
+    private static void levelledLeavesWater(GameTestHelper helper) {
+        helper.setBlock(TOP_WEDGE, Blocks.WATER);
+        List<BlockPos> tiles = byHand(helper, player(helper), FIRST, Direction.EAST, ONE_BLOCK_CLIMB);
+        helper.destroyBlock(tiles.get(1));
+        expectPitch(helper, TOP, BeltTileBlock.PitchState.LEVEL, "with its foot broken");
+        expectWater(helper, TOP_WEDGE, "under a levelled top that stood on a waterlogged wedge");
+        helper.succeed();
+    }
+
+    private static BlockState waterlogged(BlockState state) {
+        return state.setValue(BlockStateProperties.WATERLOGGED, true);
+    }
+
+    static void expectWater(GameTestHelper helper, BlockPos pos, String where) {
+        if (!helper.getBlockState(pos).equals(Blocks.WATER.defaultBlockState())) {
+            helper.fail(where + " stands " + helper.getBlockState(pos) + ", expected a water source", pos);
+        }
     }
 
     private static void refused(GameTestHelper helper, BlockState occupant) {

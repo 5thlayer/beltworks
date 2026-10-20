@@ -2,6 +2,8 @@
 
 _Amended by ADR 0017: a tile slopes only where a climb is set, and the heights below are those its climb and its feeder's lead to; a tile beside a line side-loads it unless set to climb over it._
 
+_Amended by 5thlayer/beltworks#110: a wedge takes a fluid's place too, waterlogging in a water source and keeping its water when it goes; lava and any other fluid it replaces are lost._
+
 _Amended by Groundworks ADR 0003: Rotate in Place is Groundworks', and the Mod's blocks answer it themselves. A slope and the wedge under it refuse it, and a level tile refuses it where the turn would slope a corner or leave its wedge no room._
 
 A tile has a **pitch**, level, rising or descending along its travel, at one block of height per block of travel. Like a corner, it is derived and never chosen. It follows from two heights relative to the tile, each one up, level or one down: the tile feeding it and the tile it feeds.
@@ -16,7 +18,7 @@ A connection is both tiles' or neither's. A corner is always level. Pitch is re-
 
 The shapes draw one straight 45° line, each inside its own block. In pixels from each tile's floor, where a level tile's surface is at 6: a **foot** is flat at 6 for 6 px, then rises to 16; a **middle** rises from 0 to 16; a **top** rises from 0 to 6, then is flat for 10 px. A slope is one block of line, as a corner is. The climb is drawing only: a line over a hill carries its tier's throughput and holds eight items a tile, and the line scan follows a line across heights.
 
-A slope takes no side-load. A tile that would be both a corner and a slope is a slope, and a placement that would turn a corner into a slope is refused, with its reason and nothing changed. A tile facing another's side a block up or down is a crossing and places level. A loader or splitter half meets the level end of a foot or a top as it meets a level tile. A middle or top over air stands on a **wedge**, placed with its tile for nothing and broken with it, so a belt can climb through open air. A wedge takes the place of a replaceable block. A tile, loader, splitter, machine, fluid or block entity there refuses the placement, so a slope never stands on a belt.
+A slope takes no side-load. A tile that would be both a corner and a slope is a slope, and a placement that would turn a corner into a slope is refused, with its reason and nothing changed. A tile facing another's side a block up or down is a crossing and places level. A loader or splitter half meets the level end of a foot or a top as it meets a level tile. A middle or top over air stands on a **wedge**, placed with its tile for nothing and broken with it, so a belt can climb through open air. A wedge takes the place of a replaceable block or a fluid, waterlogged in a water source. A tile, loader, splitter, machine, waterlogged block or block entity there refuses the placement, so a slope never stands on a belt.
 
 _Superseded by Groundworks ADR 0004: a stretch changes height only by Raise and Lower, and a line crossing it is gone round or refused, never climbed on its own._
 

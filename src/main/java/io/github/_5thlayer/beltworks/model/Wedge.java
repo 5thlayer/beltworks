@@ -14,11 +14,11 @@ public final class Wedge {
 
     /** What occupies the block under a tile, as a wedge reads it. */
     public enum Below {
-        /** Air, a replaceable plant or snow, or the tile's own wedge. */
+        /** Air, a replaceable plant, snow, a fluid, or the tile's own wedge. */
         REPLACEABLE,
         /** A block whose top face holds the tile up. */
         SOLID,
-        /** Anything else: a tile, loader, splitter, machine, fluid, or a block too thin to stand on. */
+        /** Anything else: a tile, loader, splitter, machine, waterlogged block, or a block too thin to stand on. */
         OCCUPIED
     }
 

@@ -75,6 +75,7 @@ final class DismantleTests {
                 takesUp(helper, row(helper, 3), START.east(1), START.east(1)));
         tests.test("a_dismantle_follows_its_line_round_a_corner", 20, DismantleTests::corner);
         tests.test("a_dismantle_follows_its_line_up_a_slope_and_takes_its_wedges", 20, DismantleTests::slope);
+        tests.test("a_wedge_in_fluid_leaves_its_water_when_dismantled", 20, DismantleTests::waterloggedSlope);
         tests.test("a_dismantle_out_of_a_line_leaves_both_sides_carrying_and_delivering", 120, DismantleTests::middle);
         tests.test("a_dismantle_with_no_room_drops_the_rest_at_the_players_feet", 20, DismantleTests::fullInventory);
         tests.test("a_creative_dismantle_hands_over_nothing", 20, DismantleTests::creative);
@@ -148,6 +149,23 @@ final class DismantleTests {
             }
             helper.succeed();
         });
+    }
+
+    // The same slope by hand, its top's wedge waterlogged.
+    private static void waterloggedSlope(GameTestHelper helper) {
+        BlockPos wedge = START.east(2);
+        helper.setBlock(wedge, Blocks.WATER);
+        List<BlockPos> tiles = BeltWedgeTests.byHand(helper, BeltWedgeTests.player(helper), START, Direction.EAST, 0, 0, 1, 1);
+        var player = started(helper, tiles.getFirst());
+        click(helper, player, tiles.getLast());
+        for (BlockPos tile : tiles) {
+            if (!helper.getBlockState(tile).isAir()) {
+                helper.fail("the dismantle left " + helper.getBlockState(tile) + " standing", tile);
+                return;
+            }
+        }
+        BeltWedgeTests.expectWater(helper, wedge, "where a dismantled slope's waterlogged wedge stood");
+        helper.succeed();
     }
 
     // Six tiles, each carrying one ingot; the middle four taken up, then a loader and a chest put

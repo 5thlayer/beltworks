@@ -28,6 +28,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
@@ -193,7 +194,7 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
         reshapeAround(level, pos);
         var now = level.getBlockState(pos);
         if (now.getBlock() instanceof BeltTileBlock) keepWedge(level, pos, now);
-        else if (level.getBlockState(pos.below()).getBlock() instanceof BeltWedgeBlock) level.setBlock(pos.below(), Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+        else if (level.getBlockState(pos.below()).getBlock() instanceof BeltWedgeBlock) level.setBlock(pos.below(), leftBy(level.getBlockState(pos.below())), Block.UPDATE_ALL);
     }
 
     // Whatever sets a tile's state, a player, a stretch or a re-derivation, sets its wedge too (#420).
@@ -203,12 +204,17 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
         if (!level.getBlockState(below).equals(kept)) level.setBlock(below, kept, Block.UPDATE_ALL);
     }
 
-    // What the tile keeps under it: its wedge where it needs one, air where a wedge it no longer
-    // needs stands, and otherwise whatever stands there.
+    // What the tile keeps under it: its wedge where it needs one, what a wedge it no longer needs
+    // leaves where one stands, and otherwise whatever stands there.
     private static BlockState keptBelow(BlockGetter level, BlockPos pos, BlockState state) {
-        if (wedge(level, pos, state) == Wedge.Verdict.PLACE) return wedgeFor(state);
+        if (wedge(level, pos, state) == Wedge.Verdict.PLACE) return wedgeFor(level, pos.below(), state);
         var there = level.getBlockState(pos.below());
-        return there.getBlock() instanceof BeltWedgeBlock ? Blocks.AIR.defaultBlockState() : there;
+        return there.getBlock() instanceof BeltWedgeBlock ? leftBy(there) : there;
+    }
+
+    // A wedge gone leaves its water, or air (#110).
+    private static BlockState leftBy(BlockState wedge) {
+        return wedge.getFluidState().createLegacyBlock();
     }
 
     /** Whether the tile {@code state} at {@code pos} needs a wedge over what stands under it now. */
@@ -221,22 +227,25 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
         var state = level.getBlockState(pos);
         if (state.getBlock() instanceof BeltWedgeBlock) return Wedge.Below.REPLACEABLE;
         // A loader or a machine may be a full cube, and is still no ground for a wedge to stand in for.
-        if (state.hasBlockEntity() || !state.getFluidState().isEmpty()) return Wedge.Below.OCCUPIED;
-        if (state.canBeReplaced()) return Wedge.Below.REPLACEABLE;
+        if (state.hasBlockEntity()) return Wedge.Below.OCCUPIED;
+        // A modded fluid's block may not say it is replaceable, and gives way all the same (#110).
+        if (state.canBeReplaced() || state.getBlock() instanceof LiquidBlock) return Wedge.Below.REPLACEABLE;
         if (state.isFaceSturdy(level, pos, Direction.UP)) return Wedge.Below.SOLID;
         return Wedge.Below.OCCUPIED;
     }
 
-    private static BlockState wedgeFor(BlockState tile) {
+    // Waterlogged where it takes a water source's place, as vanilla waterlogs a block placed there (#110).
+    private static BlockState wedgeFor(BlockGetter level, BlockPos at, BlockState tile) {
         var uphill = Wedge.uphill(tile.getValue(PITCH).model(), travel(tile.getValue(BlockStateProperties.HORIZONTAL_FACING)));
         return BlockContent.BELT_WEDGE.get().defaultBlockState()
-                 .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.getApproximateNearest(uphill.x(), 0, uphill.z()));
+                 .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.getApproximateNearest(uphill.x(), 0, uphill.z()))
+                 .setValue(BlockStateProperties.WATERLOGGED, level.getFluidState(at).getType() == Fluids.WATER);
     }
 
     /**
      * The wedges placing {@code planned} tiles adds, the tiles' own and those of the tiles it
-     * reshapes, or why it is refused: a wedge that would land on anything but air, a plant or snow
-     * (#420), refused where the wedge would go, or a corner the placement would turn into a slope,
+     * reshapes, or why it is refused: a wedge that would land on anything but air, a plant, snow or a fluid
+     * (#420, #110), refused where the wedge would go, or a corner the placement would turn into a slope,
      * since a slope never turns (#419). A wedge a reshape removes is not named: its tile's upkeep
      * removes it.
      */
@@ -270,7 +279,7 @@ public class BeltTileBlock extends HorizontalDirectionalBlock implements EntityB
                     return new Reshape(Map.of(), BeltRefusal.WEDGE_BLOCKED, under.immutable());
                 }
                 case PLACE -> {
-                    var wedge = wedgeFor(formed);
+                    var wedge = wedgeFor(level, under, formed);
                     if (!level.getBlockState(under).equals(wedge)) placed.put(under, wedge);
                 }
                 case NONE -> {
