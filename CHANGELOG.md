@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.5.2
+
 - Beltworks requires Groundworks 0.6.0 or later, below 0.7. With it, Rotate and Reverse Rotate turn a feeder or a belt end placed against the side of a block, where before the press did nothing you could see (5thlayer/groundworks#72).
 
 ## 0.5.1
