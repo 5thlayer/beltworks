@@ -5,6 +5,7 @@ package io.github._5thlayer.beltworks.gametest;
 
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import io.github._5thlayer.groundworks.PlacementPlan;
+import io.github._5thlayer.groundworks.Placements;
 import io.github._5thlayer.groundworks.QuarterTurn;
 import io.github._5thlayer.groundworks.Rotate;
 
@@ -20,6 +21,8 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import io.github._5thlayer.beltworks.Beltworks;
 import io.github._5thlayer.beltworks.BlockContent;
 import io.github._5thlayer.beltworks.DataComponentsContent;
@@ -52,6 +55,7 @@ final class RotateTests {
         for (boolean reverse : List.of(false, true)) {
             String rotate = reverse ? "reverse_rotate" : "rotate";
             tests.test(rotate + "_the_plan_places_a_tile_turned_as_planned", 20, helper -> placesTurned(helper, reverse));
+            tests.test(rotate + "_the_plan_turns_a_feeder_placed_against_a_side_face", 20, helper -> turnsFeederOnAWall(helper, reverse));
         }
         tests.test("rotate_in_place_turns_a_level_tile_a_quarter_each_press_both_ways", 20,
                 helper -> turnsEachPress(helper, BeltTileTests.tile(BeltTier.BELT, LOOK)));
@@ -82,13 +86,44 @@ final class RotateTests {
         for (int presses = 0; presses < 4; presses++) {
             // Two apart, so no tile feeds another.
             var at = new BlockPos(1 + 2 * presses, 1, 4);
-            var stack = pressed(player, presses, reverse);
+            var stack = pressed(helper, player, at, presses, reverse);
             PlacementPlan plan = BeltWedgeTests.planOf(helper, player, stack, at);
             BeltWedgeTests.use(helper, player, stack, at);
             var expected = turned(presses, reverse);
             var placed = helper.getBlockState(at);
             if (!placed.is(BlockContent.BELT_TILE.get()) || placed.getValue(BlockStateProperties.HORIZONTAL_FACING) != expected) {
                 helper.fail(presses + " presses placed " + placed + ", expected a tile facing " + expected, at);
+            }
+            if (plan == null || plan.isRefused() || !plan.blocks().equals(List.of(new PlacementPlan.Placed(helper.absolutePos(at), placed)))) {
+                helper.fail(presses + " presses planned " + plan + ", and the click placed " + placed, at);
+            }
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A feeder faces the side face it is placed against, and a press turns that face as it turns the
+     * look, so for 0 to 3 presses it places facing the face turned that many quarters, as its plan said.
+     */
+    private static void turnsFeederOnAWall(GameTestHelper helper, boolean reverse) {
+        var player = new ListeningPlayer(helper, STAND);
+        player.setYRot(LOOK.toYRot());
+        for (int presses = 0; presses < 4; presses++) {
+            // Each feeder on the north face of its own block, two apart, so none stands against another.
+            var wall = new BlockPos(1 + 2 * presses, 1, 4);
+            var at = wall.north();
+            helper.setBlock(wall, Blocks.STONE);
+            var stack = new ItemStack(BlockContent.FEEDER_BLOCK.get(), 2);
+            player.setItemInHand(InteractionHand.MAIN_HAND, stack);
+            var hit = onFace(helper, wall, Direction.NORTH);
+            for (int press = 0; press < presses; press++) Rotate.press(player, hit, reverse);
+            if (!player.heard.isEmpty()) helper.fail(presses + " presses said " + player.heard, at);
+            PlacementPlan plan = Placements.planFor(helper.getLevel(), player, InteractionHand.MAIN_HAND, stack, hit);
+            player.gameMode.useItemOn(player, helper.getLevel(), stack, InteractionHand.MAIN_HAND, hit);
+            var expected = QuarterTurn.of(reverse ? -presses : presses).turn(Direction.NORTH);
+            var placed = helper.getBlockState(at);
+            if (!placed.is(BlockContent.FEEDER_BLOCK.get()) || placed.getValue(HorizontalDirectionalBlock.FACING) != expected) {
+                helper.fail(presses + " presses placed " + placed + ", expected a feeder facing " + expected, at);
             }
             if (plan == null || plan.isRefused() || !plan.blocks().equals(List.of(new PlacementPlan.Placed(helper.absolutePos(at), placed)))) {
                 helper.fail(presses + " presses planned " + plan + ", and the click placed " + placed, at);
@@ -104,7 +139,7 @@ final class RotateTests {
         var player = emptyHanded(helper);
         for (boolean reverse : List.of(false, true)) {
             for (int press = 1; press <= 4; press++) {
-                Rotate.press(player, helper.absolutePos(AIMED), reverse);
+                Rotate.press(player, onTop(helper, AIMED), reverse);
                 var expected = start.setValue(BlockStateProperties.HORIZONTAL_FACING, turned(press, reverse));
                 if (!helper.getBlockState(AIMED).equals(expected)) {
                     helper.fail((reverse ? "Reverse Rotate" : "Rotate") + " press " + press + " left "
@@ -127,7 +162,7 @@ final class RotateTests {
                 true, List.of(FeederBlock.TailTurn.LEFT, FeederBlock.TailTurn.RIGHT, FeederBlock.TailTurn.STRAIGHT));
         for (boolean reverse : List.of(false, true)) {
             for (var turn : expected.get(reverse)) {
-                Rotate.press(player, helper.absolutePos(AIMED), reverse);
+                Rotate.press(player, onTop(helper, AIMED), reverse);
                 var state = helper.getBlockState(AIMED);
                 if (state.getValue(HorizontalDirectionalBlock.FACING) != LOOK || state.getValue(FeederBlock.TAIL_TURN) != turn) {
                     helper.fail((reverse ? "Reverse Rotate" : "Rotate") + " left " + state + ", expected facing "
@@ -201,7 +236,7 @@ final class RotateTests {
     private static void refused(GameTestHelper helper, ListeningPlayer player, BlockPos aimed, BlockPos around, List<String> told) {
         Map<BlockPos, BlockState> before = BeltWedgeTests.around(helper, around);
         player.heard.clear();
-        Rotate.press(player, helper.absolutePos(aimed), false);
+        Rotate.press(player, onTop(helper, aimed), false);
         if (!BeltWedgeTests.around(helper, around).equals(before)) {
             helper.fail("a refused press on " + helper.getBlockState(aimed) + " changed the world", aimed);
         }
@@ -227,12 +262,23 @@ final class RotateTests {
         return new ListeningPlayer(helper, STAND);
     }
 
-    /** Two tiles in the main hand, pressed {@code presses} times. */
-    private static ItemStack pressed(ListeningPlayer player, int presses, boolean reverse) {
+    /** Two tiles in the main hand, pressed {@code presses} times aimed where they will be placed, so the press turns a drawn plan. */
+    private static ItemStack pressed(GameTestHelper helper, ListeningPlayer player, BlockPos at, int presses, boolean reverse) {
         var stack = new ItemStack(ItemContent.tileFor(BeltTier.BELT), 2);
         player.setItemInHand(InteractionHand.MAIN_HAND, stack);
-        for (int press = 0; press < presses; press++) Rotate.press(player, null, reverse);
+        for (int press = 0; press < presses; press++) Rotate.press(player, BeltWedgeTests.hit(helper, at), reverse);
         return stack;
+    }
+
+    /** The crosshair's hit on the top face of the block at {@code pos}. */
+    private static BlockHitResult onTop(GameTestHelper helper, BlockPos pos) {
+        return onFace(helper, pos, Direction.UP);
+    }
+
+    /** The crosshair's hit on the {@code face} of the block at {@code pos}. */
+    private static BlockHitResult onFace(GameTestHelper helper, BlockPos pos, Direction face) {
+        BlockPos absolute = helper.absolutePos(pos);
+        return new BlockHitResult(Vec3.atCenterOf(absolute).relative(face, 0.5), face, absolute, false);
     }
 
     private static Direction turned(int presses, boolean reverse) {

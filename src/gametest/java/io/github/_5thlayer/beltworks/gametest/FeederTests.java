@@ -456,7 +456,7 @@ final class FeederTests {
         fill(helper, REACHING.west(), Items.COBBLESTONE, 64);
         feeder(helper, REACHING, Direction.EAST);
         helper.getBlockEntity(REACHING, FeederBlockEntity.class).setArms(new FeederArms(1, 2, FeederArms.Turn.STRAIGHT));
-        Rotate.press(new ListeningPlayer(helper, REACHING.south(2)), helper.absolutePos(REACHING), true);
+        Rotate.press(new ListeningPlayer(helper, REACHING.south(2)), hit(helper, REACHING), true);
         var state = helper.getBlockState(REACHING);
         if (state.getValue(HorizontalDirectionalBlock.FACING) != Direction.EAST || state.getValue(FeederBlock.TAIL_TURN) != FeederBlock.TailTurn.LEFT) {
             helper.fail("Reverse Rotate left a feeder " + state + ", not facing east with its tail turned left", REACHING);
@@ -527,7 +527,7 @@ final class FeederTests {
         FeederReach.press(player, helper.absolutePos(FEEDER), FeederArms.Arm.HEAD);
         FeederReach.press(player, helper.absolutePos(FEEDER), FeederArms.Arm.TAIL);
         FeederReach.press(player, helper.absolutePos(FEEDER), FeederArms.Arm.TAIL);
-        Rotate.press(player, helper.absolutePos(FEEDER), true);
+        Rotate.press(player, hit(helper, FEEDER), true);
         var updates = BlockUpdateWatch.stop(helper.absolutePos(FEEDER));
         if (updates < 5) helper.fail("five changes sent " + updates + " block updates", FEEDER);
 

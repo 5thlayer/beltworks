@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Beltworks requires Groundworks 0.6.0 or later, below 0.7. With it, Rotate and Reverse Rotate turn a feeder or a belt end placed against the side of a block, where before the press did nothing you could see (5thlayer/groundworks#72).
+
 ## 0.5.1
 
 - A slope can climb over water, lava and other fluids: its wedge waterlogs in water and leaves the water behind when it goes, and takes the place of any other fluid. A slope refused for its wedge now just says so (5thlayer/beltworks#110).

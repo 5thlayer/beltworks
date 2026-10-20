@@ -409,7 +409,7 @@ final class BeltWedgeTests {
     }
 
     // Aimed at the spot itself, which is air, so the tile goes there whatever stands around it.
-    private static BlockHitResult hit(GameTestHelper helper, BlockPos at) {
+    static BlockHitResult hit(GameTestHelper helper, BlockPos at) {
         BlockPos absolute = helper.absolutePos(at);
         return new BlockHitResult(Vec3.atCenterOf(absolute), Direction.UP, absolute, false);
     }
