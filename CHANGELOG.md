@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.5.1
+
 - A slope can climb over water, lava and other fluids: its wedge waterlogs in water and leaves the water behind when it goes, and takes the place of any other fluid. A slope refused for its wedge now just says so (5thlayer/beltworks#110).
 - No change in game: Beltworks' game-test code and structures no longer ship in its jar (libworks ADR 0011), so a game no longer registers its test type `beltworks:code` nor carries its `gametest/platform` and `gametest/long_platform` structures. Beltworks is now built with libworks-plugin 0.4.0.
 
