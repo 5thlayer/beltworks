@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.5.3
+
 - Beltworks requires Groundworks 0.6.1 or later, below 0.7. With it, a stretch of belt tiles is refused whole where a claim mod protects any of its positions, and each tile it lays counts as placed by you.
 
 ## 0.5.2
