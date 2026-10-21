@@ -114,23 +114,27 @@ A block two wide whose halves are each a block of belt of its tier: each holds e
 _Avoid_: merger, tunnel, refund (for handing a tile back)
 
 **Feeder**:
-A block that moves items one at a time from the inventory or belt tile its **head** reaches to the one its **tail** reaches, so one belt can feed a row of machines. Either end may be a chest, a machine or a tile anywhere along a line, and the head also picks up items lying loose in the world. It moves whatever the far side accepts, with no knowledge of recipes. It has the loader's tiers and filter at a tenth of the loader's rate, and draws power only when the server config says loaders need power, and then for each item at every tier, tier 1 included, at a figure of its own that the config sets per tier (ADR 0014). A tail with nothing to drop into waits: a feeder never drops items loose. It is drawn as a flat slate base at belt height with a column at its centre holding up its two arms. A splitter half serves as an end as a tile does; a loader never does, holding nothing. It is no belt end: a line runs past the tile it takes from or drops on.
+A block that moves items one at a time from the inventory or belt tile its **head** reaches to the one its **tail** reaches, so one belt can feed a row of machines. Either end may be a chest, a machine or a tile anywhere along a line, and the head also picks up items lying loose in the world. It moves whatever the far side accepts, with no knowledge of recipes. It has the loader's tiers and filter, and moves as fast as its **arm** swings: at its tier's Factorio inserter's pace, carrying as many items a swing as that inserter's hand. Its arm grabs only what the tail accepts; if the tail changes while the arm swings, the arm waits over it, holding the item, and a feeder never drops items loose. It draws power only when the server config says loaders need power, and then pays a figure of its own per item as the hand grabs it, which the config sets per tier; a tier set to 0 is unpowered, as tier 1 is until a pack sets it (ADR 0014, ADR 0018). It is drawn as a flat slate base at belt height with a turning plate on top that carries its arm. A splitter half serves as an end as a tile does; a loader never does, holding nothing. It is no belt end: a line runs past the tile it takes from or drops on.
 _Avoid_: double loader, inserter, sweeper
 
 **Head**:
-The end of a feeder that takes, at the end of its **arm**, one to three blocks behind it. It is drawn as a sweeper's nozzle: an item it takes is seen until it is sucked in, and not after, while it runs through the arm to the column and on to the tail.
-_Avoid_: picker, input, pickup, sweeper (its look, not its name)
+The place a feeder takes from: the spot its **hand** reaches one to three blocks behind it.
+_Avoid_: picker, input, pickup, sweeper
 
 **Tail**:
-The end of a feeder that drops, at the end of its **arm**, one to three blocks in front of it or turned left or right like a tile, counted from the feeder.
+The place a feeder drops on: the spot its **hand** reaches one to three blocks in front of it, or turned left or right like a tile, counted from the feeder.
 _Avoid_: dropper, output, drop
 
 **Arm**:
-What a feeder is drawn reaching out with to its head or its tail, one arm each. An arm's reach, one to three blocks, is set on the held feeder before placing, with the **Placement Preview** drawing the arms at it, and changed on a placed feeder with the same keys. A feeder put in another's place by a **tier swap** keeps the old one's reach, and the held reach stays on the stack. An arm passes over whatever stands between, collides with nothing, and moves at the same rate at any reach.
+A feeder's one limb, articulated in three segments like a Factorio inserter's, the last being its **hand**. It swings from the head to the tail carrying an item and back empty, folding or stretching on the way to each end's reach, and waits over the head when idle. Each end's reach, one to three blocks, is set on the held feeder before placing, with the **Placement Preview** drawing the arm at rest at it, and changed on a placed feeder with the same keys. A feeder put in another's place by a **tier swap** keeps the old one's reaches, and the held reaches stay on the stack. The arm passes over whatever stands between and collides with nothing.
 _Avoid_: reach (the distance, not the thing), boom, extension, pipe
 
+**Hand**:
+The arm's last segment, which grabs an item at the head and lets it go at the tail.
+_Avoid_: gripper, claw, nozzle
+
 **Head Reach** / **Tail Reach**:
-The Mod's own two keys, each lengthening one **arm** a block at a time, from three back to one. On a held feeder they set the reach its next placement takes, which stays with the held stack until its last item is placed, and the **Placement Preview** redraws with it; on a placed feeder under the crosshair they change that arm in place.
+The Mod's own two keys, each lengthening the **arm**'s reach at one end a block at a time, from three back to one. On a held feeder they set the reach its next placement takes, which stays with the held stack until its last item is placed, and the **Placement Preview** redraws with it; on a placed feeder under the crosshair they change that end's reach in place.
 _Avoid_: reach key, extend, adjust
 
 **Input priority**:

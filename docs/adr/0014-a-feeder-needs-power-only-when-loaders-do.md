@@ -1,5 +1,7 @@
 # A feeder needs power only when loaders do
 
+_Amended by [5thlayer/beltworks#115](https://github.com/5thlayer/beltworks/issues/115): as a loader's, a feeder's `feederJoulesPerItem` may be 0 at any tier, which leaves that tier unpowered, with no energy face. Tier 1 starts at 0. A feeder pays as its hand grabs, and holds the swing until it can pay (ADR 0018)._
+
 The **feeder** was first priced apart from the loader power switch: it paid FE for every item at every tier, even with `loadersNeedPower` off, so that its flexibility had a cost (5thlayer/beltworks#66). But vanilla has no FE source, and the Mod ships none (ADR 0002). With only the Mod installed, a feeder could never move anything, in survival or in creative, which broke ADR 0002's promise that the Mod is playable on its own. That promise is also why loaders are free by default.
 
 So a feeder follows the same switch as loaders. With `loadersNeedPower` off, the default, it moves items for free at every tier. With it on, it pays its own per-tier figure, `feederJoulesPerItem`, for each item at every tier, tier 1 included. Only then does it expose an energy face, as a powered loader does. A pack that turns power on, like the Pack, sees no change.
