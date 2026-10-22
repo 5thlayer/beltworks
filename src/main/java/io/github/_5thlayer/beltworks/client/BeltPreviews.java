@@ -44,6 +44,7 @@ import io.github._5thlayer.beltworks.client.renderers.FeederRenderer;
 import io.github._5thlayer.beltworks.client.renderers.SupportRenderer;
 import io.github._5thlayer.beltworks.model.ArmPose;
 import io.github._5thlayer.beltworks.model.ArmSwing;
+import io.github._5thlayer.beltworks.model.FeederArms;
 import io.github._5thlayer.beltworks.model.LineScan;
 import io.github._5thlayer.beltworks.model.TileShape;
 import io.github._5thlayer.beltworks.model.Support;
@@ -95,10 +96,9 @@ final class BeltPreviews {
             arms = arms.withTailTurn(placed.state().getValue(FeederBlock.TAIL_TURN).turn());
             var facing = placed.state().getValue(HorizontalDirectionalBlock.FACING);
             var travel = new LineScan.Travel(facing.getStepX(), facing.getStepZ());
-            var spot = new LineScan.Spot(0, 0, 0);
             var rest = ArmPose.of(arms, travel, feeder.tier().feederSwing(), ArmSwing.Phase.AT_HEAD, 0,
-              FeederRenderer.top(event.getLevel(), placed.pos(), arms.head(spot, travel)),
-              FeederRenderer.top(event.getLevel(), placed.pos(), arms.tail(spot, travel)));
+              FeederRenderer.top(event.getLevel(), placed.pos(), arms, facing, FeederArms.Arm.HEAD),
+              FeederRenderer.top(event.getLevel(), placed.pos(), arms, facing, FeederArms.Arm.TAIL));
             var beams = FeederRenderer.beams(rest, at -> LightCoordsUtil.FULL_BRIGHT);
             var pos = placed.pos();
             poseStack.pushPose();

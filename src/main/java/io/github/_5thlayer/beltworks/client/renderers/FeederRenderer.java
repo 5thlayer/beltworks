@@ -24,8 +24,8 @@ import net.minecraft.core.Direction;
 import net.minecraft.data.AtlasIds;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -59,7 +59,7 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
     private static final double HAND_LENGTH = 4 / 16d;
     private static final double HAND_HALF_WIDTH = 1.5 / 16;
     private static final double HELD_BELOW_HAND = 0.12;
-    // Two equal segments reach three blocks out at the wrist's height, and fold up nearer in.
+    // Two equal segments reach three blocks out with the wrist over a full block, and fold up nearer in.
     private static final double SEGMENT_LENGTH = 1.6;
     private static final double SEGMENT_HALF_WIDTH = 1 / 16d;
     // The highest the elbow rises, folded over a spot a block away, as the drawn bounds allow.
@@ -107,9 +107,8 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
         state.tier = feeder.tier();
         state.facing = blockState.getValue(HorizontalDirectionalBlock.FACING);
         var arms = entity.arms();
-        var feederSpot = new LineScan.Spot(0, 0, 0);
-        var travel = new LineScan.Travel(state.facing.getStepX(), state.facing.getStepZ());
-        var pose = entity.armPose(partialTicks, top(level, pos, arms.head(feederSpot, travel)), top(level, pos, arms.tail(feederSpot, travel)));
+        var pose = entity.armPose(partialTicks, top(level, pos, arms, state.facing, FeederArms.Arm.HEAD),
+          top(level, pos, arms, state.facing, FeederArms.Arm.TAIL));
         state.beams = beams(pose, at -> LevelRenderer.getLightCoords(level, pos.offset(at)));
 
         var hand = entity.hand();
@@ -146,11 +145,15 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
     }
 
     /**
-     * How high the block an end of the feeder at {@code feeder} reaches stands, as it collides: a
-     * belt's surface, a chest's lid, the ground where nothing stands, and no more than a block.
+     * How high the block {@code arm} of the feeder at {@code feeder}, facing {@code facing}, reaches
+     * stands, as it collides: a belt's surface, a chest's lid, the ground where nothing stands, and
+     * no more than a block.
      */
-    public static double top(BlockGetter level, BlockPos feeder, FeederArms.Target end) {
-        var at = feeder.offset(end.spot().x(), end.spot().y(), end.spot().z());
+    public static double top(BlockGetter level, BlockPos feeder, FeederArms arms, Direction facing, FeederArms.Arm arm) {
+        var spot = new LineScan.Spot(0, 0, 0);
+        var travel = new LineScan.Travel(facing.getStepX(), facing.getStepZ());
+        var end = (arm == FeederArms.Arm.HEAD ? arms.head(spot, travel) : arms.tail(spot, travel)).spot();
+        var at = feeder.offset(end.x(), end.y(), end.z());
         var shape = level.getBlockState(at).getCollisionShape(level, at);
         return shape.isEmpty() ? 0 : Math.clamp(shape.max(Direction.Axis.Y), 0, 1);
     }
