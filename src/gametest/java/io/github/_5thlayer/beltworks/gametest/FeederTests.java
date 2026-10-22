@@ -139,7 +139,7 @@ final class FeederTests {
         tests.test("a_held_feeders_reach_is_what_each_placement_takes_until_its_last_item", 20,
                 FeederTests::heldReachPlaces);
         tests.test("a_feeders_filter_and_arms_reach_the_client_in_its_update_tag", 20, FeederTests::updateTagCarriesFilterAndArms);
-        tests.test("an_arm_payload_carries_an_item_whose_id_is_wider_than_a_byte", 20, FeederTests::armPayloadArrivesWhole);
+        tests.test("feeder_arm_payload_carries_an_item_whose_id_is_wider_than_a_byte", 20, FeederTests::armPayloadArrivesWhole);
         loadersUnpowered.test("feeder_arm_sends_a_message_only_as_a_half_swing_starts", WINDOW_TICKS + 20, FeederTests::sendsOnlyAsASwingStarts);
         loadersUnpowered.test("feeder_arm_with_nothing_to_grab_sends_nothing", 100, FeederTests::idleSendsNothing);
         loadersUnpowered.test("feeder_arm_a_client_swings_on_its_own_from_the_update_tag", 120, FeederTests::clientSwingsOnItsOwn);
@@ -652,12 +652,11 @@ final class FeederTests {
         ArmSwing.Phase[] last = {ArmSwing.Phase.AT_HEAD};
         helper.onEachTick(() -> {
             var phase = helper.getBlockEntity(FEEDER, FeederBlockEntity.class).armPhase();
-            if (phase != last[0] && (phase == ArmSwing.Phase.TO_TAIL || phase == ArmSwing.Phase.TO_HEAD)) starts[0]++;
+            if (phase != last[0] && phase.swinging()) starts[0]++;
             last[0] = phase;
         });
         helper.startSequence().thenIdle(WINDOW_TICKS).thenExecute(() -> {
-            var sent = FeederArmWatch.count(feeder);
-            FeederArmWatch.stop(feeder);
+            var sent = FeederArmWatch.stop(feeder);
             if (starts[0] < 10) helper.fail("the arm started only " + starts[0] + " half-swings in " + WINDOW_TICKS + " ticks", FEEDER);
             if (sent != starts[0]) helper.fail(starts[0] + " half-swings sent " + sent + " messages", FEEDER);
         }).thenSucceed();
@@ -669,8 +668,7 @@ final class FeederTests {
         var feeder = helper.absolutePos(FEEDER);
         FeederArmWatch.watch(feeder);
         helper.startSequence().thenIdle(80).thenExecute(() -> {
-            var sent = FeederArmWatch.count(feeder);
-            FeederArmWatch.stop(feeder);
+            var sent = FeederArmWatch.stop(feeder);
             if (sent != 0) helper.fail("an arm with nothing to grab sent " + sent + " messages", FEEDER);
         }).thenSucceed();
     }

@@ -15,18 +15,8 @@ public record ArmPose(double x, double z, double reach) {
     public static ArmPose of(FeederArms arms, LineScan.Travel facing, InserterSwing inserter, ArmSwing.Phase phase, double elapsed) {
         var turning = arms.revolutions() / inserter.rotationSpeed();
         var stretching = arms.stretch() / inserter.extensionSpeed();
-        var turned = switch (phase) {
-            case AT_HEAD -> 0;
-            case TO_TAIL -> done(elapsed, turning);
-            case AT_TAIL -> 1;
-            case TO_HEAD -> 1 - done(elapsed, turning);
-        };
-        var stretched = switch (phase) {
-            case AT_HEAD -> 0;
-            case TO_TAIL -> done(elapsed, stretching);
-            case AT_TAIL -> 1;
-            case TO_HEAD -> 1 - done(elapsed, stretching);
-        };
+        var turned = towardTail(phase, elapsed, turning);
+        var stretched = towardTail(phase, elapsed, stretching);
         var head = TileShape.back(facing);
         // Clockwise seen from above, Minecraft's z growing southward: a left turn is a quarter clockwise from the head.
         var swing = switch (arms.tailTurn()) {
@@ -40,8 +30,15 @@ public record ArmPose(double x, double z, double reach) {
           arms.headReach() + (arms.tailReach() - arms.headReach()) * stretched);
     }
 
-    // The share of a motion lasting {@code ticks} done after {@code elapsed}; one that takes no time is done.
-    private static double done(double elapsed, double ticks) {
-        return ticks <= 0 ? 1 : Math.min(1, Math.max(0, elapsed / ticks));
+    // How far towards the tail a motion lasting {@code ticks} each way is, {@code elapsed} into {@code phase}.
+    private static double towardTail(ArmSwing.Phase phase, double elapsed, double ticks) {
+        // One that takes no time is done at once.
+        var done = ticks <= 0 ? 1 : Math.min(1, Math.max(0, elapsed / ticks));
+        return switch (phase) {
+            case AT_HEAD -> 0;
+            case TO_TAIL -> done;
+            case AT_TAIL -> 1;
+            case TO_HEAD -> 1 - done;
+        };
     }
 }

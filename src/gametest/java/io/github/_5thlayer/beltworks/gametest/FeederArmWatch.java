@@ -20,14 +20,10 @@ public final class FeederArmWatch {
         COUNTS.put(pos.immutable(), 0);
     }
 
-    /** The messages sent for the position since {@link #watch}, still watching it. */
-    static int count(BlockPos pos) {
-        Integer count = COUNTS.get(pos);
+    /** Stops watching the position, returning the messages sent for it since {@link #watch}. */
+    static int stop(BlockPos pos) {
+        Integer count = COUNTS.remove(pos);
         return count == null ? 0 : count;
-    }
-
-    static void stop(BlockPos pos) {
-        COUNTS.remove(pos);
     }
 
     /** Hears every feeder's arm sent, from {@link BeltGameTests#register} on. */

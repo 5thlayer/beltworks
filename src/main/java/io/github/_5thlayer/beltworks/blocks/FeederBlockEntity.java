@@ -30,13 +30,13 @@ import net.neoforged.neoforge.transfer.transaction.Transaction;
 import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.beltworks.BeltworksConfig;
 import io.github._5thlayer.beltworks.BlockEntitiesContent;
+import io.github._5thlayer.beltworks.FeederArmsSent;
+import io.github._5thlayer.beltworks.model.ArmPose;
 import io.github._5thlayer.beltworks.model.ArmSwing;
 import io.github._5thlayer.beltworks.model.FeederArms;
 import io.github._5thlayer.beltworks.model.InserterSwing;
 import io.github._5thlayer.beltworks.model.LineScan;
 import io.github._5thlayer.beltworks.model.LoaderEnergy;
-import io.github._5thlayer.beltworks.FeederArmsSent;
-import io.github._5thlayer.beltworks.model.ArmPose;
 import io.github._5thlayer.beltworks.neoforge.FeederArmPayload;
 
 import java.util.List;
@@ -112,8 +112,7 @@ public class FeederBlockEntity extends BlockEntity {
     /** Where the hand is {@code partialTicks} into this tick, the arm swinging between ticks. */
     public ArmPose armPose(float partialTicks) {
         var facing = getBlockState().getValue(HorizontalDirectionalBlock.FACING);
-        var swinging = swing.phase() == ArmSwing.Phase.TO_TAIL || swing.phase() == ArmSwing.Phase.TO_HEAD;
-        var elapsed = swing.elapsed() + (swinging ? partialTicks * InserterSwing.FACTORIO_TICKS_PER_TICK : 0);
+        var elapsed = swing.elapsed() + (swing.phase().swinging() ? partialTicks * InserterSwing.FACTORIO_TICKS_PER_TICK : 0);
         return ArmPose.of(arms(), new LineScan.Travel(facing.getStepX(), facing.getStepZ()), inserter, swing.phase(), elapsed);
     }
 

@@ -32,9 +32,9 @@ import org.jspecify.annotations.Nullable;
 import io.github._5thlayer.beltworks.Beltworks;
 import io.github._5thlayer.beltworks.blocks.FeederBlock;
 import io.github._5thlayer.beltworks.blocks.FeederBlockEntity;
+import io.github._5thlayer.beltworks.model.ArmPose;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.FeederArms;
-import io.github._5thlayer.beltworks.model.ArmPose;
 
 import java.util.List;
 import java.util.function.Function;
@@ -113,7 +113,7 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
             Minecraft.getInstance().getItemModelResolver().updateForTopItem(itemState, hand, ItemDisplayContext.FIXED, level, null, 0);
             var wrist = wrist(pose);
             state.held = new HeldItem(wrist.add(0, -HAND_LENGTH - HELD_BELOW_HAND, 0), (float) -Math.toDegrees(Math.atan2(pose.x(), pose.z())),
-              hand.getItem() instanceof BlockItem ? 0.4f : 0.35f, LevelRenderer.getLightCoords(level, pos.offset(over(wrist))), itemState);
+              hand.getItem() instanceof BlockItem ? 0.4f : 0.35f, LevelRenderer.getLightCoords(level, pos.offset(BlockPos.containing(wrist))), itemState);
         }
 
         if (!entity.filteredItem().isEmpty()) {
@@ -132,7 +132,7 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
         var elbow = elbow(shoulder, wrist, pose);
         var ownLight = light.apply(BlockPos.ZERO);
         var aboveLight = light.apply(BlockPos.ZERO.above());
-        var handLight = light.apply(over(wrist));
+        var handLight = light.apply(BlockPos.containing(wrist));
         return List.of(
           new Beam(new Vec3(0.5, BASE_TOP, 0.5), shoulder, PLATE_HALF_WIDTH, side, false, ownLight),
           new Beam(shoulder, elbow, SEGMENT_HALF_WIDTH, side, true, aboveLight),
@@ -143,11 +143,6 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
     // Over the spot the arm reaches, at the wrist's height.
     private static Vec3 wrist(ArmPose pose) {
         return new Vec3(0.5 + pose.x() * pose.reach(), WRIST_HEIGHT, 0.5 + pose.z() * pose.reach());
-    }
-
-    // The block the wrist is in, counted from the feeder.
-    private static BlockPos over(Vec3 wrist) {
-        return BlockPos.containing(wrist);
     }
 
     // Where two equal segments from the shoulder to the wrist meet, above the line between them.

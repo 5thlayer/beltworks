@@ -15,7 +15,12 @@ public final class ArmSwing {
         AT_HEAD,
         TO_TAIL,
         AT_TAIL,
-        TO_HEAD
+        TO_HEAD;
+
+        /** Whether the arm is between the ends. */
+        public boolean swinging() {
+            return this == TO_TAIL || this == TO_HEAD;
+        }
     }
 
     private Phase phase = Phase.AT_HEAD;

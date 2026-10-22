@@ -77,3 +77,17 @@ With nothing but Beltworks installed. See **Stretch** in `GLOSSARY.md`.
 - Sneak-click an anchor, then aim to the side of it: the preview draws a corner at the anchor, as the click lays it.
 - From a start one block up, press `B` and aim at the column where the foot lands: the preview draws a top and a foot ending there, and the click lays them.
 - Sneak-click a start on the last tile of a line, looking across it, and stretch away: the tile turns into the stretch, and items on the line run on into it. Start on a tile in the middle of the line instead: the preview draws red and the click lays nothing.
+
+## A feeder's arm (#118, ADR 0018)
+
+A feeder draws one arm of three segments on a plate turning on its base. See **Arm** and **Hand** in `GLOSSARY.md`.
+
+- Set a feeder chest to chest at each tier: the arm swings from head to tail with the item in its hand, then back empty, and a tier 4 feeder visibly swings faster than tier 1.
+- Try each reach, 1 to 3 at each end, and a head and tail of different reaches: the hand hangs over the centre of the block each end reaches, and the arm folds or stretches on the way. At reach 1 the elbow rises high; check it reads as a folded arm and not as leaning away.
+- Turn the tail left and right with Rotate: the arm swings a quarter turn the short way. A straight swing passes over the feeder's left.
+- The held stack shows below the hand from the grab to the drop, onto a chest, a tile and a splitter half.
+- The filter shows on both sides of the base, and the block's outline and collision are the base and plate only: walk through the arm.
+- Hold a feeder: the Placement Preview draws the arm at rest over the head at the held reaches, and redraws as Head Reach or Tail Reach is pressed. A Fast Replace preview draws it at the old feeder's reaches.
+- Stand among many feeders swinging: the frame rate holds, and a feeder whose arm is in sight but whose block is off screen still draws it.
+- Join a world mid-swing or walk into range: the arm picks up where it is, holding what it holds.
+- The feeder item in the inventory shows the base, plate and folded arm.
