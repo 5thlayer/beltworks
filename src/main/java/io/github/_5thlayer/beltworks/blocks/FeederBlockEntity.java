@@ -227,19 +227,21 @@ public class FeederBlockEntity extends BlockEntity {
     public void preRemoveSideEffects(BlockPos pos, BlockState state) {
         super.preRemoveSideEffects(pos, state);
         if (level == null) return;
+        // The parcel's spill may run after this removal, so it drops the stack held now.
+        var held = hand;
         if (TierSwap.swaps(state, level.getBlockState(pos))) {
-            TierSwap.parkSaved(this, pos, () -> dropHand(hand));
+            TierSwap.parkSaved(this, pos, () -> dropHand(held));
         } else {
-            dropHand(hand);
+            dropHand(held);
         }
         hand = ItemStack.EMPTY;
     }
 
-    // What the hand held a swap brings past the new tier's hand drops beside it.
     @Override
     public void setLevel(Level level) {
         super.setLevel(level);
         swappedIn = TierSwap.take(this);
+        // What a swap brings past the new tier's hand drops beside it.
         if (swappedIn && hand.getCount() > inserter.handSize()) {
             dropHand(hand.split(hand.getCount() - inserter.handSize()));
             setChanged();

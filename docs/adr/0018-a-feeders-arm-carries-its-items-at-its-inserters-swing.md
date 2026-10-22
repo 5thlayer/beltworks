@@ -13,4 +13,4 @@ A feeder's rate is its swing, not a share of its loader. Each half-swing follows
 ## Consequences
 
 - Feeders move fewer items than before: roughly 0.6, 0.83, 2.3 and 4.6 a second by tier, chest to chest, down from 1.5, 3, 4.5 and 6.
-- A broken feeder can drop what its hand held, and a save holds it.
+- A broken feeder drops what its hand held beside itself, and a save holds it.
