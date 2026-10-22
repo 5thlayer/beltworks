@@ -37,23 +37,23 @@ public final class BeltworksConfig {
     }
 
     private static Map<BeltTier, ModConfigSpec.LongValue> feederJoulesPerItem() {
-        return perTier("feederJoulesPerItem", "What a feeder pays in joules for each item it moves, by tier. A feeder pays only when loadersNeedPower is on, and then at every tier.",
-          BeltTier::feederJoulesPerItem, 1);
+        return perTier("feederJoulesPerItem", "What a feeder pays in joules for each item its hand grabs, by tier, when loadersNeedPower is on. 0 runs that tier unpowered, with no energy face.",
+          BeltTier::feederJoulesPerItem);
     }
 
     private static Map<BeltTier, ModConfigSpec.LongValue> loaderJoulesPerItem() {
         return perTier("loaderJoulesPerItem", "What a loader pays in joules for each item it moves, by tier, when loadersNeedPower is on. 0 runs that tier unpowered, with no energy face.",
-          BeltTier::loaderJoulesPerItem, 0);
+          BeltTier::loaderJoulesPerItem);
     }
 
     private static Map<BeltTier, ModConfigSpec.LongValue> perTier(String section, String comment,
-                                                                  ToLongFunction<BeltTier> fallback, long least) {
+                                                                  ToLongFunction<BeltTier> fallback) {
         var values = new EnumMap<BeltTier, ModConfigSpec.LongValue>(BeltTier.class);
         BUILDER.comment(comment).translation("beltworks.configuration." + section).push(section);
         for (var tier : BeltTier.values()) {
             var name = tier.name().toLowerCase(Locale.ROOT);
             values.put(tier, BUILDER.translation("beltworks.configuration." + section + "." + name)
-              .defineInRange(name, fallback.applyAsLong(tier), least, LoaderEnergy.Setting.MAX_JOULES_PER_ITEM));
+              .defineInRange(name, fallback.applyAsLong(tier), 0, LoaderEnergy.Setting.MAX_JOULES_PER_ITEM));
         }
         BUILDER.pop();
         return values;

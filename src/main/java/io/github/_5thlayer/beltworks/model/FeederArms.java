@@ -73,6 +73,16 @@ public record FeederArms(int headReach, int tailReach, Turn tailTurn) {
         return new Target(feeder.step(pointing, tailReach), pointing);
     }
 
+    /** The share of a full turn the arm swings through from head to tail: half, or a quarter to a turned tail. */
+    public double revolutions() {
+        return tailTurn == Turn.STRAIGHT ? 0.5 : 0.25;
+    }
+
+    /** How many blocks the arm stretches or folds by from head to tail. */
+    public int stretch() {
+        return Math.abs(tailReach - headReach);
+    }
+
     public int reach(Arm arm) {
         return arm == Arm.HEAD ? headReach : tailReach;
     }

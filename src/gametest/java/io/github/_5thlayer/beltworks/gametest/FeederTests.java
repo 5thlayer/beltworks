@@ -36,15 +36,17 @@ import io.github._5thlayer.beltworks.blocks.SplitterBlock;
 import io.github._5thlayer.beltworks.model.BeltContents;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.FeederArms;
+import io.github._5thlayer.beltworks.model.InserterSwing;
 import io.github._5thlayer.beltworks.neoforge.FeederSuckedPayload;
 import io.github._5thlayer.groundworks.Rotate;
 
 import java.util.List;
 
 /**
- * A feeder of every tier moves one item at a time from the chest its head reaches to the one its
- * tail reaches, at a tenth of its tier's loader, for free while loaders need no power and paying FE
- * for each item at every tier while they do, and takes only what its filter matches. Either
+ * A feeder of every tier moves items from the chest its head reaches to the one its tail reaches, in
+ * the hand of an arm swinging at its tier's inserter's pace (ADR 0018), for free while loaders need no
+ * power and paying FE for each item it grabs while they do, at every tier set above 0, and takes only
+ * what its filter matches. Either
  * end may be a level tile anywhere along a line, straight or corner, or a splitter half, and never a
  * slope or a loader. Tiles are placed downstream first, as in {@link BeltCornerTests}.
  */
@@ -72,6 +74,8 @@ final class FeederTests {
     private static final int SEEN_WAITING_TICKS = 100;
     private static final int DRAIN_TICKS = 400;
     private static final int DROPPED = 16;
+    // Long enough for a tier-1 arm, at 0.6 items a second, to carry DROPPED items and a line to run them off.
+    private static final int CARRY_TICKS = 700;
 
     // A splitter across the row's end, halves facing east.
     private static final BlockPos LEFT = ROW_FIRST.east(3);
@@ -100,24 +104,31 @@ final class FeederTests {
         var loadersUnpowered = tests.withLoaderPower(false);
         var loadersPowered = tests.withLoaderPower(true);
         for (var tier : BeltTier.values()) {
-            loadersUnpowered.test("unfed_tier_" + tier.number() + "_feeder_moves_at_a_tenth_of_its_loaders_rate_when_loaders_need_no_power",
+            loadersUnpowered.test("feeder_arm_tier_" + tier.number() + "_moves_chest_to_chest_at_its_swing_rate",
                     WARMUP_TICKS + WINDOW_TICKS + 20, helper -> movesAtRate(helper, tier, false));
-            loadersPowered.test("fed_tier_" + tier.number() + "_feeder_moves_chest_to_chest_at_a_tenth_of_its_loaders_rate",
+            // Tier 1 starts unpowered even when loaders need power.
+            if (tier == BeltTier.BELT) continue;
+            loadersPowered.test("feeder_arm_fed_tier_" + tier.number() + "_moves_chest_to_chest_at_its_swing_rate",
                     WARMUP_TICKS + WINDOW_TICKS + 20, helper -> movesAtRate(helper, tier, true));
             loadersPowered.test("fed_tier_" + tier.number() + "_feeder_draws_its_own_fe_per_item",
                     WARMUP_TICKS + WINDOW_TICKS + 20, helper -> drawsPerItem(helper, tier));
             loadersPowered.test("unfed_tier_" + tier.number() + "_feeder_moves_nothing_when_loaders_need_power", 80,
                     helper -> stallsUnfed(helper, tier));
         }
+        loadersUnpowered.test("feeder_arm_tier_4_hand_carries_2_when_2_are_there", 60, helper -> handCarries(helper, 2));
+        loadersUnpowered.test("feeder_arm_tier_4_hand_carries_1_when_only_1_is_there", 60, helper -> handCarries(helper, 1));
+        loadersPowered.test("feeder_arm_tier_1_moves_with_loader_power_on_and_no_fe", 80, FeederTests::tierOneMovesFree);
+        tests.withLoadersRepriced().test("feeder_arm_tier_1_set_above_0_waits_for_fe", 140, FeederTests::tierOneWaitsForFe);
+        tests.withLoadersRepriced().test("feeder_arm_tier_2_set_to_0_moves_with_no_fe", 80, FeederTests::tierTwoSetToZeroMovesFree);
         loadersUnpowered.test("a_feeders_filter_limits_what_it_moves", WARMUP_TICKS + WINDOW_TICKS + 20,
                 FeederTests::filterLimitsWhatMoves);
         loadersUnpowered.test("feeder_takes_from_a_mid_line_tile_and_the_line_runs_on", DRAIN_TICKS + 20,
                 FeederTests::takesMidLine);
         loadersUnpowered.test("feeder_drops_at_a_corner_tiles_midpoint", 120, FeederTests::dropsAtTheMidpoint);
         loadersUnpowered.test("feeder_waits_to_drop_while_the_tile_has_no_gap",
-                ROW_FILL_TICKS + SEEN_WAITING_TICKS + DRAIN_TICKS + 20, FeederTests::waitsForAGap);
-        loadersUnpowered.test("feeder_drops_onto_a_splitter_half", DRAIN_TICKS + 20, FeederTests::dropsOntoAHalf);
-        loadersUnpowered.test("feeder_takes_from_a_splitter_half", DRAIN_TICKS + 20, FeederTests::takesFromAHalf);
+                ROW_FILL_TICKS + SEEN_WAITING_TICKS + CARRY_TICKS + 20, FeederTests::waitsForAGap);
+        loadersUnpowered.test("feeder_drops_onto_a_splitter_half", CARRY_TICKS + 20, FeederTests::dropsOntoAHalf);
+        loadersUnpowered.test("feeder_takes_from_a_splitter_half", CARRY_TICKS + 20, FeederTests::takesFromAHalf);
         loadersUnpowered.test("feeder_with_a_slope_at_an_end_moves_nothing", SLOPE_TICKS + 20, FeederTests::slopeIsNoEnd);
         loadersUnpowered.test("feeder_with_a_loader_at_an_end_moves_nothing", 100, FeederTests::loaderIsNoEnd);
         loadersUnpowered.test("feeder_head_takes_a_dropped_item_and_delivers_it", 80, FeederTests::takesLoose);
@@ -130,14 +141,14 @@ final class FeederTests {
         tests.test("a_sucked_payload_carries_an_item_whose_id_is_wider_than_a_byte", 20, FeederTests::suckedItemArrivesWhole);
         loadersUnpowered.test("two_feeders_on_one_tile_both_take", WARMUP_TICKS + WINDOW_TICKS + 20,
                 FeederTests::twoFeedersShareATile);
-        loadersUnpowered.test("feeder_reaching_3_over_stone_moves_at_1_5_items_per_second",
+        loadersUnpowered.test("feeder_reaching_3_each_way_over_stone_moves_at_the_rate_of_reach_1",
                 WARMUP_TICKS + WINDOW_TICKS + 20, FeederTests::reachesThree);
         loadersUnpowered.test("feeder_with_a_left_turned_tail_drops_to_its_left", 120, FeederTests::turnsItsTail);
     }
 
-    // A window passes exactly its rate's items: every tier's rate is a whole number over these ten seconds.
+    // A window passes its swing's items, give or take the hand the window's edges cut through.
     private static void movesAtRate(GameTestHelper helper, BeltTier tier, boolean fed) {
-        int expected = (int) Math.round(tier.feederItemsPerSecond() * WINDOW_TICKS / 20);
+        double expected = swungIn(WINDOW_TICKS, tier, FeederArms.ADJACENT);
         if (fed) LoaderPower.feed(helper);
         place(helper, tier);
         int[] before = new int[1];
@@ -147,12 +158,74 @@ final class FeederTests {
                 .thenIdle(WINDOW_TICKS)
                 .thenExecute(() -> {
                     int delivered = count(chest(helper, TAIL)) - before[0];
-                    if (delivered != expected) {
+                    if (Math.abs(delivered - expected) > tier.feederSwing().handSize()) {
                         helper.fail("a " + (fed ? "fed" : "unfed") + " tier-" + tier.number() + " feeder delivered " + delivered + " items in "
                                 + WINDOW_TICKS + " ticks, expected " + expected, TAIL);
                     }
                 })
                 .thenSucceed();
+    }
+
+    // What the arm has grabbed so far: delivered, or still in its hand, which is paid for as it grabs.
+    private static int grabbed(GameTestHelper helper) {
+        return count(chest(helper, TAIL)) + helper.getBlockEntity(FEEDER, FeederBlockEntity.class).hand().getCount();
+    }
+
+    /** The items an arm of the tier reaching so swings chest to chest in {@code ticks}. */
+    private static double swungIn(int ticks, BeltTier tier, FeederArms arms) {
+        var swing = tier.feederSwing();
+        double cycleTicks = 2.0 * swing.halfSwingTicks(arms) / InserterSwing.FACTORIO_TICKS_PER_TICK;
+        return swing.handSize() * ticks / cycleTicks;
+    }
+
+    // A tier-4 hand grabs as many as there are, up to two, and swings with what it has.
+    private static void handCarries(GameTestHelper helper, int items) {
+        place(helper, BeltTier.TURBO);
+        var head = chest(helper, HEAD);
+        head.clearContent();
+        head.setItem(0, new ItemStack(Items.COBBLESTONE, items));
+        int[] most = new int[1];
+        helper.onEachTick(() -> most[0] = Math.max(most[0], helper.getBlockEntity(FEEDER, FeederBlockEntity.class).hand().getCount()));
+        helper.startSequence().thenIdle(40).thenExecute(() -> {
+            if (most[0] != items) helper.fail("with " + items + " in the chest the hand carried " + most[0], FEEDER);
+            if (count(chest(helper, TAIL)) != items) {
+                helper.fail("the arm delivered " + count(chest(helper, TAIL)) + " of " + items, TAIL);
+            }
+        }).thenSucceed();
+    }
+
+    // Tier 1's feeder pays nothing by default, so it moves with loader power on and has no face to feed.
+    private static void tierOneMovesFree(GameTestHelper helper) {
+        place(helper, BeltTier.BELT);
+        helper.startSequence().thenIdle(60).thenExecute(() -> {
+            if (face(helper) != null) helper.fail("a tier-1 feeder paying nothing has an energy face", FEEDER);
+            if (count(chest(helper, TAIL)) == 0) helper.fail("a tier-1 feeder with no FE moved nothing", TAIL);
+        }).thenSucceed();
+    }
+
+    // Set to pay, tier 1's feeder holds its grab until it is fed, then moves.
+    private static void tierOneWaitsForFe(GameTestHelper helper) {
+        place(helper, BeltTier.BELT);
+        helper.startSequence()
+                .thenIdle(60)
+                .thenExecute(() -> {
+                    if (face(helper) == null) helper.fail("a tier-1 feeder set to pay has no energy face", FEEDER);
+                    if (grabbed(helper) != 0) helper.fail("an unfed tier-1 feeder set to pay grabbed " + grabbed(helper), FEEDER);
+                    LoaderPower.feed(helper);
+                })
+                .thenIdle(60)
+                .thenExecute(() -> {
+                    if (count(chest(helper, TAIL)) == 0) helper.fail("a fed tier-1 feeder set to pay moved nothing", TAIL);
+                })
+                .thenSucceed();
+    }
+
+    private static void tierTwoSetToZeroMovesFree(GameTestHelper helper) {
+        place(helper, BeltTier.IMPROVED);
+        helper.startSequence().thenIdle(60).thenExecute(() -> {
+            if (face(helper) != null) helper.fail("a tier-2 feeder set to 0 has an energy face", FEEDER);
+            if (count(chest(helper, TAIL)) == 0) helper.fail("a tier-2 feeder set to 0 moved nothing with no FE", TAIL);
+        }).thenSucceed();
     }
 
     private static void stallsUnfed(GameTestHelper helper, BeltTier tier) {
@@ -177,11 +250,11 @@ final class FeederTests {
                     helper.getBlockEntity(FEEDER, FeederBlockEntity.class)
                             .getEnergy().insertFe(Long.MAX_VALUE);
                     before[0] = face(helper).getAmountAsLong();
-                    before[1] = count(chest(helper, TAIL));
+                    before[1] = grabbed(helper);
                 })
                 .thenIdle(WINDOW_TICKS)
                 .thenExecute(() -> {
-                    long items = count(chest(helper, TAIL)) - before[1];
+                    long items = grabbed(helper) - before[1];
                     if (items == 0) helper.fail("the feeder moved nothing in the window, so this proves nothing", FEEDER);
                     long drawn = before[0] - face(helper).getAmountAsLong();
                     long joules = items * tier.feederJoulesPerItem();
@@ -266,7 +339,7 @@ final class FeederTests {
                     helper.setBlock(ROW_TARGET, Blocks.CHEST);
                     helper.setBlock(ROW_TO, BeltTileTests.loader(BeltTier.BELT, Direction.WEST));
                 })
-                .thenIdle(DRAIN_TICKS)
+                .thenIdle(CARRY_TICKS)
                 .thenExecute(() -> {
                     int iron = count(chest(helper, ROW_TARGET), Items.IRON_INGOT);
                     int cobblestone = count(chest(helper, ROW_TARGET), Items.COBBLESTONE);
@@ -289,7 +362,7 @@ final class FeederTests {
         feeder(helper, LEFT.north(), Direction.SOUTH);
         helper.setBlock(LEFT.north(2), Blocks.CHEST);
         fill(helper, LEFT.north(2), Items.IRON_INGOT, DROPPED);
-        helper.startSequence().thenIdle(DRAIN_TICKS).thenExecute(() -> {
+        helper.startSequence().thenIdle(CARRY_TICKS).thenExecute(() -> {
             int delivered = count(chest(helper, ROW_TARGET));
             int right = helper.getBlockEntity(RIGHT, BeltEndBlockEntity.class).getHalf().size();
             if (delivered != DROPPED || right != 0) {
@@ -309,7 +382,7 @@ final class FeederTests {
         feeder(helper, LEFT.north(), Direction.NORTH);
         helper.setBlock(LEFT.north(2), Blocks.CHEST);
         fill(helper, ROW_SOURCE, Items.COBBLESTONE, DROPPED);
-        helper.startSequence().thenIdle(DRAIN_TICKS).thenExecute(() -> {
+        helper.startSequence().thenIdle(CARRY_TICKS).thenExecute(() -> {
             int taken = count(chest(helper, LEFT.north(2)));
             // The backed-up right half keeps what the splitter sent it; everything else is the feeder's.
             int right = helper.getBlockEntity(RIGHT, BeltEndBlockEntity.class).getHalf().size();
@@ -436,9 +509,9 @@ final class FeederTests {
                 .thenExecute(() -> before[0] = count(chest(helper, FAR_TAIL)))
                 .thenIdle(WINDOW_TICKS)
                 .thenExecute(() -> {
-                    int expected = (int) Math.round(BeltTier.BELT.feederItemsPerSecond() * WINDOW_TICKS / 20);
+                    double expected = swungIn(WINDOW_TICKS, BeltTier.BELT, FeederArms.ADJACENT);
                     int delivered = count(chest(helper, FAR_TAIL)) - before[0];
-                    if (delivered != expected || dropped(helper) != 0) {
+                    if (Math.abs(delivered - expected) > BeltTier.BELT.feederSwing().handSize() || dropped(helper) != 0) {
                         helper.fail("a feeder reaching 3 delivered " + delivered + " items in " + WINDOW_TICKS
                                 + " ticks, expected " + expected, FAR_TAIL);
                     }

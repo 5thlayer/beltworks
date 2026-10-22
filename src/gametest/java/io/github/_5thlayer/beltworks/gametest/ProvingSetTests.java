@@ -20,6 +20,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.ChestType;
 import io.github._5thlayer.beltworks.BlockContent;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
+import io.github._5thlayer.beltworks.blocks.FeederBlockEntity;
 import io.github._5thlayer.beltworks.model.BeltTier;
 
 /**
@@ -149,7 +150,8 @@ final class ProvingSetTests {
         });
     }
 
-    // Each try is a hint the stand-in takes and a real insert it refuses, so the feeder only ever puts back.
+    // Each try is a hint the stand-in takes and a real insert it refuses, so the arm waits over it,
+    // holding what it grabbed (ADR 0018).
     private static void fickleTailOfFeeder(GameTestHelper helper) {
         helper.setBlock(HEAD, Blocks.CHEST);
         helper.setBlock(FEEDER, BlockContent.feederFor(BeltTier.BELT).defaultBlockState()
@@ -158,8 +160,9 @@ final class ProvingSetTests {
         fill(helper, HEAD, Items.COBBLESTONE, ITEMS);
         helper.startSequence().thenIdle(REFUSED_TICKS).thenExecute(() -> {
             if (tail.asked() == 0) helper.fail("the feeder never tried its tail, so this proves nothing", TAIL);
-            int total = held(helper, HEAD) + tail.count();
-            if (total != ITEMS) helper.fail("the chest and the tail hold " + total + " of " + ITEMS, TAIL);
+            int hand = helper.getBlockEntity(FEEDER, FeederBlockEntity.class).hand().getCount();
+            int total = held(helper, HEAD) + hand + tail.count();
+            if (total != ITEMS) helper.fail("the chest, the hand and the tail hold " + total + " of " + ITEMS, TAIL);
         }).thenSucceed();
     }
 

@@ -26,29 +26,25 @@ class FeederTest {
     private static final double SPACING = BeltContents.SPACING;
 
     @ParameterizedTest
-    @CsvSource({"1, 1.5", "2, 3", "3, 4.5", "4, 6"})
-    void aFeederMovesItemsPerSecondAtATenthOfItsLoader(int tier, double itemsPerSecond) {
-        assertEquals(itemsPerSecond, BeltTier.of(tier).feederItemsPerSecond(), 1e-9);
-    }
-
-    @ParameterizedTest
-    @EnumSource(BeltTier.class)
-    void everyTiersRateIsTheOneShareOfItsLoader(BeltTier tier) {
-        assertEquals(tier.itemsPerSecond() * BeltTier.FEEDER_SHARE, tier.feederItemsPerSecond(), 1e-9);
-        assertEquals(tier.feederItemsPerSecond() / 20, tier.feederItemsPerTick(), 1e-12);
-    }
-
-    @ParameterizedTest
     @CsvSource({"1, feeder", "2, improved_feeder", "3, express_feeder", "4, turbo_feeder"})
     void eachTierNamesItsFeeder(int tier, String feeder) {
         assertEquals(feeder, BeltTier.of(tier).feeder());
     }
 
     @ParameterizedTest
-    @EnumSource(BeltTier.class)
-    void everyTiersFeederPaysOnlyWhenLoadersNeedPower(BeltTier tier) {
-        assertTrue(LoaderEnergy.feeder(tier, LOADERS_POWERED).powered());
-        assertFalse(LoaderEnergy.feeder(tier, LOADERS_UNPOWERED).powered());
+    @CsvSource({"2", "3", "4"})
+    void aFeederAboveTierOnePaysOnlyWhenLoadersNeedPower(int tier) {
+        assertTrue(LoaderEnergy.feeder(BeltTier.of(tier), LOADERS_POWERED).powered());
+        assertFalse(LoaderEnergy.feeder(BeltTier.of(tier), LOADERS_UNPOWERED).powered());
+    }
+
+    @Test
+    void aTierOneFeederStartsUnpoweredEvenWhenLoadersNeedPower() {
+        var energy = LoaderEnergy.feeder(BeltTier.BELT, LOADERS_POWERED);
+
+        assertEquals(0, BeltTier.BELT.feederJoulesPerItem());
+        assertFalse(energy.powered());
+        assertEquals(1, energy.affordable(1));
     }
 
     @ParameterizedTest
@@ -63,21 +59,59 @@ class FeederTest {
     }
 
     @Test
-    void aTierOneFeederPaysEveryItemWhenLoadersNeedPower() {
-        var energy = LoaderEnergy.feeder(BeltTier.BELT, LOADERS_POWERED);
+    void aTierOneFeederSetAboveZeroPaysEveryItemItsHandGrabs() {
+        var energy = LoaderEnergy.feeder(BeltTier.BELT, new LoaderEnergy.Setting(true, 100, Map.of(BeltTier.BELT, 13300L)));
 
         assertTrue(energy.powered());
-        assertFalse(energy.canMove());
+        assertEquals(0, energy.affordable(1));
         energy.insertFe(Long.MAX_VALUE);
         var before = energy.joules();
-        energy.move();
+        energy.pay(energy.affordable(1));
 
-        assertEquals(2 * BeltTier.IMPROVED.loaderJoulesPerItem(), before - energy.joules());
+        assertEquals(13300, before - energy.joules());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"2", "3", "4"})
+    void aFullFeederAffordsAWholeHand(int tier) {
+        var of = BeltTier.of(tier);
+        var energy = LoaderEnergy.feeder(of, LOADERS_POWERED);
+        energy.insertFe(Long.MAX_VALUE);
+
+        assertEquals(of.feederSwing().handSize(), energy.affordable(of.feederSwing().handSize()));
+    }
+
+    // Tier 3 pays 162.4 FE an item: each grab leaves a fraction of an FE, which must never starve the next fill.
+    @ParameterizedTest
+    @CsvSource({"2", "3", "4"})
+    void aFedFeederRefillsToAWholeHandWhateverFractionItsGrabsLeave(int tier) {
+        var of = BeltTier.of(tier);
+        var hand = of.feederSwing().handSize();
+        var energy = LoaderEnergy.feeder(of, LOADERS_POWERED);
+
+        for (int grab = 0; grab < 200; grab++) {
+            energy.insertFe(Long.MAX_VALUE);
+            assertEquals(hand, energy.affordable(hand));
+            energy.pay(hand);
+        }
+    }
+
+    // A tier-4 hand holds two, so its buffer holds two items' worth and a grab pays for what it took.
+    @Test
+    void aFedFeederAffordsUpToAHandAndPaysForWhatItGrabbed() {
+        var energy = LoaderEnergy.feeder(BeltTier.TURBO, LOADERS_POWERED);
+        energy.insertFe(Long.MAX_VALUE);
+
+        assertEquals(2, energy.affordable(2));
+        energy.pay(1);
+        assertEquals(1, energy.affordable(2));
+        energy.pay(1);
+        assertEquals(0, energy.affordable(2));
     }
 
     @Test
     void aFeederHasNoIdleDrain() {
-        var energy = LoaderEnergy.feeder(BeltTier.BELT, LOADERS_POWERED);
+        var energy = LoaderEnergy.feeder(BeltTier.IMPROVED, LOADERS_POWERED);
         energy.insertFe(Long.MAX_VALUE);
         var before = energy.joules();
 
@@ -191,9 +225,17 @@ class FeederTest {
     }
 
     @Test
-    void aSettingRefusesAFeederThatPaysNothing() {
+    void aFeederSetToZeroAtAnyTierIsUnpowered() {
+        var setting = new LoaderEnergy.Setting(true, 100, Map.of(BeltTier.TURBO, 0L));
+
+        assertFalse(LoaderEnergy.feeder(BeltTier.TURBO, setting).powered());
+        assertEquals(0, LoaderEnergy.feeder(BeltTier.TURBO, setting).capacityFe());
+    }
+
+    @Test
+    void aSettingRefusesAFeederThatPaysLessThanNothing() {
         assertThrows(IllegalArgumentException.class,
-          () -> new LoaderEnergy.Setting(false, 100, Map.of(BeltTier.IMPROVED, 0L)));
+          () -> new LoaderEnergy.Setting(false, 100, Map.of(BeltTier.IMPROVED, -1L)));
     }
 
     @Test

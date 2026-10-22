@@ -114,7 +114,7 @@ A block two wide whose halves are each a block of belt of its tier: each holds e
 _Avoid_: merger, tunnel, refund (for handing a tile back)
 
 **Feeder**:
-A block that moves items one at a time from the inventory or belt tile its **head** reaches to the one its **tail** reaches, so one belt can feed a row of machines. Either end may be a chest, a machine or a tile anywhere along a line, and the head also picks up items lying loose in the world. It moves whatever the far side accepts, with no knowledge of recipes. It has the loader's tiers and filter, and moves as fast as its **arm** swings: at its tier's Factorio inserter's pace, carrying as many items a swing as that inserter's hand. Its arm grabs only what the tail accepts; if the tail changes while the arm swings, the arm waits over it, holding the item, and a feeder never drops items loose. It draws power only when the server config says loaders need power, and then pays a figure of its own per item as the hand grabs it, which the config sets per tier; a tier set to 0 is unpowered, as tier 1 is until a pack sets it (ADR 0014, ADR 0018). It is drawn as a flat slate base at belt height with a turning plate on top that carries its arm. A splitter half serves as an end as a tile does; a loader never does, holding nothing. It is no belt end: a line runs past the tile it takes from or drops on.
+A block that moves items from the inventory or belt tile its **head** reaches to the one its **tail** reaches, so one belt can feed a row of machines. Either end may be a chest, a machine or a tile anywhere along a line, and the head also picks up items lying loose in the world. It moves whatever the far side accepts, with no knowledge of recipes. It has the loader's tiers and filter, and moves as fast as its **arm** swings: at its tier's Factorio inserter's pace, carrying as many items a swing as that inserter's hand. Its arm grabs only what the tail accepts; if the tail changes while the arm swings, the arm waits over it, holding the item, and a feeder never drops items loose. It draws power only when the server config says loaders need power, and then pays a figure of its own per item as the hand grabs it, which the config sets per tier; a tier set to 0 is unpowered, as tier 1 is until a pack sets it (ADR 0014, ADR 0018). It is drawn as a flat slate base at belt height with a turning plate on top that carries its arm. A splitter half serves as an end as a tile does; a loader never does, holding nothing. It is no belt end: a line runs past the tile it takes from or drops on.
 _Avoid_: double loader, inserter, sweeper
 
 **Head**:
@@ -130,7 +130,7 @@ A feeder's one limb, articulated in three segments like a Factorio inserter's, t
 _Avoid_: reach (the distance, not the thing), boom, extension, pipe
 
 **Hand**:
-The arm's last segment, which grabs an item at the head and lets it go at the tail.
+The arm's last segment, which grabs at the head as many items as its tier's inserter holds, two at tier 4 and one below, or fewer if fewer are there, and lets them go at the tail: into an inventory all at once, onto a tile or a splitter half an item at a time.
 _Avoid_: gripper, claw, nozzle
 
 **Head Reach** / **Tail Reach**:

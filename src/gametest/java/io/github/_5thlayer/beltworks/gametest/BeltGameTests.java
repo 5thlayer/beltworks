@@ -82,7 +82,8 @@ public final class BeltGameTests {
         var unpowered = event.registerEnvironment(Beltworks.id("loaders_need_no_power"), new LoaderPowerEnvironment(false));
         // Tier 1 paying what tier 2 does by default, and tier 2 nothing: the defaults the other way about.
         var repriced = event.registerEnvironment(Beltworks.id("loaders_repriced"), new LoaderPowerEnvironment(true,
-          Map.of(BeltTier.BELT, BeltTier.IMPROVED.loaderJoulesPerItem(), BeltTier.IMPROVED, 0L)));
+          Map.of(BeltTier.BELT, BeltTier.IMPROVED.loaderJoulesPerItem(), BeltTier.IMPROVED, 0L),
+          Map.of(BeltTier.BELT, BeltTier.IMPROVED.feederJoulesPerItem(), BeltTier.IMPROVED, 0L)));
         var tests = new Registrar(event, environment, powered, unpowered, repriced);
         LineSmokeTest.register(tests);
         BeltTileTests.register(tests);
@@ -124,7 +125,10 @@ public final class BeltGameTests {
             return new Registrar(event, loadersNeedPower ? powered : unpowered, powered, unpowered, repriced);
         }
 
-        /** Loaders need power, a tier-1 loader pays what a tier-2 one does by default, and a tier-2 one pays nothing. */
+        /**
+         * Loaders need power, a tier-1 loader and feeder pay what tier-2 ones do by default, and tier-2
+         * ones pay nothing.
+         */
         Registrar withLoadersRepriced() {
             return new Registrar(event, repriced, powered, unpowered, repriced);
         }

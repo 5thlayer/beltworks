@@ -29,8 +29,9 @@ import net.neoforged.neoforge.transfer.transaction.Transaction;
 import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.beltworks.BeltworksConfig;
 import io.github._5thlayer.beltworks.BlockEntitiesContent;
+import io.github._5thlayer.beltworks.model.ArmSwing;
 import io.github._5thlayer.beltworks.model.FeederArms;
-import io.github._5thlayer.beltworks.model.FlowLimit;
+import io.github._5thlayer.beltworks.model.InserterSwing;
 import io.github._5thlayer.beltworks.model.LineScan;
 import io.github._5thlayer.beltworks.model.LoaderEnergy;
 import io.github._5thlayer.beltworks.neoforge.FeederSuckedPayload;
@@ -40,9 +41,11 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Moves one item at a time from the inventory, level tile or splitter half its head reaches to the
- * one its tail reaches, at a tenth of its tier's loader: for free while loaders need no power, and
- * for FE of its own while they do (ADR 0014). Only what its filter matches is taken. Each arm reaches one to three blocks on
+ * Moves items from the inventory, level tile or splitter half its head reaches to the one its tail
+ * reaches, in the hand of an arm that swings between them at its tier's inserter's pace (ADR 0018):
+ * the hand grabs at the head up to the inserter's hand of what its filter matches and the tail
+ * accepts, and drops it all when the arm reaches the tail. It grabs for free while loaders need no
+ * power, and for FE of its own while they do (ADR 0014). Each arm reaches one to three blocks on
  * the feeder's level, over whatever stands between, and the tail may turn left or right.
  */
 public class FeederBlockEntity extends BlockEntity {
@@ -51,9 +54,12 @@ public class FeederBlockEntity extends BlockEntity {
     public static final int SUCK_TICKS = 8;
 
     private final ItemFilter filter = new ItemFilter();
-    private final FlowLimit flow;
+    private final InserterSwing inserter;
     private final LoaderEnergy energy;
     private FeederArms arms = FeederArms.ADJACENT;
+    private ArmSwing swing = new ArmSwing();
+    // What the hand holds, from the grab at the head to the drop at the tail.
+    private ItemStack hand = ItemStack.EMPTY;
     // Whether it took the place of a feeder of another tier and kept what that one held.
     private boolean swappedIn;
     // On a client only: the items its head took lately, still being drawn going in.
@@ -66,43 +72,81 @@ public class FeederBlockEntity extends BlockEntity {
     public FeederBlockEntity(BlockPos pos, BlockState state) {
         super(BlockEntitiesContent.FEEDER.get(), pos, state);
         var tier = ((FeederBlock) state.getBlock()).tier();
-        flow = new FlowLimit(tier.feederItemsPerTick());
+        inserter = tier.feederSwing();
         // Read once, as a loader's is: a changed FE rate reaches a feeder when its chunk next loads.
         energy = LoaderEnergy.feeder(tier, BeltworksConfig.loaderPower());
     }
 
     void tick(Level level, BlockPos pos, BlockState state) {
-        if (!flow.ready(level.getGameTime()) || !energy.canMove()) return;
         var facing = state.getValue(HorizontalDirectionalBlock.FACING);
         var spot = new LineScan.Spot(pos.getX(), pos.getY(), pos.getZ());
         var travel = new LineScan.Travel(facing.getStepX(), facing.getStepZ());
         var arms = arms();
-        var head = end(level, arms.head(spot, travel), true);
-        var tail = end(level, arms.tail(spot, travel), false);
-        if (head == null || tail == null) return;
-
-        ItemStack seen;
-        try (var move = Transaction.openRoot()) {
-            var taken = head.take(item -> filter.matches(level, item) && tail.accepts(item, move), move);
-            if (taken == null) return;
-            // Taken first, since a tail may use up the stack it is handed.
-            seen = looks(taken.item());
-            // A tail that refuses after all leaves the item where it was, so nothing is lost: an
-            // inventory's by the uncommitted transaction, the Mod's own ends by hand.
-            if (!tail.put(taken.item(), move)) {
-                taken.undo().run();
-                return;
-            }
-            move.commit();
+        // Only a grab or a drop marks it changed: a save mid-swing at worst resumes the swing a little early.
+        swing.tick(inserter.halfSwingTicks(arms));
+        if (swing.phase() == ArmSwing.Phase.AT_HEAD && grab(level, pos, arms.head(spot, travel), arms.tail(spot, travel))) {
+            swing.swingToTail();
+        } else if (swing.phase() == ArmSwing.Phase.AT_TAIL && drop(level, arms.tail(spot, travel))) {
+            swing.swingToHead();
         }
-        flow.pass();
-        energy.move();
+    }
+
+    // Grabs what the tail accepts now, up to a hand, and only what it can pay for (ADR 0014).
+    private boolean grab(Level level, BlockPos pos, FeederArms.Target headTarget, FeederArms.Target tailTarget) {
+        var wanted = energy.affordable(inserter.handSize());
+        if (wanted == 0) return false;
+        var head = end(level, headTarget, true);
+        var tail = end(level, tailTarget, false);
+        if (head == null || tail == null) return false;
+
+        var grabbed = ItemStack.EMPTY;
+        try (var grab = Transaction.openRoot()) {
+            while (grabbed.getCount() < wanted) {
+                var held = grabbed;
+                var taken = head.take(item -> filter.matches(level, item) && (held.isEmpty() || ItemStack.isSameItemSameComponents(held, item))
+                  && tail.accepts(plus(held, item), grab), grab);
+                if (taken == null) break;
+                grabbed = plus(held, taken.item());
+            }
+            if (grabbed.isEmpty()) return false;
+            grab.commit();
+        }
+        hand = grabbed;
+        energy.pay(hand.getCount());
         setChanged();
         // Its watchers are sent the item as a stack: a block event's parameters are a byte each, too
         // narrow for an item's id.
         if (level instanceof ServerLevel server) {
-            PacketDistributor.sendToPlayersTrackingChunk(server, ChunkPos.containing(pos), new FeederSuckedPayload(pos, seen));
+            PacketDistributor.sendToPlayersTrackingChunk(server, ChunkPos.containing(pos), new FeederSuckedPayload(pos, looks(hand)));
         }
+        return true;
+    }
+
+    // A hand holding {@code held} and {@code item} too, which is the same item or the hand's first.
+    private static ItemStack plus(ItemStack held, ItemStack item) {
+        return held.isEmpty() ? item.copy() : held.copyWithCount(held.getCount() + item.getCount());
+    }
+
+    // Drops the whole hand, or, into a tail that takes no more than an item at a time, such as a
+    // tile, an item at a time; answers whether the hand is empty. A tail that refuses leaves the
+    // hand holding, so nothing is lost or dropped loose (ADR 0008).
+    private boolean drop(Level level, FeederArms.Target tailTarget) {
+        if (hand.isEmpty()) return true;
+        var tail = end(level, tailTarget, false);
+        if (tail == null) return false;
+        try (var drop = Transaction.openRoot()) {
+            // Copies, since a tail may use up the stack it is handed.
+            if (tail.put(hand.copy(), drop)) {
+                hand = ItemStack.EMPTY;
+            } else if (hand.getCount() > 1 && tail.put(hand.copyWithCount(1), drop)) {
+                hand = hand.copyWithCount(hand.getCount() - 1);
+            } else {
+                return false;
+            }
+            drop.commit();
+        }
+        setChanged();
+        return hand.isEmpty();
     }
 
     // Only what changes how an item is drawn, so a stack's contents, such as a shulker box's, are
@@ -149,6 +193,11 @@ public class FeederBlockEntity extends BlockEntity {
         if (level instanceof ServerLevel server) server.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
     }
 
+    /** What the hand holds, as a copy. */
+    public ItemStack hand() {
+        return hand.copy();
+    }
+
     public LoaderEnergy getEnergy() {
         return energy;
     }
@@ -188,6 +237,9 @@ public class FeederBlockEntity extends BlockEntity {
     protected void saveAdditional(ValueOutput output) {
         super.saveAdditional(output);
         output.putLong("energy", energy.joules());
+        output.store("hand", ItemStack.OPTIONAL_CODEC, hand);
+        output.putString("arm", swing.phase().name());
+        output.putInt("arm_elapsed", swing.elapsed());
         saveDrawn(output);
     }
 
@@ -203,6 +255,9 @@ public class FeederBlockEntity extends BlockEntity {
         super.loadAdditional(input);
         filter.load(input);
         energy.setJoules(input.getLongOr("energy", 0));
+        hand = input.read("hand", ItemStack.OPTIONAL_CODEC).orElse(ItemStack.EMPTY);
+        // A feeder saved before its arm swung rests it over the head, its hand empty.
+        swing = ArmSwing.load(input.getStringOr("arm", ""), input.getIntOr("arm_elapsed", 0));
         arms = new FeederArms(reach(input, "head_reach"), reach(input, "tail_reach"), FeederArms.Turn.STRAIGHT);
     }
 

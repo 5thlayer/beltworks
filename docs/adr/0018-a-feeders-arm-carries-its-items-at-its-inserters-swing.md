@@ -2,7 +2,7 @@
 
 A **feeder** used to move an item from **head** to **tail** in one tick, at a tenth of its tier's loader, drawn with two fixed arms. Factorio players expect an inserter's arm to swing, and an arm drawn swinging over an item that has already landed would show the lie. So a feeder has one **arm**, articulated in three segments like a Factorio inserter's, that really carries what it moves (5thlayer/beltworks#115). Its **hand** grabs at the head only what the tail accepts, as many items as its tier's inserter's hand holds, and holds them until the swing reaches the tail. The held items are saved with the block, dropped when it breaks, and kept by a tier swap up to the new hand's size. If the tail changes mid-swing, the arm waits over it, holding them.
 
-A feeder's rate is its swing, not a share of its loader. Each half-swing follows Factorio's rule at Factorio's real seconds: it turns, half a turn or a quarter for a turned tail, and stretches between the head's and tail's reach together, lasting as long as the slower, plus the tier's spike at each end. Tier 1 swings at the burner inserter's figures, which it alone reads.
+A feeder's rate is its swing, not a share of its loader. Each half-swing follows Factorio's rule at Factorio's real seconds: it turns, half a turn or a quarter for a turned tail, and stretches between the head's and tail's reach together, lasting as long as the slower in whole Factorio ticks, three to a Minecraft tick, with what a half-swing overruns its last tick by carried into the next. The inserter's item spike is a burst of power at each end, not time, so it adds none: Factorio's chest-to-chest rates are its half-turns alone. Tier 1 swings at the burner inserter's figures, which it alone reads.
 
 ## Considered Options
 

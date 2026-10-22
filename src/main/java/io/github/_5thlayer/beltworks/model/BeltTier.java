@@ -10,7 +10,8 @@ package io.github._5thlayer.beltworks.model;
  * and so does each side of its splitter.
  * A loader starts at paying per item and draining what the inserter its recipe is built from does (ADR 0007),
  * and the server config sets what it pays per item.
- * A feeder moves a tenth of its tier's loader and, when loaders need power, pays per item at every tier, with no drain.
+ * A feeder moves what its arm carries at its tier's inserter's swing (ADR 0018) and, when loaders need power,
+ * pays per item what the server config sets, with no drain.
  */
 public enum BeltTier {
     // Tier 1's burner inserter burns fuel the loader has no slot for, so the config starts it unpowered.
@@ -21,9 +22,6 @@ public enum BeltTier {
       new InserterSwing(0.04, 7000, 0.1, 7000, 1, 1, 500)),
     TURBO(4, "turbo_belt", "turbo_loader", "turbo_splitter", "turbo_conveyorbelt", 0.125,
       new InserterSwing(0.04, 20000, 0.1, 20000, 1, 2, 1000));
-
-    /** The share of its tier's loader a feeder moves. */
-    public static final double FEEDER_SHARE = 0.1;
 
     private final int number;
     private final String stem;
@@ -95,21 +93,17 @@ public enum BeltTier {
         return loader.replace("loader", "feeder");
     }
 
-    public double feederItemsPerSecond() {
-        return itemsPerSecond() * FEEDER_SHARE;
-    }
-
-    public double feederItemsPerTick() {
-        return feederItemsPerSecond() / 20;
+    /** The inserter a feeder's arm swings as: the loader's, or the burner inserter at tier 1, whose loader has none. */
+    public InserterSwing feederSwing() {
+        return this == BELT ? InserterSwing.BURNER : inserter;
     }
 
     /**
      * What the server config starts a feeder's joules per item at: twice the swing of the loader's
-     * inserter. Tier 1's loader swings a burner inserter and pays nothing, so its feeder pays for
-     * the electric inserter above it.
+     * inserter. Tier 1's loader swings a burner inserter and pays nothing, and so does its feeder.
      */
     public long feederJoulesPerItem() {
-        return 2 * (this == BELT ? IMPROVED : this).loaderJoulesPerItem();
+        return 2 * loaderJoulesPerItem();
     }
 
     public InserterSwing inserter() {

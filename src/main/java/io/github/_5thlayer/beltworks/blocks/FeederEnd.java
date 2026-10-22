@@ -33,13 +33,13 @@ import java.util.function.Predicate;
  */
 sealed interface FeederEnd {
 
-    /** Takes one item {@code wanted} accepts, or null, with how to put it back. */
+    /** Takes one item {@code wanted} accepts, or null, with how to put it back. A hand grabs by taking again. */
     @Nullable Taken take(Predicate<ItemStack> wanted, TransactionContext transaction);
 
-    /** Whether {@link #put} would take this item now: a hint to choose what to take, never what decides. */
+    /** Whether {@link #put} would take this stack now: a hint to choose what to take, never what decides. */
     boolean accepts(ItemStack item, TransactionContext transaction);
 
-    /** Puts the item in, answering whether it went. */
+    /** Puts the whole stack in, answering whether it went; a tile or splitter half takes only a single item. */
     boolean put(ItemStack item, TransactionContext transaction);
 
     /** An item taken, and what puts it back where it was. */
@@ -132,16 +132,17 @@ sealed interface FeederEnd {
             return new Taken(taken.payload(), () -> putBack(taken));
         }
 
+        // A line carries an item a place, so it takes a hand an item at a time.
         @Override
         public boolean accepts(ItemStack item, TransactionContext transaction) {
             var line = line();
-            return line != null && line.canDrop(tile.index());
+            return item.getCount() == 1 && line != null && line.canDrop(tile.index());
         }
 
         @Override
         public boolean put(ItemStack item, TransactionContext transaction) {
             var line = line();
-            if (line == null || !line.drop(item, tile.index())) return false;
+            if (item.getCount() != 1 || line == null || !line.drop(item, tile.index())) return false;
             tile.lineChanged();
             return true;
         }
@@ -182,12 +183,12 @@ sealed interface FeederEnd {
 
         @Override
         public boolean accepts(ItemStack item, TransactionContext transaction) {
-            return half.canDrop();
+            return item.getCount() == 1 && half.canDrop();
         }
 
         @Override
         public boolean put(ItemStack item, TransactionContext transaction) {
-            if (!half.drop(item)) return false;
+            if (item.getCount() != 1 || !half.drop(item)) return false;
             end.setChanged();
             return true;
         }
