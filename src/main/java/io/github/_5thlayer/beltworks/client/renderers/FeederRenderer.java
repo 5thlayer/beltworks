@@ -24,6 +24,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.data.AtlasIds;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.phys.AABB;
@@ -35,6 +36,7 @@ import io.github._5thlayer.beltworks.blocks.FeederBlockEntity;
 import io.github._5thlayer.beltworks.model.ArmPose;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.FeederArms;
+import io.github._5thlayer.beltworks.model.LineScan;
 
 import java.util.List;
 import java.util.function.Function;
@@ -52,11 +54,11 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
     private static final double BASE_TOP = 6 / 16d;
     private static final double PLATE_TOP = 7.5 / 16;
     private static final double PLATE_HALF_WIDTH = 4.5 / 16;
-    // The wrist stays at one height, so the hand and what it holds clear a chest's lid.
-    private static final double WRIST_HEIGHT = 22 / 16d;
+    // The hand comes down so what it holds sits just above the top of what it is over.
+    private static final double HELD_ABOVE_TOP = 0.12;
     private static final double HAND_LENGTH = 4 / 16d;
     private static final double HAND_HALF_WIDTH = 1.5 / 16;
-    private static final double HELD_BELOW_HAND = 0.15;
+    private static final double HELD_BELOW_HAND = 0.12;
     // Two equal segments reach three blocks out at the wrist's height, and fold up nearer in.
     private static final double SEGMENT_LENGTH = 1.6;
     private static final double SEGMENT_HALF_WIDTH = 1 / 16d;
@@ -104,7 +106,10 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
         var pos = entity.getBlockPos();
         state.tier = feeder.tier();
         state.facing = blockState.getValue(HorizontalDirectionalBlock.FACING);
-        var pose = entity.armPose(partialTicks);
+        var arms = entity.arms();
+        var feederSpot = new LineScan.Spot(0, 0, 0);
+        var travel = new LineScan.Travel(state.facing.getStepX(), state.facing.getStepZ());
+        var pose = entity.armPose(partialTicks, top(level, pos, arms.head(feederSpot, travel)), top(level, pos, arms.tail(feederSpot, travel)));
         state.beams = beams(pose, at -> LevelRenderer.getLightCoords(level, pos.offset(at)));
 
         var hand = entity.hand();
@@ -140,9 +145,20 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
           new Beam(wrist.add(0, SEGMENT_HALF_WIDTH, 0), wrist.add(0, -HAND_LENGTH, 0), HAND_HALF_WIDTH, side, false, handLight));
     }
 
-    // Over the spot the arm reaches, at the wrist's height.
+    /**
+     * How high the block an end of the feeder at {@code feeder} reaches stands, as it collides: a
+     * belt's surface, a chest's lid, the ground where nothing stands, and no more than a block.
+     */
+    public static double top(BlockGetter level, BlockPos feeder, FeederArms.Target end) {
+        var at = feeder.offset(end.spot().x(), end.spot().y(), end.spot().z());
+        var shape = level.getBlockState(at).getCollisionShape(level, at);
+        return shape.isEmpty() ? 0 : Math.clamp(shape.max(Direction.Axis.Y), 0, 1);
+    }
+
+    // Over the spot the arm reaches, the hand above the top there.
     private static Vec3 wrist(ArmPose pose) {
-        return new Vec3(0.5 + pose.x() * pose.reach(), WRIST_HEIGHT, 0.5 + pose.z() * pose.reach());
+        return new Vec3(0.5 + pose.x() * pose.reach(), pose.top() + HELD_ABOVE_TOP + HELD_BELOW_HAND + HAND_LENGTH,
+          0.5 + pose.z() * pose.reach());
     }
 
     // Where two equal segments from the shoulder to the wrist meet, above the line between them.

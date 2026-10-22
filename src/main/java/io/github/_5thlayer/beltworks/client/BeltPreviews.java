@@ -95,7 +95,10 @@ final class BeltPreviews {
             arms = arms.withTailTurn(placed.state().getValue(FeederBlock.TAIL_TURN).turn());
             var facing = placed.state().getValue(HorizontalDirectionalBlock.FACING);
             var travel = new LineScan.Travel(facing.getStepX(), facing.getStepZ());
-            var rest = ArmPose.of(arms, travel, feeder.tier().feederSwing(), ArmSwing.Phase.AT_HEAD, 0);
+            var spot = new LineScan.Spot(0, 0, 0);
+            var rest = ArmPose.of(arms, travel, feeder.tier().feederSwing(), ArmSwing.Phase.AT_HEAD, 0,
+              FeederRenderer.top(event.getLevel(), placed.pos(), arms.head(spot, travel)),
+              FeederRenderer.top(event.getLevel(), placed.pos(), arms.tail(spot, travel)));
             var beams = FeederRenderer.beams(rest, at -> LightCoordsUtil.FULL_BRIGHT);
             var pos = placed.pos();
             poseStack.pushPose();

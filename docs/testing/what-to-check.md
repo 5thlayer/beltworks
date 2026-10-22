@@ -86,6 +86,7 @@ A feeder draws one arm of three segments on a plate turning on its base. See **A
 - Try each reach, 1 to 3 at each end, and a head and tail of different reaches: the hand hangs over the centre of the block each end reaches, and the arm folds or stretches on the way. At reach 1 the elbow rises high; check it reads as a folded arm and not as leaning away.
 - Turn the tail left and right with Rotate: the arm swings a quarter turn the short way. A straight swing passes over the feeder's left.
 - The held stack shows below the hand from the grab to the drop, onto a chest, a tile and a splitter half.
+- The hand comes down to just above the top of what each end holds: low over a belt or a splitter half, higher over a chest, higher still over a full block, and down near the ground over loose items. Between a belt and a chest it rises or falls as the arm turns. Over a fence or a wall it stops at a block's height.
 - The filter shows on both sides of the base, and the block's outline and collision are the base and plate only: walk through the arm.
 - Hold a feeder: the Placement Preview draws the arm at rest over the head at the held reaches, and redraws as Head Reach or Tail Reach is pressed. A Fast Replace preview draws it at the old feeder's reaches.
 - Stand among many feeders swinging: the frame rate holds, and a feeder whose arm is in sight but whose block is off screen still draws it.

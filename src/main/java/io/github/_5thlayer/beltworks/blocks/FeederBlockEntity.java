@@ -109,11 +109,14 @@ public class FeederBlockEntity extends BlockEntity {
         swing = ArmSwing.at(phase, elapsed);
     }
 
-    /** Where the hand is {@code partialTicks} into this tick, the arm swinging between ticks. */
-    public ArmPose armPose(float partialTicks) {
+    /**
+     * Where the hand is {@code partialTicks} into this tick, the arm swinging between ticks, over a
+     * head standing {@code headTop} high and a tail {@code tailTop}.
+     */
+    public ArmPose armPose(float partialTicks, double headTop, double tailTop) {
         var facing = getBlockState().getValue(HorizontalDirectionalBlock.FACING);
         var elapsed = swing.elapsed() + (swing.phase().swinging() ? partialTicks * InserterSwing.FACTORIO_TICKS_PER_TICK : 0);
-        return ArmPose.of(arms(), new LineScan.Travel(facing.getStepX(), facing.getStepZ()), inserter, swing.phase(), elapsed);
+        return ArmPose.of(arms(), new LineScan.Travel(facing.getStepX(), facing.getStepZ()), inserter, swing.phase(), elapsed, headTop, tailTop);
     }
 
     // Grabs what the tail accepts now, up to a hand, and only what it can pay for (ADR 0014).
