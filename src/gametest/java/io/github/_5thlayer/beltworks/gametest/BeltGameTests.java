@@ -106,6 +106,7 @@ public final class BeltGameTests {
         SupportTests.register(tests);
         RotateTests.register(tests);
         FeederTests.register(tests);
+        FeederHandTests.register(tests);
         TierSwapTests.register(tests);
         FastReplaceTests.register(tests);
         CreativeTabTests.register(tests);

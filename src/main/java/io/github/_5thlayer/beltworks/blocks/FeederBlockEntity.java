@@ -13,6 +13,7 @@ import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.Containers;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
@@ -198,6 +199,11 @@ public class FeederBlockEntity extends BlockEntity {
         return hand.copy();
     }
 
+    /** Where the arm is in its swing. */
+    public ArmSwing.Phase armPhase() {
+        return swing.phase();
+    }
+
     public LoaderEnergy getEnergy() {
         return energy;
     }
@@ -214,18 +220,35 @@ public class FeederBlockEntity extends BlockEntity {
         filter.reset(this, player);
     }
 
-    // A feeder of another tier put in its place keeps its filter, its reach and what energy its tier
-    // holds, whatever its facing (#27).
+    // A feeder of another tier put in its place keeps its filter, its reach, what energy its tier
+    // holds and what its hand holds, whatever its facing (#27); any other removal drops the hand
+    // beside the feeder's own drop, so nothing it held is lost (ADR 0018).
     @Override
     public void preRemoveSideEffects(BlockPos pos, BlockState state) {
         super.preRemoveSideEffects(pos, state);
-        if (level != null && TierSwap.swaps(state, level.getBlockState(pos))) TierSwap.parkSaved(this, pos, () -> {});
+        if (level == null) return;
+        if (TierSwap.swaps(state, level.getBlockState(pos))) {
+            TierSwap.parkSaved(this, pos, () -> dropHand(hand));
+        } else {
+            dropHand(hand);
+        }
+        hand = ItemStack.EMPTY;
     }
 
+    // What the hand held a swap brings past the new tier's hand drops beside it.
     @Override
     public void setLevel(Level level) {
         super.setLevel(level);
         swappedIn = TierSwap.take(this);
+        if (swappedIn && hand.getCount() > inserter.handSize()) {
+            dropHand(hand.split(hand.getCount() - inserter.handSize()));
+            setChanged();
+        }
+    }
+
+    private void dropHand(ItemStack items) {
+        if (level == null || level.isClientSide() || items.isEmpty()) return;
+        Containers.dropItemStack(level, worldPosition.getX(), worldPosition.getY(), worldPosition.getZ(), items);
     }
 
     /** Whether it took a feeder of another tier's place and kept its filter and reach (#27). */
