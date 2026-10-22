@@ -48,10 +48,9 @@ public class FeederBlock extends HorizontalDirectionalBlock implements EntityBlo
 
     public static final EnumProperty<TailTurn> TAIL_TURN = EnumProperty.create("tail_turn", TailTurn.class);
 
-    // Its slate base at belt height and the column at its centre with the hub its arms hang from;
-    // the arms themselves collide with nothing (GLOSSARY.md, Arm).
-    private static final VoxelShape SHAPE = Shapes.or(Block.box(1, 0, 1, 15, 6, 15), Block.box(6, 6, 6, 10, 17, 10),
-            Block.box(5, 17, 5, 11, 20, 11));
+    // Its slate base at belt height and the plate turning on it; the arm collides with nothing
+    // (GLOSSARY.md, Arm).
+    private static final VoxelShape SHAPE = Shapes.or(Block.box(1, 0, 1, 15, 6, 15), Block.box(3.5, 6, 3.5, 12.5, 7.5, 12.5));
 
     private final BeltTier tier;
 
@@ -131,7 +130,10 @@ public class FeederBlock extends HorizontalDirectionalBlock implements EntityBlo
 
     @Override
     public @Nullable <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> type) {
-        if (level.isClientSide()) return null;
+        // A client only swings the arm on, from what the server last sent.
+        if (level.isClientSide()) return (tickLevel, pos, tickState, blockEntity) -> {
+            if (blockEntity instanceof FeederBlockEntity feeder) feeder.clientTick();
+        };
         return (tickLevel, pos, tickState, blockEntity) -> {
             if (blockEntity instanceof FeederBlockEntity feeder) feeder.tick(tickLevel, pos, tickState);
         };

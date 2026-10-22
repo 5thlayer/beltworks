@@ -42,6 +42,8 @@ import io.github._5thlayer.beltworks.blocks.Supports;
 import io.github._5thlayer.beltworks.client.renderers.BeltEndRenderer;
 import io.github._5thlayer.beltworks.client.renderers.FeederRenderer;
 import io.github._5thlayer.beltworks.client.renderers.SupportRenderer;
+import io.github._5thlayer.beltworks.model.ArmPose;
+import io.github._5thlayer.beltworks.model.ArmSwing;
 import io.github._5thlayer.beltworks.model.LineScan;
 import io.github._5thlayer.beltworks.model.TileShape;
 import io.github._5thlayer.beltworks.model.Support;
@@ -75,9 +77,10 @@ final class BeltPreviews {
     }
 
     /**
-     * A planned feeder's arms, at the reach the held stack's next placement takes (ADR 0013), so a
-     * press of Head Reach or Tail Reach redraws them. They are a placed feeder's, in the plan's tint.
-     * A Fast Replace makes a tier swap, in which a feeder keeps its own reach, so its arms are drawn at that (#94).
+     * A planned feeder's arm at rest over its head, at the reach the held stack's next placement
+     * takes (ADR 0013), so a press of Head Reach or Tail Reach redraws it. It is a placed feeder's,
+     * in the plan's tint. A Fast Replace makes a tier swap, in which a feeder keeps its own reach,
+     * so its arm is drawn at that (#94).
      */
     private static void feederArms(PlacementPreviewEvent.Overlay event) {
         var held = FeederReach.held(event.getStack());
@@ -91,11 +94,13 @@ final class BeltPreviews {
                          ? old.arms() : held;
             arms = arms.withTailTurn(placed.state().getValue(FeederBlock.TAIL_TURN).turn());
             var facing = placed.state().getValue(HorizontalDirectionalBlock.FACING);
-            var boxes = FeederRenderer.boxes(arms, facing, at -> LightCoordsUtil.FULL_BRIGHT);
+            var travel = new LineScan.Travel(facing.getStepX(), facing.getStepZ());
+            var rest = ArmPose.of(arms, travel, feeder.tier().feederSwing(), ArmSwing.Phase.AT_HEAD, 0);
+            var beams = FeederRenderer.beams(rest, at -> LightCoordsUtil.FULL_BRIGHT);
             var pos = placed.pos();
             poseStack.pushPose();
             poseStack.translate(pos.getX() - camera.x(), pos.getY() - camera.y(), pos.getZ() - camera.z());
-            FeederRenderer.submitPlanned(boxes, feeder.tier(), poseStack, geometry.getSubmitNodeCollector(), event.getTint());
+            FeederRenderer.submitPlanned(beams, feeder.tier(), poseStack, geometry.getSubmitNodeCollector(), event.getTint());
             poseStack.popPose();
         }
     }

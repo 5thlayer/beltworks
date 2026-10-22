@@ -24,12 +24,17 @@ public final class ArmSwing {
 
     /** An arm in a saved {@code phase}; one it does not know rests over the head. */
     public static ArmSwing load(String phase, int elapsed) {
-        var arm = new ArmSwing();
         for (var known : Phase.values()) {
-            if (!known.name().equals(phase)) continue;
-            arm.phase = known;
-            arm.elapsed = Math.max(0, elapsed);
+            if (known.name().equals(phase)) return at(known, elapsed);
         }
+        return new ArmSwing();
+    }
+
+    /** An arm {@code elapsed} Factorio ticks into {@code phase}. */
+    public static ArmSwing at(Phase phase, int elapsed) {
+        var arm = new ArmSwing();
+        arm.phase = phase;
+        arm.elapsed = Math.max(0, elapsed);
         return arm;
     }
 

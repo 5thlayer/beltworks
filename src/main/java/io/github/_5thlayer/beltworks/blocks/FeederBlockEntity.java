@@ -35,10 +35,10 @@ import io.github._5thlayer.beltworks.model.FeederArms;
 import io.github._5thlayer.beltworks.model.InserterSwing;
 import io.github._5thlayer.beltworks.model.LineScan;
 import io.github._5thlayer.beltworks.model.LoaderEnergy;
-import io.github._5thlayer.beltworks.neoforge.FeederSuckedPayload;
+import io.github._5thlayer.beltworks.FeederArmsSent;
+import io.github._5thlayer.beltworks.model.ArmPose;
+import io.github._5thlayer.beltworks.neoforge.FeederArmPayload;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -47,29 +47,20 @@ import java.util.List;
  * the hand grabs at the head up to the inserter's hand of what its filter matches and the tail
  * accepts, and drops it all when the arm reaches the tail. It grabs for free while loaders need no
  * power, and for FE of its own while they do (ADR 0014). Each arm reaches one to three blocks on
- * the feeder's level, over whatever stands between, and the tail may turn left or right.
+ * the feeder's level, over whatever stands between, and the tail may turn left or right. Its
+ * watchers are sent the arm only as a half-swing starts or the hand changes, and swing it on their own.
  */
 public class FeederBlockEntity extends BlockEntity {
-
-    /** How long a taken item is drawn going into the head, in ticks, after which it is inside and hidden. */
-    public static final int SUCK_TICKS = 8;
 
     private final ItemFilter filter = new ItemFilter();
     private final InserterSwing inserter;
     private final LoaderEnergy energy;
     private FeederArms arms = FeederArms.ADJACENT;
     private ArmSwing swing = new ArmSwing();
-    // What the hand holds, from the grab at the head to the drop at the tail.
+    // What the hand holds, from the grab at the head to the drop at the tail; on a client, only its looks.
     private ItemStack hand = ItemStack.EMPTY;
     // Whether it took the place of a feeder of another tier and kept what that one held.
     private boolean swappedIn;
-    // On a client only: the items its head took lately, still being drawn going in.
-    private final List<Sucked> sucked = new ArrayList<>();
-
-    /** An item the head took at a client's {@code gameTime}. */
-    public record Sucked(ItemStack item, long gameTime) {
-    }
-
     public FeederBlockEntity(BlockPos pos, BlockState state) {
         super(BlockEntitiesContent.FEEDER.get(), pos, state);
         var tier = ((FeederBlock) state.getBlock()).tier();
@@ -85,11 +76,45 @@ public class FeederBlockEntity extends BlockEntity {
         var arms = arms();
         // Only a grab or a drop marks it changed: a save mid-swing at worst resumes the swing a little early.
         swing.tick(inserter.halfSwingTicks(arms));
+        var held = hand.getCount();
+        var started = false;
         if (swing.phase() == ArmSwing.Phase.AT_HEAD && grab(level, pos, arms.head(spot, travel), arms.tail(spot, travel))) {
             swing.swingToTail();
+            started = true;
         } else if (swing.phase() == ArmSwing.Phase.AT_TAIL && drop(level, arms.tail(spot, travel))) {
             swing.swingToHead();
+            started = true;
         }
+        // Its watchers swing the arm on their own between, so many feeders in sight cost no message a tick.
+        if (started || hand.getCount() != held) sendArm(level, pos);
+    }
+
+    // Its watchers are sent the hand as a stack: a block event's parameters are a byte each, too
+    // narrow for an item's id.
+    private void sendArm(Level level, BlockPos pos) {
+        if (!(level instanceof ServerLevel server)) return;
+        PacketDistributor.sendToPlayersTrackingChunk(server, ChunkPos.containing(pos),
+          new FeederArmPayload(pos, looks(hand), swing.phase(), swing.elapsed()));
+        FeederArmsSent.sent(pos);
+    }
+
+    /** On a client: the arm swings on from its watchers' last word, which no tick of theirs sends. */
+    public void clientTick() {
+        swing.tick(inserter.halfSwingTicks(arms()));
+    }
+
+    /** On a client: the server's word on the arm, {@code elapsed} Factorio ticks into {@code phase}, holding {@code held}. */
+    public void armMoved(ItemStack held, ArmSwing.Phase phase, int elapsed) {
+        hand = held;
+        swing = ArmSwing.at(phase, elapsed);
+    }
+
+    /** Where the hand is {@code partialTicks} into this tick, the arm swinging between ticks. */
+    public ArmPose armPose(float partialTicks) {
+        var facing = getBlockState().getValue(HorizontalDirectionalBlock.FACING);
+        var swinging = swing.phase() == ArmSwing.Phase.TO_TAIL || swing.phase() == ArmSwing.Phase.TO_HEAD;
+        var elapsed = swing.elapsed() + (swinging ? partialTicks * InserterSwing.FACTORIO_TICKS_PER_TICK : 0);
+        return ArmPose.of(arms(), new LineScan.Travel(facing.getStepX(), facing.getStepZ()), inserter, swing.phase(), elapsed);
     }
 
     // Grabs what the tail accepts now, up to a hand, and only what it can pay for (ADR 0014).
@@ -115,11 +140,6 @@ public class FeederBlockEntity extends BlockEntity {
         hand = grabbed;
         energy.pay(hand.getCount());
         setChanged();
-        // Its watchers are sent the item as a stack: a block event's parameters are a byte each, too
-        // narrow for an item's id.
-        if (level instanceof ServerLevel server) {
-            PacketDistributor.sendToPlayersTrackingChunk(server, ChunkPos.containing(pos), new FeederSuckedPayload(pos, looks(hand)));
-        }
         return true;
     }
 
@@ -153,25 +173,12 @@ public class FeederBlockEntity extends BlockEntity {
     // Only what changes how an item is drawn, so a stack's contents, such as a shulker box's, are
     // neither sent with each move nor shown to its watchers.
     private static ItemStack looks(ItemStack item) {
-        var seen = new ItemStack(item.getItem());
+        var seen = new ItemStack(item.getItem(), item.getCount());
         for (var type : List.of(DataComponents.ITEM_MODEL, DataComponents.CUSTOM_MODEL_DATA, DataComponents.DYED_COLOR)) {
             seen.copyFrom(type, item);
         }
         if (item.hasFoil()) seen.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
         return seen;
-    }
-
-    /** On a client: the head took {@code item}, which is drawn going in from now. */
-    public void sucked(ItemStack item) {
-        if (level == null || item.isEmpty()) return;
-        var now = level.getGameTime();
-        sucked.removeIf(entry -> now - entry.gameTime() >= SUCK_TICKS);
-        sucked.add(new Sucked(item, now));
-    }
-
-    /** The items being drawn going into the head, oldest first; always none on a server. */
-    public List<Sucked> sucked() {
-        return Collections.unmodifiableList(sucked);
     }
 
     // An arm reaches its end through the face turned towards the feeder; only a head also takes loose items.
@@ -263,9 +270,13 @@ public class FeederBlockEntity extends BlockEntity {
         super.saveAdditional(output);
         output.putLong("energy", energy.joules());
         output.store("hand", ItemStack.OPTIONAL_CODEC, hand);
+        saveArm(output);
+        saveDrawn(output);
+    }
+
+    private void saveArm(ValueOutput output) {
         output.putString("arm", swing.phase().name());
         output.putInt("arm_elapsed", swing.elapsed());
-        saveDrawn(output);
     }
 
     // Its filter and arms, which its watchers draw.
@@ -292,11 +303,14 @@ public class FeederBlockEntity extends BlockEntity {
         return FeederArms.reaches(blocks) ? blocks : FeederArms.MIN_REACH;
     }
 
-    // Only what its watchers draw: its energy changes with every move, which sends no update.
+    // Only what its watchers draw, the hand by its looks: its energy changes with every move, which
+    // sends no update.
     @Override
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
         var output = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, registries);
         saveDrawn(output);
+        output.store("hand", ItemStack.OPTIONAL_CODEC, looks(hand));
+        saveArm(output);
         return output.buildResult();
     }
 

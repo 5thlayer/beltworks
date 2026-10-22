@@ -29,7 +29,7 @@ import io.github._5thlayer.beltworks.neoforge.BeltHandPayload;
 import io.github._5thlayer.beltworks.neoforge.SplitterFilterPayload;
 import io.github._5thlayer.beltworks.neoforge.ClimbPayload;
 import io.github._5thlayer.beltworks.neoforge.FeederReachPayload;
-import io.github._5thlayer.beltworks.neoforge.FeederSuckedPayload;
+import io.github._5thlayer.beltworks.neoforge.FeederArmPayload;
 import io.github._5thlayer.beltworks.neoforge.BeltLinePayload;
 import io.github._5thlayer.beltworks.neoforge.LoaderEnergyHandler;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -117,14 +117,14 @@ public final class Beltworks {
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
-        event.registrar("7")
+        event.registrar("8")
           .playToServer(BeltHandPayload.TYPE, BeltHandPayload.STREAM_CODEC, BeltHandPayload::handle)
           .playToServer(ClimbPayload.TYPE, ClimbPayload.STREAM_CODEC, ClimbPayload::handle)
           .playToServer(FeederReachPayload.TYPE, FeederReachPayload.STREAM_CODEC, FeederReachPayload::handle)
           .playToServer(SplitterFilterPayload.TYPE, SplitterFilterPayload.STREAM_CODEC, SplitterFilterPayload::handle)
           .playToClient(BeltChangesPayload.TYPE, BeltChangesPayload.STREAM_CODEC, BeltChangesPayload::handle)
           .playToClient(BeltLinePayload.TYPE, BeltLinePayload.STREAM_CODEC, BeltLinePayload::handle)
-          .playToClient(FeederSuckedPayload.TYPE, FeederSuckedPayload.STREAM_CODEC, FeederSuckedPayload::handle);
+          .playToClient(FeederArmPayload.TYPE, FeederArmPayload.STREAM_CODEC, FeederArmPayload::handle);
     }
 
     // Posted after the chunk is saved and before any of its block entities is removed (#395).

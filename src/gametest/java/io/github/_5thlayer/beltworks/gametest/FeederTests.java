@@ -33,11 +33,12 @@ import io.github._5thlayer.beltworks.blocks.FeederBlock;
 import io.github._5thlayer.beltworks.blocks.FeederBlockEntity;
 import io.github._5thlayer.beltworks.blocks.FeederReach;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
+import io.github._5thlayer.beltworks.model.ArmSwing;
 import io.github._5thlayer.beltworks.model.BeltContents;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.FeederArms;
 import io.github._5thlayer.beltworks.model.InserterSwing;
-import io.github._5thlayer.beltworks.neoforge.FeederSuckedPayload;
+import io.github._5thlayer.beltworks.neoforge.FeederArmPayload;
 import io.github._5thlayer.groundworks.Rotate;
 
 import java.util.List;
@@ -138,7 +139,10 @@ final class FeederTests {
         tests.test("a_held_feeders_reach_is_what_each_placement_takes_until_its_last_item", 20,
                 FeederTests::heldReachPlaces);
         tests.test("a_feeders_filter_and_arms_reach_the_client_in_its_update_tag", 20, FeederTests::updateTagCarriesFilterAndArms);
-        tests.test("a_sucked_payload_carries_an_item_whose_id_is_wider_than_a_byte", 20, FeederTests::suckedItemArrivesWhole);
+        tests.test("an_arm_payload_carries_an_item_whose_id_is_wider_than_a_byte", 20, FeederTests::armPayloadArrivesWhole);
+        loadersUnpowered.test("feeder_arm_sends_a_message_only_as_a_half_swing_starts", WINDOW_TICKS + 20, FeederTests::sendsOnlyAsASwingStarts);
+        loadersUnpowered.test("feeder_arm_with_nothing_to_grab_sends_nothing", 100, FeederTests::idleSendsNothing);
+        loadersUnpowered.test("feeder_arm_a_client_swings_on_its_own_from_the_update_tag", 120, FeederTests::clientSwingsOnItsOwn);
         loadersUnpowered.test("two_feeders_on_one_tile_both_take", WARMUP_TICKS + WINDOW_TICKS + 20,
                 FeederTests::twoFeedersShareATile);
         loadersUnpowered.test("feeder_reaching_3_each_way_over_stone_moves_at_the_rate_of_reach_1",
@@ -619,16 +623,85 @@ final class FeederTests {
         helper.succeed();
     }
 
-    // The payload a feeder's take is sent in: obsidian's id does not fit the byte a block event's
-    // parameter is, which drew another item going in.
-    private static void suckedItemArrivesWhole(GameTestHelper helper) {
+    // The payload a feeder's arm is sent in: obsidian's id does not fit the byte a block event's
+    // parameter is, which would draw another item in the hand.
+    private static void armPayloadArrivesWhole(GameTestHelper helper) {
         if (Item.getId(Items.OBSIDIAN) < 256) helper.fail("obsidian's id fits a byte, so this proves nothing", FEEDER);
         var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), helper.getLevel().registryAccess());
-        FeederSuckedPayload.STREAM_CODEC.encode(buffer, new FeederSuckedPayload(helper.absolutePos(FEEDER), new ItemStack(Items.OBSIDIAN)));
-        var received = FeederSuckedPayload.STREAM_CODEC.decode(buffer);
-        if (!received.item().is(Items.OBSIDIAN)) helper.fail("obsidian arrived as " + received.item(), FEEDER);
-        if (!received.pos().equals(helper.absolutePos(FEEDER))) helper.fail("it arrived for " + received.pos(), FEEDER);
+        var sent = new FeederArmPayload(helper.absolutePos(FEEDER), new ItemStack(Items.OBSIDIAN, 2), ArmSwing.Phase.TO_TAIL, 2);
+        FeederArmPayload.STREAM_CODEC.encode(buffer, sent);
+        var received = FeederArmPayload.STREAM_CODEC.decode(buffer);
+        if (!received.hand().is(Items.OBSIDIAN) || received.hand().getCount() != 2) helper.fail("two obsidian arrived as " + received.hand(), FEEDER);
+        if (!received.pos().equals(sent.pos())) helper.fail("it arrived for " + received.pos(), FEEDER);
+        if (received.phase() != sent.phase() || received.elapsed() != sent.elapsed()) {
+            helper.fail("the arm arrived " + received.elapsed() + " ticks into " + received.phase(), FEEDER);
+        }
+        var empty = new FeederArmPayload(sent.pos(), ItemStack.EMPTY, ArmSwing.Phase.TO_HEAD, 0);
+        FeederArmPayload.STREAM_CODEC.encode(buffer, empty);
+        if (!FeederArmPayload.STREAM_CODEC.decode(buffer).hand().isEmpty()) helper.fail("an empty hand arrived holding something", FEEDER);
         helper.succeed();
+    }
+
+    // Chest to chest each half-swing starts with a whole grab or a whole drop, one message each,
+    // and the arm swinging and arriving sends none: its watchers swing it on their own.
+    private static void sendsOnlyAsASwingStarts(GameTestHelper helper) {
+        place(helper, BeltTier.TURBO);
+        var feeder = helper.absolutePos(FEEDER);
+        FeederArmWatch.watch(feeder);
+        int[] starts = new int[1];
+        ArmSwing.Phase[] last = {ArmSwing.Phase.AT_HEAD};
+        helper.onEachTick(() -> {
+            var phase = helper.getBlockEntity(FEEDER, FeederBlockEntity.class).armPhase();
+            if (phase != last[0] && (phase == ArmSwing.Phase.TO_TAIL || phase == ArmSwing.Phase.TO_HEAD)) starts[0]++;
+            last[0] = phase;
+        });
+        helper.startSequence().thenIdle(WINDOW_TICKS).thenExecute(() -> {
+            var sent = FeederArmWatch.count(feeder);
+            FeederArmWatch.stop(feeder);
+            if (starts[0] < 10) helper.fail("the arm started only " + starts[0] + " half-swings in " + WINDOW_TICKS + " ticks", FEEDER);
+            if (sent != starts[0]) helper.fail(starts[0] + " half-swings sent " + sent + " messages", FEEDER);
+        }).thenSucceed();
+    }
+
+    private static void idleSendsNothing(GameTestHelper helper) {
+        place(helper, BeltTier.TURBO);
+        chest(helper, HEAD).clearContent();
+        var feeder = helper.absolutePos(FEEDER);
+        FeederArmWatch.watch(feeder);
+        helper.startSequence().thenIdle(80).thenExecute(() -> {
+            var sent = FeederArmWatch.count(feeder);
+            FeederArmWatch.stop(feeder);
+            if (sent != 0) helper.fail("an arm with nothing to grab sent " + sent + " messages", FEEDER);
+        }).thenSucceed();
+    }
+
+    // A client given the update tag as the hand grabs reaches the tail with the server, ticking on its own.
+    private static void clientSwingsOnItsOwn(GameTestHelper helper) {
+        place(helper, BeltTier.BELT);
+        var registries = helper.getLevel().registryAccess();
+        FeederBlockEntity[] client = new FeederBlockEntity[1];
+        int[] arrived = {-1, -1};
+        int[] tick = new int[1];
+        helper.onEachTick(() -> {
+            tick[0]++;
+            var server = helper.getBlockEntity(FEEDER, FeederBlockEntity.class);
+            if (client[0] == null) {
+                if (server.armPhase() != ArmSwing.Phase.TO_TAIL) return;
+                client[0] = new FeederBlockEntity(helper.absolutePos(FEEDER), helper.getBlockState(FEEDER));
+                client[0].loadWithComponents(TagValueInput.create(ProblemReporter.DISCARDING, registries, server.getUpdateTag(registries)));
+                if (!client[0].hand().is(Items.COBBLESTONE)) helper.fail("the update tag carried the hand " + client[0].hand(), FEEDER);
+                if (client[0].armPhase() != ArmSwing.Phase.TO_TAIL) helper.fail("the update tag carried the arm " + client[0].armPhase(), FEEDER);
+                return;
+            }
+            client[0].clientTick();
+            if (arrived[0] < 0 && server.armPhase() != ArmSwing.Phase.TO_TAIL) arrived[0] = tick[0];
+            if (arrived[1] < 0 && client[0].armPhase() != ArmSwing.Phase.TO_TAIL) arrived[1] = tick[0];
+        });
+        helper.startSequence().thenIdle(100).thenExecute(() -> {
+            if (arrived[0] < 0) helper.fail("the server's arm never reached the tail", FEEDER);
+            if (arrived[1] != arrived[0]) helper.fail("the client's arm left the swing at tick " + arrived[1] + ", the server's at " + arrived[0], FEEDER);
+            if (client[0].armPhase() != ArmSwing.Phase.AT_TAIL) helper.fail("the client's arm, sent nothing, is " + client[0].armPhase(), FEEDER);
+        }).thenSucceed();
     }
 
     /** The row, placed downstream first, ending in a loader and a chest or in nothing. */

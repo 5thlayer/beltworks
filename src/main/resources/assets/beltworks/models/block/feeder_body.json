@@ -2,7 +2,6 @@
   "parent": "minecraft:block/block",
   "textures": {
     "slate": "beltworks:block/loader_slate",
-    "band": "beltworks:block/loader_band",
     "particle": "beltworks:block/loader_slate",
     "top": "beltworks:block/feeder_top"
   },
@@ -44,66 +43,6 @@
         "down": {
           "texture": "#slate",
           "cullface": "down"
-        }
-      }
-    },
-    {
-      "name": "column",
-      "from": [
-        6,
-        6,
-        6
-      ],
-      "to": [
-        10,
-        17,
-        10
-      ],
-      "faces": {
-        "north": {
-          "texture": "#slate"
-        },
-        "south": {
-          "texture": "#slate"
-        },
-        "east": {
-          "texture": "#slate"
-        },
-        "west": {
-          "texture": "#slate"
-        }
-      }
-    },
-    {
-      "name": "hub",
-      "from": [
-        5,
-        17,
-        5
-      ],
-      "to": [
-        11,
-        20,
-        11
-      ],
-      "faces": {
-        "north": {
-          "texture": "#band"
-        },
-        "south": {
-          "texture": "#band"
-        },
-        "east": {
-          "texture": "#band"
-        },
-        "west": {
-          "texture": "#band"
-        },
-        "up": {
-          "texture": "#band"
-        },
-        "down": {
-          "texture": "#band"
         }
       }
     }

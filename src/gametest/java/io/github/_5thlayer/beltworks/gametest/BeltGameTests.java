@@ -20,6 +20,7 @@ import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import io.github._5thlayer.beltworks.Beltworks;
 import io.github._5thlayer.beltworks.BlockUpdatesSent;
+import io.github._5thlayer.beltworks.FeederArmsSent;
 import io.github._5thlayer.beltworks.model.BeltTier;
 
 import java.util.List;
@@ -71,6 +72,7 @@ public final class BeltGameTests {
         // The proving set's stand-in for a fickle target answers at a lodestone.
         modBus.addListener(FickleInventory::registerCapabilities);
         BlockUpdatesSent.listen(BlockUpdateWatch::saw);
+        FeederArmsSent.listen(FeederArmWatch::saw);
     }
 
     private static void registerTests(RegisterGameTestsEvent event) {

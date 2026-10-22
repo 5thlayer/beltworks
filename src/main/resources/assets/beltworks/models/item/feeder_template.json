@@ -48,16 +48,16 @@
       }
     },
     {
-      "name": "column",
+      "name": "plate",
       "from": [
+        3.5,
         6,
-        6,
-        6
+        3.5
       ],
       "to": [
-        10,
-        12,
-        10
+        12.5,
+        7.5,
+        12.5
       ],
       "faces": {
         "north": {
@@ -71,21 +71,36 @@
         },
         "west": {
           "texture": "#slate"
+        },
+        "up": {
+          "texture": "#slate"
+        },
+        "down": {
+          "texture": "#slate"
         }
       }
     },
     {
-      "name": "hub",
+      "name": "upper_arm",
       "from": [
-        5,
-        12,
-        5
+        7,
+        7.5,
+        7
       ],
       "to": [
-        11,
-        15,
-        11
+        9,
+        17.5,
+        9
       ],
+      "rotation": {
+        "origin": [
+          8,
+          7.5,
+          8
+        ],
+        "axis": "x",
+        "angle": -30
+      },
       "faces": {
         "north": {
           "texture": "#band"
@@ -108,15 +123,15 @@
       }
     },
     {
-      "name": "arms",
+      "name": "forearm",
       "from": [
         7,
-        12.5,
-        1
+        15.2,
+        2
       ],
       "to": [
         9,
-        14.5,
+        17.2,
         15
       ],
       "faces": {
@@ -141,101 +156,35 @@
       }
     },
     {
-      "name": "head_nozzle",
-      "from": [
-        6,
-        10,
-        12
-      ],
-      "to": [
-        10,
-        13,
-        16
-      ],
-      "faces": {
-        "north": {
-          "texture": "#band"
-        },
-        "south": {
-          "texture": "#band"
-        },
-        "east": {
-          "texture": "#band"
-        },
-        "west": {
-          "texture": "#band"
-        },
-        "up": {
-          "texture": "#band"
-        },
-        "down": {
-          "texture": "#band"
-        }
-      }
-    },
-    {
-      "name": "head_mouth",
-      "from": [
-        5,
-        9,
-        11
-      ],
-      "to": [
-        11,
-        10,
-        16
-      ],
-      "faces": {
-        "north": {
-          "texture": "#slate"
-        },
-        "south": {
-          "texture": "#slate"
-        },
-        "east": {
-          "texture": "#slate"
-        },
-        "west": {
-          "texture": "#slate"
-        },
-        "up": {
-          "texture": "#slate"
-        },
-        "down": {
-          "texture": "#slate"
-        }
-      }
-    },
-    {
-      "name": "tail_spout",
+      "name": "hand",
       "from": [
         6.5,
-        10.5,
-        0
+        11.5,
+        13
       ],
       "to": [
         9.5,
-        13,
-        3
+        15.2,
+        16
       ],
       "faces": {
         "north": {
-          "texture": "#band"
+          "texture": "#slate"
         },
         "south": {
-          "texture": "#band"
+          "texture": "#slate"
         },
         "east": {
-          "texture": "#band"
+          "texture": "#slate"
         },
         "west": {
-          "texture": "#band"
+          "texture": "#slate"
         },
         "up": {
-          "texture": "#band"
+          "texture": "#slate"
         },
         "down": {
-          "texture": "#band"
+          "texture": "#slate"
         }
       }
     }
