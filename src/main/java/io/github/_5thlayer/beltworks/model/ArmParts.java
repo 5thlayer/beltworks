@@ -20,7 +20,9 @@ public final class ArmParts {
     private static final double BASE_TOP = 6 * PX;
     private static final double PLATE_TOP = 7.5 * PX;
     private static final double PLATE_HALF_WIDTH = 4.5 * PX;
-    private static final double HUB_HEIGHT = 1.5 * PX;
+    private static final double HUB_HEIGHT = 1.75 * PX;
+    // The hub sinks into the plate this far, so their faces don't lie in one plane.
+    private static final double HUB_SUNK = 0.25 * PX;
     private static final double HUB_HALF_WIDTH = 2.5 * PX;
     // The hand comes down so what it holds sits just above the top of what it is over.
     private static final double HELD_ABOVE_TOP = 0.12;
@@ -41,16 +43,19 @@ public final class ArmParts {
     private static final double JOINT_HALF_LENGTH = 2 * PX;
     private static final double JOINT_HALF_WIDTH = 1.5 * PX;
     // The pincer, below the wrist and out to its side: a block on the wrist, a crossbar under it,
-    // and a jaw hanging from each of the crossbar's ends to a tip that turns inward.
+    // and a jaw hanging from each of the crossbar's ends to a tip that turns inward. Parts differ
+    // by a fraction of a pixel where they meet, so no two share a face plane and flicker.
     private static final double WRIST_TOP = -PX;
-    private static final double WRIST_BOTTOM = 2.5 * PX;
-    private static final double WRIST_HALF_WIDTH = 1.5 * PX;
+    private static final double WRIST_BOTTOM = 2.75 * PX;
+    private static final double WRIST_HALF_WIDTH = 1.25 * PX;
     private static final double CROSSBAR = 3 * PX;
-    private static final double CROSSBAR_HALF_LENGTH = 4.5 * PX;
-    private static final double JAW_TOP = 3.5 * PX;
+    private static final double CROSSBAR_HALF_LENGTH = 4.75 * PX;
+    private static final double JAW_TOP = 3 * PX;
     private static final double JAW_OUT = 4 * PX;
     private static final double JAW_HALF_WIDTH = 0.9 * PX;
     private static final double JAW_HALF_DEPTH = 0.5 * PX;
+    // A hair slimmer than its jaw, so the two don't share faces where they bend.
+    private static final double TIP_HALF_WIDTH = 0.8 * PX;
     private static final double TIP_LENGTH = 1.2 * PX;
     // Closed, the tips meet the sides of what the hand holds, on its lower half; open, they stand
     // clear of anything it could hold.
@@ -122,7 +127,7 @@ public final class ArmParts {
 
         var parts = new ArrayList<Part>();
         parts.add(new Part(Kind.PLATE, middle, hub, PLATE_HALF_WIDTH, PLATE_HALF_WIDTH, side, Place.FEEDER));
-        parts.add(new Part(Kind.HUB, hub, shoulder, HUB_HALF_WIDTH, HUB_HALF_WIDTH, side, Place.FEEDER));
+        parts.add(new Part(Kind.HUB, hub.up(-HUB_SUNK), shoulder, HUB_HALF_WIDTH, HUB_HALF_WIDTH, side, Place.FEEDER));
         parts.add(new Part(Kind.UPPER_ARM, shoulder, elbow, SEGMENT_HALF_WIDTH, SEGMENT_HALF_WIDTH, side, Place.ABOVE));
         parts.add(new Part(Kind.FOREARM, elbow, wrist, SEGMENT_HALF_WIDTH, SEGMENT_HALF_WIDTH, side, Place.WRIST));
         parts.add(joint(shoulder, side, forward, Place.FEEDER));
@@ -138,7 +143,7 @@ public final class ArmParts {
         for (var out : new int[] {-1, 1}) {
             var tip = hand.at(jaws.down, out * (jaws.in + TIP_LENGTH));
             parts.add(new Part(Kind.JAW, hand.at(JAW_TOP, out * JAW_OUT), tip, JAW_HALF_WIDTH, JAW_HALF_DEPTH, forward, Place.WRIST));
-            parts.add(new Part(Kind.TIP, tip, hand.at(jaws.down, out * jaws.in), JAW_HALF_WIDTH, JAW_HALF_DEPTH, forward, Place.WRIST));
+            parts.add(new Part(Kind.TIP, tip, hand.at(jaws.down, out * jaws.in), TIP_HALF_WIDTH, JAW_HALF_DEPTH, forward, Place.WRIST));
         }
         return parts;
     }
