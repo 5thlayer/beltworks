@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Items on a belt no longer flicker in stripes where they overlap: each is drawn a hair above or below its neighbours (5thlayer/beltworks#120).
+
 ## 0.5.5
 
 - A feeder marks its head with a yellow ring and its tail with a yellow chevron, drawn through blocks, as Factorio marks an inserter's: on a placed feeder under the crosshair, and on a held feeder's Placement Preview. A turn by Rotate in Place or a press of Head Reach or Tail Reach now shows on an idle feeder, whose arm rests over its head (5thlayer/beltworks#123).

@@ -37,6 +37,7 @@ import io.github._5thlayer.beltworks.blocks.BeltEndBlockEntity;
 import io.github._5thlayer.beltworks.client.BeltworksClientConfig;
 import io.github._5thlayer.beltworks.model.BeltContents;
 import io.github._5thlayer.beltworks.model.BeltTier;
+import io.github._5thlayer.beltworks.model.ItemLift;
 import io.github._5thlayer.beltworks.model.Splitter;
 import io.github._5thlayer.beltworks.util.SplineUtil;
 
@@ -149,10 +150,11 @@ public class BeltEndRenderer implements BlockEntityRenderer<BeltEndBlockEntity, 
 
         var forward = nextWorldPoint.subtract(worldPoint);
         var flatForward = new Vec3(forward.x, 0, forward.z).normalize();
-        // Drawn in two rows of four per block, by id parity, so items at a readable size do not
-        // overlap and z-fight. The belt itself has one lane (#344).
+        // Drawn in two rows of four per block, by id parity. The belt itself has one lane (#344).
+        // Neighbours still overlap at a readable size, so each is lifted by its id, off the
+        // others' plane.
         var row = (entry.id() & 1) == 0 ? 0.125 : -0.125;
-        renderPosition = renderPosition.add(flatForward.cross(UP).scale(row));
+        renderPosition = renderPosition.add(flatForward.cross(UP).scale(row)).add(0, ItemLift.of(entry.id()), 0);
         var scale = stack.getItem() instanceof BlockItem ? 0.5f : 0.35f;
         var yaw = (float) Math.toDegrees(Math.atan2(-flatForward.z, flatForward.x));
         var pitch = (float) Math.toDegrees(Math.atan2(forward.y, Math.sqrt(forward.x * forward.x + forward.z * forward.z)));
