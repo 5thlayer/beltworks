@@ -1,5 +1,5 @@
 # /// script
-# dependencies = ["pillow"]
+# dependencies = ["pillow==13.0.0"]
 # ///
 """Recolour the belt textures to Factorio's yellow, red, blue and green tiers, from Upstream's
 original art in `scripts/belt-art/`, draw the family's slate (the loader's housing, the tiles'
