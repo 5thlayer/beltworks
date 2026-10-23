@@ -91,4 +91,13 @@ A feeder draws one arm of three segments on a plate turning on its base. See **A
 - Hold a feeder: the Placement Preview draws the arm at rest over the head at the held reaches, and redraws as Head Reach or Tail Reach is pressed. A Fast Replace preview draws it at the old feeder's reaches.
 - Stand among many feeders swinging: the frame rate holds, and a feeder whose arm is in sight but whose block is off screen still draws it.
 - Join a world mid-swing or walk into range: the arm picks up where it is, holding what it holds.
-- The feeder item in the inventory shows the base, plate and folded arm.
+- The feeder item in the inventory shows the base, plate, hub and a short folded arm in the tier's colour, its pincer closed, and reads in a 16 px slot at each tier.
+
+## A feeder's look (#119)
+
+- The base reads as dark slate with a recessed seat on top, and the plate, hub, joints and pincer as lighter slate standing off it, in daylight and at night.
+- The upper arm and forearm show ribs running across them, in the tier's colour, matching the loader's band at each tier, with no seam where the texture repeats along a segment.
+- The pincer hangs open from the wrist when the hand is empty, closes on a block and on a flat item as the hand grabs at the head, and opens as it lets the last item go at the tail: at once into a chest, after the last item onto a belt or a splitter half.
+- The Placement Preview draws the pincer open, translucent with the rest of the arm.
+- The filter on the base's sides still reads against the new base texture.
+- Joints at the shoulder, elbow and wrist show as small axles across the arm and turn with it as it swings.
