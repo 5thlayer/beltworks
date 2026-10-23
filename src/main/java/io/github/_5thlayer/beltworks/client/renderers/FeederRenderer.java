@@ -33,35 +33,24 @@ import org.jspecify.annotations.Nullable;
 import io.github._5thlayer.beltworks.Beltworks;
 import io.github._5thlayer.beltworks.blocks.FeederBlock;
 import io.github._5thlayer.beltworks.blocks.FeederBlockEntity;
+import io.github._5thlayer.beltworks.model.ArmParts;
 import io.github._5thlayer.beltworks.model.ArmPose;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.FeederArms;
 import io.github._5thlayer.beltworks.model.LineScan;
 
+import java.util.EnumMap;
 import java.util.List;
 import java.util.function.Function;
 
 /**
- * A feeder's arm, which its block model of a slate base leaves out since it swings: a slate plate
- * turning on the base, carrying an arm of three segments as a Factorio inserter's is, the upper arm
- * and forearm in its tier colour, folding or stretching so the slate hand hangs over the spot the
- * arm reaches, and what the hand holds below it (GLOSSARY.md, Arm). The filter is drawn on the
- * base's sides, as a loader's is on its housing.
+ * A feeder's arm, which its block model of a slate base leaves out since it swings: the parts
+ * {@link ArmParts} lays out, each face a block of its texture at a time, and what the hand holds
+ * in its pincer (GLOSSARY.md, Arm and Hand). The filter is drawn on the base's sides, as a loader's
+ * is on its housing.
  */
 public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, FeederRenderer.RenderState> {
 
-    // The plate turns on the base's top, and the upper arm rises from its centre.
-    private static final double BASE_TOP = 6 / 16d;
-    private static final double PLATE_TOP = 7.5 / 16;
-    private static final double PLATE_HALF_WIDTH = 4.5 / 16;
-    // The hand comes down so what it holds sits just above the top of what it is over.
-    private static final double HELD_ABOVE_TOP = 0.12;
-    private static final double HAND_LENGTH = 4 / 16d;
-    private static final double HAND_HALF_WIDTH = 1.5 / 16;
-    private static final double HELD_BELOW_HAND = 0.12;
-    // Two equal segments reach three blocks out with the wrist over a full block, and fold up nearer in.
-    private static final double SEGMENT_LENGTH = 1.6;
-    private static final double SEGMENT_HALF_WIDTH = 1 / 16d;
     // The highest the elbow rises, folded over a spot a block away, as the drawn bounds allow.
     private static final double ELBOW_RISE = 2;
 
@@ -70,18 +59,10 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
     private static final double FILTER_HEIGHT = 3 / 16d;
     private static final float FILTER_SCALE = 0.2f;
 
-    // Each face samples one texel of its texture: the band's highlight on top, its body on the
-    // sides and its shadow beneath, and the slate's likewise.
-    private static final float TEXEL_U = 8.5f / 16;
-    private static final float[] BAND_V = {0.5f / 16, 8.5f / 16, 15.5f / 16};
-    private static final float[] SLATE_V = {1.5f / 16, 8.5f / 16, 0.5f / 16};
-    private static final Identifier SLATE = Beltworks.id("block/loader_slate");
+    private static final Identifier PLATE = Beltworks.id("block/feeder_plate");
 
-    /**
-     * A part of the arm in feeder-block units: a square beam from {@code from} to {@code to}, with
-     * two faces along {@code side}, a horizontal unit, in its tier's colour or in slate, lit by {@code light}.
-     */
-    public record Beam(Vec3 from, Vec3 to, double halfWidth, Vec3 side, boolean band, int light) {
+    /** A part of the arm, lit by {@code light}. */
+    public record Beam(ArmParts.Part part, int light) {
     }
 
     record HeldItem(Vec3 position, float yaw, float scale, int light, ItemStackRenderState itemState) {
@@ -109,15 +90,16 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
         var arms = entity.arms();
         var pose = entity.armPose(partialTicks, top(level, pos, arms, state.facing, FeederArms.Arm.HEAD),
           top(level, pos, arms, state.facing, FeederArms.Arm.TAIL));
-        state.beams = beams(pose, at -> LevelRenderer.getLightCoords(level, pos.offset(at)));
-
         var hand = entity.hand();
+        state.beams = beams(pose, !hand.isEmpty(), at -> LevelRenderer.getLightCoords(level, pos.offset(at)));
+
         if (!hand.isEmpty()) {
             var itemState = new ItemStackRenderState();
             Minecraft.getInstance().getItemModelResolver().updateForTopItem(itemState, hand, ItemDisplayContext.FIXED, level, null, 0);
-            var wrist = wrist(pose);
-            state.held = new HeldItem(wrist.add(0, -HAND_LENGTH - HELD_BELOW_HAND, 0), (float) -Math.toDegrees(Math.atan2(pose.x(), pose.z())),
-              hand.getItem() instanceof BlockItem ? 0.4f : 0.35f, LevelRenderer.getLightCoords(level, pos.offset(BlockPos.containing(wrist))), itemState);
+            var held = ArmParts.held(pose);
+            state.held = new HeldItem(new Vec3(held.x(), held.y(), held.z()), (float) -Math.toDegrees(Math.atan2(pose.x(), pose.z())),
+              (float) (hand.getItem() instanceof BlockItem ? ArmParts.HELD_BLOCK_SCALE : ArmParts.HELD_ITEM_SCALE),
+              LevelRenderer.getLightCoords(level, pos.offset(wristBlock(pose))), itemState);
         }
 
         if (!entity.filteredItem().isEmpty()) {
@@ -128,20 +110,16 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
         }
     }
 
-    /** A feeder's arm in {@code pose}, each part lit by what {@code light} says of the block it is in, counted from the feeder. */
-    public static List<Beam> beams(ArmPose pose, Function<BlockPos, Integer> light) {
-        var side = new Vec3(-pose.z(), 0, pose.x());
-        var shoulder = new Vec3(0.5, PLATE_TOP, 0.5);
-        var wrist = wrist(pose);
-        var elbow = elbow(shoulder, wrist, pose);
-        var ownLight = light.apply(BlockPos.ZERO);
-        var aboveLight = light.apply(BlockPos.ZERO.above());
-        var handLight = light.apply(BlockPos.containing(wrist));
-        return List.of(
-          new Beam(new Vec3(0.5, BASE_TOP, 0.5), shoulder, PLATE_HALF_WIDTH, side, false, ownLight),
-          new Beam(shoulder, elbow, SEGMENT_HALF_WIDTH, side, true, aboveLight),
-          new Beam(elbow, wrist, SEGMENT_HALF_WIDTH, side, true, handLight),
-          new Beam(wrist.add(0, SEGMENT_HALF_WIDTH, 0), wrist.add(0, -HAND_LENGTH, 0), HAND_HALF_WIDTH, side, false, handLight));
+    /**
+     * A feeder's arm in {@code pose}, its pincer closed if its hand is {@code holding} items, each
+     * part lit by what {@code light} says of the block it is in, counted from the feeder.
+     */
+    public static List<Beam> beams(ArmPose pose, boolean holding, Function<BlockPos, Integer> light) {
+        var lights = new EnumMap<ArmParts.Place, Integer>(ArmParts.Place.class);
+        lights.put(ArmParts.Place.FEEDER, light.apply(BlockPos.ZERO));
+        lights.put(ArmParts.Place.ABOVE, light.apply(BlockPos.ZERO.above()));
+        lights.put(ArmParts.Place.WRIST, light.apply(wristBlock(pose)));
+        return ArmParts.of(pose, holding).stream().map(part -> new Beam(part, lights.get(part.place()))).toList();
     }
 
     /**
@@ -158,22 +136,9 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
         return shape.isEmpty() ? 0 : Math.clamp(shape.max(Direction.Axis.Y), 0, 1);
     }
 
-    // Over the spot the arm reaches, the hand above the top there.
-    private static Vec3 wrist(ArmPose pose) {
-        return new Vec3(0.5 + pose.x() * pose.reach(), pose.top() + HELD_ABOVE_TOP + HELD_BELOW_HAND + HAND_LENGTH,
-          0.5 + pose.z() * pose.reach());
-    }
-
-    // Where two equal segments from the shoulder to the wrist meet, above the line between them.
-    private static Vec3 elbow(Vec3 shoulder, Vec3 wrist, ArmPose pose) {
-        var out = pose.reach();
-        var up = wrist.y - shoulder.y;
-        var apart = Math.sqrt(out * out + up * up);
-        var rise = Math.sqrt(Math.max(0, SEGMENT_LENGTH * SEGMENT_LENGTH - apart * apart / 4));
-        // Half the way out, then square to the shoulder-to-wrist line, upward.
-        var along = out / 2 - up / apart * rise;
-        var height = up / 2 + out / apart * rise;
-        return shoulder.add(pose.x() * along, height, pose.z() * along);
+    private static BlockPos wristBlock(ArmPose pose) {
+        var wrist = ArmParts.wrist(pose);
+        return BlockPos.containing(wrist.x(), wrist.y(), wrist.z());
     }
 
     @Override
@@ -211,32 +176,42 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
     private static void submit(List<Beam> beams, BeltTier tier, PoseStack poseStack, SubmitNodeCollector collector, RenderType type, int color) {
         if (beams.isEmpty()) return;
         var atlas = Minecraft.getInstance().getAtlasManager().getAtlasOrThrow(AtlasIds.BLOCKS);
-        var band = atlas.getSprite(Beltworks.id("block/" + tier.loader() + "_band"));
-        var slate = atlas.getSprite(SLATE);
+        var arm = atlas.getSprite(Beltworks.id("block/" + tier.feeder() + "_arm"));
+        var plate = atlas.getSprite(PLATE);
         collector.submitCustomGeometry(poseStack, type, (pose, consumer) -> {
             for (var beam : beams) {
-                if (beam.band) beam(beam, band, BAND_V, color, pose, consumer);
-                else beam(beam, slate, SLATE_V, color, pose, consumer);
+                beam(beam.part, new Face(beam.part.kind().tierColoured() ? arm : plate, color, pose, consumer, beam.light));
             }
         });
     }
 
-    // Its six faces, each square to the beam's length, its side or the third way across both.
-    private static void beam(Beam beam, TextureAtlasSprite sprite, float[] v, int color, PoseStack.Pose pose, VertexConsumer consumer) {
-        var length = beam.to.subtract(beam.from).normalize();
-        var side = beam.side.scale(beam.halfWidth);
-        var across = length.cross(beam.side).scale(beam.halfWidth);
-        var face = new Face(sprite, v, color, pose, consumer, beam.light);
-        Vec3 a = beam.from, b = beam.to;
+    // Its six faces, each square to its length, its side or the third way across both. Its ends
+    // take the middle of the texture; its four long faces run along it, the texture's v with them.
+    private static void beam(ArmParts.Part part, Face face) {
+        var from = vec(part.from());
+        var to = vec(part.to());
+        var length = to.subtract(from).normalize();
+        var unitSide = vec(part.side());
+        var unitAcross = length.cross(unitSide);
+        var side = unitSide.scale(part.halfWidth());
+        var across = unitAcross.scale(part.halfDepth());
         // Corners of each end: -side -across, +side -across, +side +across, -side +across.
-        var from = corners(a, side, across);
-        var to = corners(b, side, across);
-        face.quad(length.reverse(), from[0], from[3], from[2], from[1]);
-        face.quad(length, to[0], to[1], to[2], to[3]);
-        face.quad(beam.side.reverse(), from[0], to[0], to[3], from[3]);
-        face.quad(beam.side, from[1], from[2], to[2], to[1]);
-        face.quad(across.normalize().reverse(), from[0], from[1], to[1], to[0]);
-        face.quad(across.normalize(), from[3], to[3], to[2], from[2]);
+        var start = corners(from, side, across);
+        var end = corners(to, side, across);
+        var wide = 2 * part.halfWidth();
+        var deep = 2 * part.halfDepth();
+        face.end(length.reverse(), wide, deep, start, 0, 3, 2, 1);
+        face.end(length, wide, deep, end, 0, 1, 2, 3);
+        var offsets = corners(Vec3.ZERO, side, across);
+        var run = to.subtract(from);
+        face.along(unitSide.reverse(), deep, from, run, offsets[0], offsets[3]);
+        face.along(unitSide, deep, from, run, offsets[2], offsets[1]);
+        face.along(unitAcross.reverse(), wide, from, run, offsets[1], offsets[0]);
+        face.along(unitAcross, wide, from, run, offsets[3], offsets[2]);
+    }
+
+    private static Vec3 vec(ArmParts.Point point) {
+        return new Vec3(point.x(), point.y(), point.z());
     }
 
     private static Vec3[] corners(Vec3 end, Vec3 side, Vec3 across) {
@@ -244,19 +219,45 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
           end.subtract(side).add(across)};
     }
 
-    private record Face(TextureAtlasSprite sprite, float[] v, int color, PoseStack.Pose pose, VertexConsumer consumer, int light) {
+    private record Face(TextureAtlasSprite sprite, int color, PoseStack.Pose pose, VertexConsumer consumer, int light) {
 
-        // Four corners anticlockwise seen from outside; a face turned up samples the highlight and one turned down the shadow.
-        void quad(Vec3 normal, Vec3... corners) {
-            var texel = normal.y > 0.5 ? v[0] : normal.y < -0.5 ? v[2] : v[1];
-            for (var corner : corners) {
-                consumer.addVertex(pose.pose(), (float) corner.x, (float) corner.y, (float) corner.z)
-                  .setColor(color)
-                  .setUv(sprite.getU(TEXEL_U), sprite.getV(texel))
-                  .setOverlay(OverlayTexture.NO_OVERLAY)
-                  .setLight(light)
-                  .setNormal(pose, (float) normal.x, (float) normal.y, (float) normal.z);
+        // An end, its {@code corners} in {@link #corners}' order taken anticlockwise seen from outside
+        // as {@code order} says: {@code wide} across u and {@code deep} across v, both from the texture's middle.
+        void end(Vec3 normal, double wide, double deep, Vec3[] corners, int... order) {
+            var u0 = 0.5 - wide / 2;
+            var v0 = 0.5 - deep / 2;
+            var u1 = u0 + wide;
+            var v1 = v0 + deep;
+            double[][] uv = {{u0, v0}, {u1, v0}, {u1, v1}, {u0, v1}};
+            for (var i : order) vertex(corners[i], normal, uv[i][0], uv[i][1]);
+        }
+
+        // A long face from the corners {@code first} to {@code second} off the beam's axis, anticlockwise
+        // seen from outside as first at the start, first at the end, second at the end, second at the
+        // start: {@code wide} across u from the texture's middle, a block of v at a time along {@code run}.
+        void along(Vec3 normal, double wide, Vec3 from, Vec3 run, Vec3 first, Vec3 second) {
+            var length = run.length();
+            var u0 = 0.5 - wide / 2;
+            var u1 = u0 + wide;
+            for (var piece : ArmParts.pieces(length)) {
+                var start = from.add(run.scale(piece.start() / length));
+                var end = from.add(run.scale(piece.end() / length));
+                var v0 = piece.v();
+                var v1 = v0 + piece.end() - piece.start();
+                vertex(start.add(first), normal, u0, v0);
+                vertex(end.add(first), normal, u0, v1);
+                vertex(end.add(second), normal, u1, v1);
+                vertex(start.add(second), normal, u1, v0);
             }
+        }
+
+        private void vertex(Vec3 corner, Vec3 normal, double u, double v) {
+            consumer.addVertex(pose.pose(), (float) corner.x, (float) corner.y, (float) corner.z)
+              .setColor(color)
+              .setUv(sprite.getU((float) u), sprite.getV((float) v))
+              .setOverlay(OverlayTexture.NO_OVERLAY)
+              .setLight(light)
+              .setNormal(pose, (float) normal.x, (float) normal.y, (float) normal.z);
         }
     }
 

@@ -99,7 +99,8 @@ final class BeltPreviews {
             var rest = ArmPose.of(arms, travel, feeder.tier().feederSwing(), ArmSwing.Phase.AT_HEAD, 0,
               FeederRenderer.top(event.getLevel(), placed.pos(), arms, facing, FeederArms.Arm.HEAD),
               FeederRenderer.top(event.getLevel(), placed.pos(), arms, facing, FeederArms.Arm.TAIL));
-            var beams = FeederRenderer.beams(rest, at -> LightCoordsUtil.FULL_BRIGHT);
+            // The hand is empty at rest, its pincer open.
+            var beams = FeederRenderer.beams(rest, false, at -> LightCoordsUtil.FULL_BRIGHT);
             var pos = placed.pos();
             poseStack.pushPose();
             poseStack.translate(pos.getX() - camera.x(), pos.getY() - camera.y(), pos.getZ() - camera.z());
