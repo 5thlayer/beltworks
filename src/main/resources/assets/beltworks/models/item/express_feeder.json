@@ -1,6 +1,6 @@
 {
   "parent": "beltworks:item/feeder_template",
   "textures": {
-    "band": "beltworks:block/express_loader_band"
+    "arm": "beltworks:block/express_feeder_arm"
   }
 }

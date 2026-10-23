@@ -1,10 +1,11 @@
 {
   "parent": "minecraft:block/block",
   "textures": {
-    "slate": "beltworks:block/loader_slate",
-    "band": "beltworks:block/loader_band",
-    "particle": "beltworks:block/loader_slate",
-    "top": "beltworks:block/feeder_top"
+    "base_side": "beltworks:block/feeder_base_side",
+    "base_top": "beltworks:block/feeder_base_top",
+    "plate": "beltworks:block/feeder_plate",
+    "arm": "beltworks:block/feeder_arm",
+    "particle": "beltworks:block/feeder_base_side"
   },
   "elements": [
     {
@@ -21,16 +22,16 @@
       ],
       "faces": {
         "north": {
-          "texture": "#slate"
+          "texture": "#base_side"
         },
         "south": {
-          "texture": "#slate"
+          "texture": "#base_side"
         },
         "east": {
-          "texture": "#slate"
+          "texture": "#base_side"
         },
         "west": {
-          "texture": "#slate"
+          "texture": "#base_side"
         },
         "up": {
           "uv": [
@@ -39,11 +40,10 @@
             16,
             16
           ],
-          "texture": "#top"
+          "texture": "#base_top"
         },
         "down": {
-          "texture": "#slate",
-          "cullface": "down"
+          "texture": "#base_side"
         }
       }
     },
@@ -61,22 +61,55 @@
       ],
       "faces": {
         "north": {
-          "texture": "#slate"
+          "texture": "#plate"
         },
         "south": {
-          "texture": "#slate"
+          "texture": "#plate"
         },
         "east": {
-          "texture": "#slate"
+          "texture": "#plate"
         },
         "west": {
-          "texture": "#slate"
+          "texture": "#plate"
         },
         "up": {
-          "texture": "#slate"
+          "texture": "#plate"
         },
         "down": {
-          "texture": "#slate"
+          "texture": "#plate"
+        }
+      }
+    },
+    {
+      "name": "hub",
+      "from": [
+        5.5,
+        7.5,
+        5.5
+      ],
+      "to": [
+        10.5,
+        9,
+        10.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#plate"
+        },
+        "south": {
+          "texture": "#plate"
+        },
+        "east": {
+          "texture": "#plate"
+        },
+        "west": {
+          "texture": "#plate"
+        },
+        "up": {
+          "texture": "#plate"
+        },
+        "down": {
+          "texture": "#plate"
         }
       }
     },
@@ -84,41 +117,74 @@
       "name": "upper_arm",
       "from": [
         7,
-        7.5,
+        9,
         7
       ],
       "to": [
         9,
-        17.5,
+        17,
         9
       ],
       "rotation": {
         "origin": [
           8,
-          7.5,
+          9,
           8
         ],
         "axis": "x",
-        "angle": -30
+        "angle": -22.5
       },
       "faces": {
         "north": {
-          "texture": "#band"
+          "texture": "#arm"
         },
         "south": {
-          "texture": "#band"
+          "texture": "#arm"
         },
         "east": {
-          "texture": "#band"
+          "texture": "#arm"
         },
         "west": {
-          "texture": "#band"
+          "texture": "#arm"
         },
         "up": {
-          "texture": "#band"
+          "texture": "#arm"
         },
         "down": {
-          "texture": "#band"
+          "texture": "#arm"
+        }
+      }
+    },
+    {
+      "name": "shoulder",
+      "from": [
+        6,
+        8.5,
+        6.5
+      ],
+      "to": [
+        10,
+        11.5,
+        9.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#plate"
+        },
+        "south": {
+          "texture": "#plate"
+        },
+        "east": {
+          "texture": "#plate"
+        },
+        "west": {
+          "texture": "#plate"
+        },
+        "up": {
+          "texture": "#plate"
+        },
+        "down": {
+          "texture": "#plate"
         }
       }
     },
@@ -126,32 +192,112 @@
       "name": "forearm",
       "from": [
         7,
-        15.2,
-        2
+        14.5,
+        5
       ],
       "to": [
         9,
-        17.2,
-        15
+        16.5,
+        13
       ],
       "faces": {
         "north": {
-          "texture": "#band"
+          "texture": "#arm"
         },
         "south": {
-          "texture": "#band"
+          "texture": "#arm"
         },
         "east": {
-          "texture": "#band"
+          "uv": [
+            7,
+            3,
+            9,
+            13
+          ],
+          "texture": "#arm",
+          "rotation": 90
         },
         "west": {
-          "texture": "#band"
+          "uv": [
+            7,
+            3,
+            9,
+            13
+          ],
+          "texture": "#arm",
+          "rotation": 90
         },
         "up": {
-          "texture": "#band"
+          "texture": "#arm"
         },
         "down": {
-          "texture": "#band"
+          "texture": "#arm"
+        }
+      }
+    },
+    {
+      "name": "elbow",
+      "from": [
+        6,
+        14,
+        3.5
+      ],
+      "to": [
+        10,
+        17,
+        6.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#plate"
+        },
+        "south": {
+          "texture": "#plate"
+        },
+        "east": {
+          "texture": "#plate"
+        },
+        "west": {
+          "texture": "#plate"
+        },
+        "up": {
+          "texture": "#plate"
+        },
+        "down": {
+          "texture": "#plate"
+        }
+      }
+    },
+    {
+      "name": "wrist",
+      "from": [
+        6,
+        14,
+        12.5
+      ],
+      "to": [
+        10,
+        17,
+        15.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#plate"
+        },
+        "south": {
+          "texture": "#plate"
+        },
+        "east": {
+          "texture": "#plate"
+        },
+        "west": {
+          "texture": "#plate"
+        },
+        "up": {
+          "texture": "#plate"
+        },
+        "down": {
+          "texture": "#plate"
         }
       }
     },
@@ -160,31 +306,196 @@
       "from": [
         6.5,
         11.5,
-        13
+        12.5
       ],
       "to": [
         9.5,
-        15.2,
-        16
+        14,
+        15.5
       ],
       "faces": {
         "north": {
-          "texture": "#slate"
+          "texture": "#plate"
         },
         "south": {
-          "texture": "#slate"
+          "texture": "#plate"
         },
         "east": {
-          "texture": "#slate"
+          "texture": "#plate"
         },
         "west": {
-          "texture": "#slate"
+          "texture": "#plate"
         },
         "up": {
-          "texture": "#slate"
+          "texture": "#plate"
         },
         "down": {
-          "texture": "#slate"
+          "texture": "#plate"
+        }
+      }
+    },
+    {
+      "name": "crossbar",
+      "from": [
+        4.5,
+        10.5,
+        13
+      ],
+      "to": [
+        11.5,
+        11.5,
+        15
+      ],
+      "faces": {
+        "north": {
+          "texture": "#plate"
+        },
+        "south": {
+          "texture": "#plate"
+        },
+        "east": {
+          "texture": "#plate"
+        },
+        "west": {
+          "texture": "#plate"
+        },
+        "up": {
+          "texture": "#plate"
+        },
+        "down": {
+          "texture": "#plate"
+        }
+      }
+    },
+    {
+      "name": "left_jaw",
+      "from": [
+        4.5,
+        8,
+        13.5
+      ],
+      "to": [
+        5.5,
+        10.5,
+        14.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#plate"
+        },
+        "south": {
+          "texture": "#plate"
+        },
+        "east": {
+          "texture": "#plate"
+        },
+        "west": {
+          "texture": "#plate"
+        },
+        "up": {
+          "texture": "#plate"
+        },
+        "down": {
+          "texture": "#plate"
+        }
+      }
+    },
+    {
+      "name": "left_tip",
+      "from": [
+        5.5,
+        8,
+        13.5
+      ],
+      "to": [
+        6.5,
+        9,
+        14.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#plate"
+        },
+        "south": {
+          "texture": "#plate"
+        },
+        "east": {
+          "texture": "#plate"
+        },
+        "west": {
+          "texture": "#plate"
+        },
+        "up": {
+          "texture": "#plate"
+        },
+        "down": {
+          "texture": "#plate"
+        }
+      }
+    },
+    {
+      "name": "right_jaw",
+      "from": [
+        10.5,
+        8,
+        13.5
+      ],
+      "to": [
+        11.5,
+        10.5,
+        14.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#plate"
+        },
+        "south": {
+          "texture": "#plate"
+        },
+        "east": {
+          "texture": "#plate"
+        },
+        "west": {
+          "texture": "#plate"
+        },
+        "up": {
+          "texture": "#plate"
+        },
+        "down": {
+          "texture": "#plate"
+        }
+      }
+    },
+    {
+      "name": "right_tip",
+      "from": [
+        9.5,
+        8,
+        13.5
+      ],
+      "to": [
+        10.5,
+        9,
+        14.5
+      ],
+      "faces": {
+        "north": {
+          "texture": "#plate"
+        },
+        "south": {
+          "texture": "#plate"
+        },
+        "east": {
+          "texture": "#plate"
+        },
+        "west": {
+          "texture": "#plate"
+        },
+        "up": {
+          "texture": "#plate"
+        },
+        "down": {
+          "texture": "#plate"
         }
       }
     }

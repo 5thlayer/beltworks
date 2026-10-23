@@ -1,9 +1,9 @@
 {
   "parent": "minecraft:block/block",
   "textures": {
-    "slate": "beltworks:block/loader_slate",
-    "particle": "beltworks:block/loader_slate",
-    "top": "beltworks:block/feeder_top"
+    "base_side": "beltworks:block/feeder_base_side",
+    "base_top": "beltworks:block/feeder_base_top",
+    "particle": "beltworks:block/feeder_base_side"
   },
   "elements": [
     {
@@ -20,16 +20,16 @@
       ],
       "faces": {
         "north": {
-          "texture": "#slate"
+          "texture": "#base_side"
         },
         "south": {
-          "texture": "#slate"
+          "texture": "#base_side"
         },
         "east": {
-          "texture": "#slate"
+          "texture": "#base_side"
         },
         "west": {
-          "texture": "#slate"
+          "texture": "#base_side"
         },
         "up": {
           "uv": [
@@ -38,11 +38,10 @@
             16,
             16
           ],
-          "texture": "#top"
+          "texture": "#base_top"
         },
         "down": {
-          "texture": "#slate",
-          "cullface": "down"
+          "texture": "#base_side"
         }
       }
     }
