@@ -114,7 +114,7 @@ A block two wide whose halves are each a block of belt of its tier: each holds e
 _Avoid_: merger, tunnel, refund (for handing a tile back)
 
 **Feeder**:
-A block that moves items from the inventory or belt tile its **head** reaches to the one its **tail** reaches, so one belt can feed a row of machines. Either end may be a chest, a machine or a tile anywhere along a line, and the head also picks up items lying loose in the world. It moves whatever the far side accepts, with no knowledge of recipes. It has the loader's tiers and filter, and moves as fast as its **arm** swings: at its tier's Factorio inserter's pace, carrying as many items a swing as that inserter's hand. Its arm grabs only what the tail accepts; if the tail changes while the arm swings, the arm waits over it, holding the item, and a feeder never drops items loose: a broken feeder drops what its hand held beside its own drop. It draws power only when the server config says loaders need power, and then pays a figure of its own per item as the hand grabs it, which the config sets per tier; a tier set to 0 is unpowered, as tier 1 is until a pack sets it (ADR 0014, ADR 0018). It is drawn as a slate base at belt height with a turning plate that carries its arm. A splitter half serves as an end as a tile does; a loader never does, holding nothing. It is no belt end: a line runs past the tile it takes from or drops on.
+A block that moves items from the inventory or belt tile its **head** reaches to the one its **tail** reaches, so one belt can feed a row of machines. Either end may be a chest, a machine or a tile anywhere along a line, and the head also picks up items lying loose in the world. It moves whatever the far side accepts, with no knowledge of recipes. It has the loader's tiers and filter, and moves as fast as its **arm** swings: at its tier's Factorio inserter's pace, carrying as many items a swing as that inserter's hand. Its arm grabs only what the tail accepts; if the tail changes while the arm swings, the arm waits over it, holding the item, and a feeder never drops items loose: a broken feeder drops what its hand held beside its own drop. It draws power only when the server config says loaders need power, and then pays a figure of its own per item as the hand grabs it, which the config sets per tier; a tier set to 0 is unpowered, as tier 1 is until a pack sets it (ADR 0014, ADR 0018). It is drawn as a slate base at belt height with a turning plate that carries its arm. A splitter half serves as an end as a tile does; a loader never does, holding nothing. It is no belt end: a line runs past the tile it takes from or drops on. A placed feeder under the crosshair marks its head and its tail, as Factorio marks an inserter's, so a turn or a reach shows while its arm rests.
 _Avoid_: double loader, inserter, sweeper
 
 **Head**:
@@ -155,7 +155,7 @@ _Avoid_: balancer block
 ### Rotating
 
 **Rotate**:
-Groundworks' one action on one key (`R` by default, and **Reverse Rotate** the other way on `Shift+R`) that turns a quarter at a time. It **Rotates the Plan** when the held item is rotatable, and otherwise **Rotates in Place** the block under the crosshair. The Mod gets Rotate from the library it requires, so a tile turns by Rotate in any pack; its only keys of its own are **Head Reach**, **Tail Reach** and **Climb**.
+Groundworks' one action on one key (`R` by default, and **Reverse Rotate** the other way on `Shift+R`) that turns a quarter at a time. It **Rotates the Plan** when the main hand holds a rotatable item, and otherwise **Rotates in Place** the block under the crosshair, whether the main hand is empty or holds anything else. The Mod gets Rotate from the library it requires, so a tile turns by Rotate in any pack; its only keys of its own are **Head Reach**, **Tail Reach** and **Climb**.
 _Avoid_: rotate key, turn, wrench rotate
 
 **Rotate the Plan**:
@@ -163,7 +163,7 @@ _Avoid_: rotate key, turn, wrench rotate
 _Avoid_: rotate the preview, held rotate
 
 **Rotate in Place**:
-**Rotate** on a placed block: the block under the crosshair turns, and what turning means is the block's own. The Mod states it turns the Mod's own blocks and never another mod's. A level tile and a loader turn a quarter. A splitter half, a **slope** and a **wedge** are refused with their reason, and a level tile is refused with its placement's reason where the turn would slope a corner or its wedge would have no room. A refusal changes nothing.
+**Rotate** on a placed block, while the main hand holds nothing or an item that isn't rotatable: the block under the crosshair turns, and what turning means is the block's own. The Mod states it turns the Mod's own blocks and never another mod's. A level tile and a loader turn a quarter. A splitter half, a **slope** and a **wedge** are refused with their reason, and a level tile is refused with its placement's reason where the turn would slope a corner or its wedge would have no room. A refusal changes nothing.
 _Avoid_: placed rotate, wrench rotate
 
 ### Building
