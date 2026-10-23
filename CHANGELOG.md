@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.5.6
+
 - Items on a belt no longer flicker in stripes where they overlap: each is drawn a hair above or below its neighbours (5thlayer/beltworks#120).
 
 ## 0.5.5
