@@ -12,7 +12,9 @@ LICENSES/CC-BY-4.0.txt):
 - unused-textures by malcolmriley
   Source: https://github.com/malcolmriley/unused-textures
 
-Beltworks modifies Simple Conveyor Belts' code and textures. Every change
+Beltworks modifies Simple Conveyor Belts' code and textures. The feeder's
+base, plate and arm textures are Malcolm Riley's unused-textures art,
+recoloured from the copies in scripts/belt-art/unused-textures. Every change
 since the fork point, the 26.1.2 branch (commit 92a97c3), is in this
 repository's git history. Which files still carry that work, and under
 which license, is marked in each file's SPDX header or in REUSE.toml.

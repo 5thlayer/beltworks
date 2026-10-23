@@ -85,6 +85,16 @@ path = [
 SPDX-FileCopyrightText = ["Rearth", "malcolmriley", "2026 5thlayer"]
 SPDX-License-Identifier = "CC-BY-4.0"
 
+# The feeder's textures and their source art: Malcolm Riley's
+# unused-textures, recoloured by scripts/build-tier-textures.py (#119).
+[[annotations]]
+path = [
+    "src/main/resources/assets/beltworks/textures/block/*feeder_*.png",
+    "scripts/belt-art/unused-textures/**",
+]
+SPDX-FileCopyrightText = ["malcolmriley", "2026 5thlayer"]
+SPDX-License-Identifier = "CC-BY-4.0"
+
 # The Gradle wrapper is Gradle's.
 [[annotations]]
 path = ["gradlew", "gradlew.bat", "gradle/wrapper/**"]

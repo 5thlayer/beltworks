@@ -4,7 +4,7 @@
 """Recolour the belt textures to Factorio's yellow, red, blue and green tiers, from Upstream's
 original art in `scripts/belt-art/`, draw the family's slate (the loader's housing, the tiles'
 sides and undersides) and the loader's tier band, and write the belt tiles' corner and slope models
-and their blockstates. Run with
+and their blockstates, and the feeder's base, plate and tier arm from Malcolm Riley's art. Run with
 `uv run scripts/build-tier-textures.py`; `--check` fails on drift."""
 import colorsys
 import io
@@ -34,6 +34,18 @@ SLATE = (84, 90, 100)
 SLATE_EDGE = (56, 60, 68)
 SLATE_LIGHT = (112, 118, 128)
 MOUTH = (0, 0, 0)
+# The feeder's art is Malcolm Riley's, from unused-textures, its greys mapped by brightness onto
+# slate (#119): the base onto the dark half, so the plate and the pincer, on the light half, stand
+# off it, and the arm onto the tier's colour, the loader band's.
+FEEDER_ART = ART / "unused-textures"
+SLATE_DEEP = (38, 41, 47)
+SLATE_PALE = (142, 148, 158)
+DARK_SLATE = (SLATE_DEEP, SLATE_EDGE, SLATE)
+LIGHT_SLATE = (SLATE_EDGE, SLATE, SLATE_LIGHT, SLATE_PALE)
+# steel_block's ribs run across it a row each third pixel; the arm takes one column of them, so
+# its ribs run across the arm, and gives its last row, a dark edge, the rib pattern's next row, so
+# the arm repeats it a block at a time without a seam.
+RIB_COLUMN = 8
 # A tile's side, row by row from the top: models draw rows 2 to 7, one pixel each, from the belt's
 # surface down. Rows only, no columns, so a slope's slices, which can only sample the art square to
 # the block, line up with its band and with a level tile (#32). Opaque throughout, since a clear
@@ -111,6 +123,39 @@ def underside() -> bytes:
 
 def mouth() -> bytes:
     return png(Image.new("RGBA", (16, 16), (*MOUTH, 255)))
+
+
+def brightness(pixel):
+    r, g, b = pixel[:3]
+    return 0.299 * r + 0.587 * g + 0.114 * b
+
+
+def slate_mapped(source: Path, ramp) -> Image.Image:
+    """{source} with its brightest pixel the ramp's last colour and its darkest the first."""
+    image = Image.open(source).convert("RGBA")
+    levels = [brightness(image.getpixel((x, y))) for x in range(16) for y in range(16)]
+    low, high = min(levels), max(levels)
+    out = Image.new("RGBA", (16, 16))
+    for x in range(16):
+        for y in range(16):
+            t = (brightness(image.getpixel((x, y))) - low) / (high - low) * (len(ramp) - 1)
+            i = min(int(t), len(ramp) - 2)
+            out.putpixel((x, y), (*(round(a + (b - a) * (t - i)) for a, b in zip(ramp[i], ramp[i + 1])), 255))
+    return out
+
+
+def feeder_arm(colour) -> bytes:
+    """steel_block's ribs in the tier's colour: each row the band's hue and saturation, as bright
+    against the band as the slate-mapped rib is against slate."""
+    ribs = slate_mapped(FEEDER_ART / "steel_block.png", LIGHT_SLATE)
+    h, s, v = colorsys.rgb_to_hsv(*(c / 255 for c in colour))
+    image = Image.new("RGBA", (16, 16))
+    for y in range(16):
+        level = brightness(ribs.getpixel((RIB_COLUMN, y if y < 15 else 12))) / brightness(SLATE)
+        shade = tuple(round(c * 255) for c in colorsys.hsv_to_rgb(h, s, min(1.0, v * level)))
+        for x in range(16):
+            image.putpixel((x, y), (*shade, 255))
+    return png(image)
 
 
 def band(colour) -> bytes:
@@ -541,10 +586,14 @@ def outputs():
     yield TEXTURES / "block/belt_underside.png", underside()
     yield TEXTURES / "block/belt_tile_side.png", tile_side()
     yield TEXTURES / "block/belt_slope_side.png", tile_side()
+    yield TEXTURES / "block/feeder_base_side.png", png(slate_mapped(FEEDER_ART / "industrial_metal_duct_sides_1.png", DARK_SLATE))
+    yield TEXTURES / "block/feeder_base_top.png", png(slate_mapped(FEEDER_ART / "metal_steel_block.png", DARK_SLATE))
+    yield TEXTURES / "block/feeder_plate.png", png(slate_mapped(FEEDER_ART / "industrial_metal_duct_flat_1.png", LIGHT_SLATE))
     for step, (prefix, hue) in enumerate(TIERS.values(), start=1):
         frames = sorted(FRAMES.glob("frame_*.png"))
         colour = tier_colour(recolour(frames[0], hue))
         yield TEXTURES / f"block/{prefix}loader_band.png", band(colour)
+        yield TEXTURES / f"block/{prefix}feeder_arm.png", feeder_arm(colour)
         for frame in frames:
             yield TEXTURES / f"block/{prefix}conveyorbelt/{frame.name}", recolour(frame, hue)
         yield from splitter_belt(prefix, [recolour(frame, hue) for frame in frames], step)

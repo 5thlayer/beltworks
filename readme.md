@@ -36,6 +36,6 @@ NeoForge and Groundworks, the library that plans and previews placements. Instal
 Beltworks builds on two works, both under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/):
 
 - **Simple Conveyor Belts** by Rearth ([GitHub](https://github.com/Rearth/SimpleBelts) · [CurseForge](https://www.curseforge.com/minecraft/mc-mods/simple-conveyor-belts)), whose code and textures Beltworks modifies.
-- **unused-textures** by malcolmriley ([GitHub](https://github.com/malcolmriley/unused-textures)), which the belt textures come from.
+- **unused-textures** by malcolmriley ([GitHub](https://github.com/malcolmriley/unused-textures)), which the belt and feeder textures come from.
 
 Code is MIT and assets are CC BY 4.0. See [NOTICE](https://github.com/5thlayer/beltworks/blob/main/NOTICE) for the full credits and [LICENSE](https://github.com/5thlayer/beltworks/blob/main/LICENSE) for how each file is licensed; the jar carries both. Source is on [GitHub](https://github.com/5thlayer/beltworks).
