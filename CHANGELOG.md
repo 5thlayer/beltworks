@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A feeder marks its head with a yellow ring and its tail with a yellow chevron, drawn through blocks, as Factorio marks an inserter's: on a placed feeder under the crosshair, and on a held feeder's Placement Preview. A turn by Rotate in Place or a press of Head Reach or Tail Reach now shows on an idle feeder, whose arm rests over its head (5thlayer/beltworks#123).
+
 ## 0.5.4
 
 - Feeders now swing an arm like Factorio's inserters, carrying what they move from head to tail at their tier's inserter's pace: about 0.6, 0.83, 2.3 and 4.6 items a second chest to chest, by tier, slower where one end reaches further than the other and faster to a turned tail. A tier 4 feeder carries two items a swing. A tier 1 feeder needs no power by default, even when `loadersNeedPower` is on, and a powered feeder pays as its hand grabs; any tier's `feederJoulesPerItem` may now be 0, which runs it unpowered. A server config saved by an earlier version keeps tier 1's old figure: set `feederJoulesPerItem.belt` to 0 for the new default (5thlayer/beltworks#116).

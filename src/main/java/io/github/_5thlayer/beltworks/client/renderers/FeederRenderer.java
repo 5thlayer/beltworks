@@ -28,15 +28,20 @@ import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 import io.github._5thlayer.beltworks.Beltworks;
+import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.FeederBlock;
 import io.github._5thlayer.beltworks.blocks.FeederBlockEntity;
+import io.github._5thlayer.beltworks.blocks.FeederReach;
 import io.github._5thlayer.beltworks.model.ArmParts;
 import io.github._5thlayer.beltworks.model.ArmPose;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.FeederArms;
+import io.github._5thlayer.beltworks.model.FeederMarks;
 import io.github._5thlayer.beltworks.model.LineScan;
 
 import java.util.EnumMap;
@@ -78,6 +83,7 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
         state.beams = List.of();
         state.held = null;
         state.filter = null;
+        state.marks = null;
 
         var level = entity.getLevel();
         var blockState = entity.getBlockState();
@@ -86,8 +92,10 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
         state.tier = feeder.tier();
         state.facing = blockState.getValue(HorizontalDirectionalBlock.FACING);
         var arms = entity.arms();
-        var pose = entity.armPose(partialTicks, top(level, pos, arms, state.facing, FeederArms.Arm.HEAD),
-          top(level, pos, arms, state.facing, FeederArms.Arm.TAIL));
+        var headTop = top(level, pos, arms, state.facing, FeederArms.Arm.HEAD);
+        var tailTop = top(level, pos, arms, state.facing, FeederArms.Arm.TAIL);
+        var pose = entity.armPose(partialTicks, headTop, tailTop);
+        if (marked(pos)) state.marks = FeederMarks.of(arms, BeltTileBlock.travel(state.facing), headTop, tailTop);
         var hand = entity.hand();
         var block = hand.getItem() instanceof BlockItem;
         state.beams = beams(pose, hand.isEmpty() ? 0 : ArmParts.heldWidth(block), at -> LevelRenderer.getLightCoords(level, pos.offset(at)));
@@ -128,11 +136,20 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
      */
     public static double top(BlockGetter level, BlockPos feeder, FeederArms arms, Direction facing, FeederArms.Arm arm) {
         var spot = new LineScan.Spot(0, 0, 0);
-        var travel = new LineScan.Travel(facing.getStepX(), facing.getStepZ());
-        var end = (arm == FeederArms.Arm.HEAD ? arms.head(spot, travel) : arms.tail(spot, travel)).spot();
+        var end = (arm == FeederArms.Arm.HEAD ? arms.head(spot, BeltTileBlock.travel(facing)) : arms.tail(spot, BeltTileBlock.travel(facing))).spot();
         var at = feeder.offset(end.x(), end.y(), end.z());
         var shape = level.getBlockState(at).getCollisionShape(level, at);
         return shape.isEmpty() ? 0 : Math.clamp(shape.max(Direction.Axis.Y), 0, 1);
+    }
+
+    /**
+     * Whether a placed feeder at {@code pos} shows its marks: under the crosshair with the HUD shown,
+     * unless a feeder is held, whose planned marks the Placement Preview draws instead.
+     */
+    private static boolean marked(BlockPos pos) {
+        var minecraft = Minecraft.getInstance();
+        return minecraft.player != null && !minecraft.options.hideGui && !FeederReach.isFeeder(minecraft.player.getMainHandItem())
+               && minecraft.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK && hit.getBlockPos().equals(pos);
     }
 
     private static BlockPos wristBlock(ArmPose pose) {
@@ -141,6 +158,7 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
 
     @Override
     public void submit(RenderState state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState cameraRenderState) {
+        if (state.marks != null) FeederMarksRenderer.submit(state.marks, poseStack, collector);
         submit(state.beams, state.tier, poseStack, collector, RenderTypes.entityCutout(TextureAtlas.LOCATION_BLOCKS), 0xFFFFFFFF);
 
         var held = state.held;
@@ -277,5 +295,6 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
         private Direction facing = Direction.NORTH;
         private @Nullable HeldItem held;
         private @Nullable ItemStackRenderState filter;
+        private @Nullable FeederMarks marks;
     }
 }

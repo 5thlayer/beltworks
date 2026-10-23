@@ -101,3 +101,16 @@ A feeder draws one arm of three segments on a plate turning on its base. See **A
 - The Placement Preview draws the pincer open, translucent with the rest of the arm.
 - The filter on the base's sides still reads against the new base texture.
 - Joints at the shoulder, elbow and wrist show as small axles across the arm and turn with it as it swings.
+
+## A feeder's marks (#123)
+
+A feeder marks its head with a ring and its tail with a chevron. See **Feeder** in `GLOSSARY.md`.
+
+- Aim at a placed, idle feeder with an empty hand, then with dirt: a bright yellow ring lies on its head and a chevron of the same yellow on its tail, the ring's diameter the chevron's width, the chevron pointing away from the feeder.
+- Press Rotate, then Reverse Rotate: the chevron moves straight, right, left and back, pointing sideways on a turned tail, and the ring stays.
+- Press Head Reach and Tail Reach: the ring and the chevron each move a block further, from three back to one.
+- Each mark lies on its end's top: a belt's surface, a chest's lid, the ground where nothing stands.
+- Put a block in front of a tail three blocks out, and stand so it hides the tail: the chevron still shows through it. Check it over water and through stained glass too.
+- Look away from the feeder: its marks go. Aim at another: only that one's show.
+- Hold a feeder: the Placement Preview marks its planned head and tail and follows Rotate the Plan and both Reach keys, and a placed feeder under the crosshair shows no marks. On a Fast Replace of a turned feeder, the chevron shows the old feeder's turn.
+- Press F1: no marks, on a placed feeder or in the preview.
