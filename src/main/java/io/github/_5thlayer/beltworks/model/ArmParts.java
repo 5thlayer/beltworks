@@ -26,29 +26,36 @@ public final class ArmParts {
     private static final double HELD_ABOVE_TOP = 0.12;
     private static final double HAND_LENGTH = 4 * PX;
     private static final double HELD_BELOW_HAND = 0.12;
-    /** How wide a held block hangs, in blocks; any other item hangs a little smaller. */
+    /** The scale a held block's model is drawn at. */
     public static final double HELD_BLOCK_SCALE = 0.4;
+    /** The scale any other held item's model is drawn at. */
     public static final double HELD_ITEM_SCALE = 0.35;
+    // Vanilla draws a block's model fixed at half size, and a flat item's at its full size.
+    private static final double FIXED_BLOCK_SIZE = 0.5;
+    /** The highest the elbow rises above the feeder, folded over a spot a block away. */
+    public static final double ELBOW_RISE = 2;
     // Two equal segments reach three blocks out with the wrist over a full block, and fold up nearer in.
     private static final double SEGMENT_LENGTH = 1.6;
     private static final double SEGMENT_HALF_WIDTH = PX;
     // A joint is an axle across the arm, 4 px along it.
     private static final double JOINT_HALF_LENGTH = 2 * PX;
     private static final double JOINT_HALF_WIDTH = 1.5 * PX;
-    // The pincer, in px below the wrist and out to its side: a block on the wrist, a crossbar under
-    // it, and a jaw hanging from each of the crossbar's ends to a tip that turns inward.
-    private static final double WRIST_TOP = -1;
-    private static final double WRIST_BOTTOM = 2.5;
+    // The pincer, below the wrist and out to its side: a block on the wrist, a crossbar under it,
+    // and a jaw hanging from each of the crossbar's ends to a tip that turns inward.
+    private static final double WRIST_TOP = -PX;
+    private static final double WRIST_BOTTOM = 2.5 * PX;
     private static final double WRIST_HALF_WIDTH = 1.5 * PX;
-    private static final double CROSSBAR = 3;
-    private static final double CROSSBAR_HALF_LENGTH = 4.5;
-    private static final double JAW_TOP = 3.5;
-    private static final double JAW_OUT = 4;
+    private static final double CROSSBAR = 3 * PX;
+    private static final double CROSSBAR_HALF_LENGTH = 4.5 * PX;
+    private static final double JAW_TOP = 3.5 * PX;
+    private static final double JAW_OUT = 4 * PX;
     private static final double JAW_HALF_WIDTH = 0.9 * PX;
     private static final double JAW_HALF_DEPTH = 0.5 * PX;
-    // Closed, the tips close on a held block's lower half; open, they stand clear of it.
-    private static final Jaws CLOSED = new Jaws(7, 3.6, 2.4);
-    private static final Jaws OPEN = new Jaws(6.5, 6.2, 5.2);
+    private static final double TIP_LENGTH = 1.2 * PX;
+    // Closed, the tips meet the sides of what the hand holds, on its lower half; open, they stand
+    // clear of anything it could hold.
+    private static final double CLOSED_TIP_DOWN = 7 * PX;
+    private static final Jaws OPEN = new Jaws(6.5 * PX, 5.2 * PX);
 
     /** Which part of the arm; the upper arm and the forearm take the tier's colour, the rest the plate's slate. */
     public enum Kind {
@@ -93,14 +100,18 @@ public final class ArmParts {
     public record Piece(double start, double end, double v) {
     }
 
-    private record Jaws(double tipDown, double tipOut, double hookOut) {
+    // A tip {@code down} below the wrist, its inner end {@code in} out from the hand's middle.
+    private record Jaws(double down, double in) {
     }
 
     private ArmParts() {
     }
 
-    /** A feeder's arm in {@code pose}, its pincer closed if its hand is {@code holding} items. */
-    public static List<Part> of(ArmPose pose, boolean holding) {
+    /**
+     * A feeder's arm in {@code pose}, its pincer closed on what its hand holds, {@code grip} blocks
+     * wide as {@link #heldWidth} gives, or open when {@code grip} is 0, the hand empty.
+     */
+    public static List<Part> of(ArmPose pose, double grip) {
         var forward = new Point(pose.x(), 0, pose.z());
         var side = new Point(-pose.z(), 0, pose.x());
         var middle = new Point(0.5, BASE_TOP, 0.5);
@@ -123,14 +134,18 @@ public final class ArmParts {
         parts.add(new Part(Kind.WRIST, hand.at(WRIST_TOP, 0), hand.at(WRIST_BOTTOM, 0), WRIST_HALF_WIDTH, WRIST_HALF_WIDTH, side, Place.WRIST));
         parts.add(new Part(Kind.CROSSBAR, hand.at(CROSSBAR, -CROSSBAR_HALF_LENGTH), hand.at(CROSSBAR, CROSSBAR_HALF_LENGTH), PX,
           0.5 * PX, forward, Place.WRIST));
-        var jaws = holding ? CLOSED : OPEN;
+        var jaws = grip > 0 ? new Jaws(CLOSED_TIP_DOWN, grip / 2) : OPEN;
         for (var out : new int[] {-1, 1}) {
-            var tip = hand.at(jaws.tipDown, out * jaws.tipOut);
+            var tip = hand.at(jaws.down, out * (jaws.in + TIP_LENGTH));
             parts.add(new Part(Kind.JAW, hand.at(JAW_TOP, out * JAW_OUT), tip, JAW_HALF_WIDTH, JAW_HALF_DEPTH, forward, Place.WRIST));
-            parts.add(new Part(Kind.TIP, tip, hand.at(jaws.tipDown, out * jaws.hookOut), JAW_HALF_WIDTH, JAW_HALF_DEPTH, forward,
-              Place.WRIST));
+            parts.add(new Part(Kind.TIP, tip, hand.at(jaws.down, out * jaws.in), JAW_HALF_WIDTH, JAW_HALF_DEPTH, forward, Place.WRIST));
         }
         return parts;
+    }
+
+    /** How wide what the hand holds is drawn, in blocks, a {@code block} or any other item. */
+    public static double heldWidth(boolean block) {
+        return block ? HELD_BLOCK_SCALE * FIXED_BLOCK_SIZE : HELD_ITEM_SCALE;
     }
 
     /** Where the middle of what the hand holds hangs, just above the top of what it is over. */
@@ -175,11 +190,11 @@ public final class ArmParts {
           JOINT_HALF_WIDTH, forward, place);
     }
 
-    // Points on the pincer, {@code down} px below the wrist and {@code out} px along its side.
+    // Points on the pincer, {@code down} below the wrist and {@code out} along its side.
     private record Hand(Point wrist, Point side) {
 
         Point at(double down, double out) {
-            return wrist.up(-down * PX).add(side.scale(out * PX));
+            return wrist.up(-down).add(side.scale(out));
         }
     }
 }

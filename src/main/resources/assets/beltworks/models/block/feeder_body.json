@@ -41,7 +41,8 @@
           "texture": "#base_top"
         },
         "down": {
-          "texture": "#base_side"
+          "texture": "#base_side",
+          "cullface": "down"
         }
       }
     }

@@ -46,6 +46,7 @@ LIGHT_SLATE = (SLATE_EDGE, SLATE, SLATE_LIGHT, SLATE_PALE)
 # its ribs run across the arm, and gives its last row, a dark edge, the rib pattern's next row, so
 # the arm repeats it a block at a time without a seam.
 RIB_COLUMN = 8
+RIB_EDGE_ROW, RIB_EDGE_STAND_IN = 15, 12
 # A tile's side, row by row from the top: models draw rows 2 to 7, one pixel each, from the belt's
 # surface down. Rows only, no columns, so a slope's slices, which can only sample the art square to
 # the block, line up with its band and with a level tile (#32). Opaque throughout, since a clear
@@ -151,7 +152,7 @@ def feeder_arm(colour) -> bytes:
     h, s, v = colorsys.rgb_to_hsv(*(c / 255 for c in colour))
     image = Image.new("RGBA", (16, 16))
     for y in range(16):
-        level = brightness(ribs.getpixel((RIB_COLUMN, y if y < 15 else 12))) / brightness(SLATE)
+        level = brightness(ribs.getpixel((RIB_COLUMN, RIB_EDGE_STAND_IN if y == RIB_EDGE_ROW else y))) / brightness(SLATE)
         shade = tuple(round(c * 255) for c in colorsys.hsv_to_rgb(h, s, min(1.0, v * level)))
         for x in range(16):
             image.putpixel((x, y), (*shade, 255))

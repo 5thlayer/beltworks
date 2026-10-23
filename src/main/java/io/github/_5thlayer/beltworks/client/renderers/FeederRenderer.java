@@ -51,8 +51,6 @@ import java.util.function.Function;
  */
 public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, FeederRenderer.RenderState> {
 
-    // The highest the elbow rises, folded over a spot a block away, as the drawn bounds allow.
-    private static final double ELBOW_RISE = 2;
 
     // The filter stands on the base's two sides the facing leaves.
     private static final double BASE_HALF_WIDTH = 7 / 16d;
@@ -91,14 +89,14 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
         var pose = entity.armPose(partialTicks, top(level, pos, arms, state.facing, FeederArms.Arm.HEAD),
           top(level, pos, arms, state.facing, FeederArms.Arm.TAIL));
         var hand = entity.hand();
-        state.beams = beams(pose, !hand.isEmpty(), at -> LevelRenderer.getLightCoords(level, pos.offset(at)));
+        var block = hand.getItem() instanceof BlockItem;
+        state.beams = beams(pose, hand.isEmpty() ? 0 : ArmParts.heldWidth(block), at -> LevelRenderer.getLightCoords(level, pos.offset(at)));
 
         if (!hand.isEmpty()) {
             var itemState = new ItemStackRenderState();
             Minecraft.getInstance().getItemModelResolver().updateForTopItem(itemState, hand, ItemDisplayContext.FIXED, level, null, 0);
-            var held = ArmParts.held(pose);
-            state.held = new HeldItem(new Vec3(held.x(), held.y(), held.z()), (float) -Math.toDegrees(Math.atan2(pose.x(), pose.z())),
-              (float) (hand.getItem() instanceof BlockItem ? ArmParts.HELD_BLOCK_SCALE : ArmParts.HELD_ITEM_SCALE),
+            state.held = new HeldItem(vec(ArmParts.held(pose)), (float) -Math.toDegrees(Math.atan2(pose.x(), pose.z())),
+              (float) (block ? ArmParts.HELD_BLOCK_SCALE : ArmParts.HELD_ITEM_SCALE),
               LevelRenderer.getLightCoords(level, pos.offset(wristBlock(pose))), itemState);
         }
 
@@ -111,15 +109,16 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
     }
 
     /**
-     * A feeder's arm in {@code pose}, its pincer closed if its hand is {@code holding} items, each
-     * part lit by what {@code light} says of the block it is in, counted from the feeder.
+     * A feeder's arm in {@code pose}, its pincer closed on what its hand holds, {@code grip} blocks
+     * wide, or open at 0, each part lit by what {@code light} says of the block it is in, counted
+     * from the feeder.
      */
-    public static List<Beam> beams(ArmPose pose, boolean holding, Function<BlockPos, Integer> light) {
+    public static List<Beam> beams(ArmPose pose, double grip, Function<BlockPos, Integer> light) {
         var lights = new EnumMap<ArmParts.Place, Integer>(ArmParts.Place.class);
         lights.put(ArmParts.Place.FEEDER, light.apply(BlockPos.ZERO));
         lights.put(ArmParts.Place.ABOVE, light.apply(BlockPos.ZERO.above()));
         lights.put(ArmParts.Place.WRIST, light.apply(wristBlock(pose)));
-        return ArmParts.of(pose, holding).stream().map(part -> new Beam(part, lights.get(part.place()))).toList();
+        return ArmParts.of(pose, grip).stream().map(part -> new Beam(part, lights.get(part.place()))).toList();
     }
 
     /**
@@ -137,8 +136,7 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
     }
 
     private static BlockPos wristBlock(ArmPose pose) {
-        var wrist = ArmParts.wrist(pose);
-        return BlockPos.containing(wrist.x(), wrist.y(), wrist.z());
+        return BlockPos.containing(vec(ArmParts.wrist(pose)));
     }
 
     @Override
@@ -265,7 +263,7 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
     @Override
     public AABB getRenderBoundingBox(FeederBlockEntity blockEntity) {
         return new AABB(blockEntity.getBlockPos()).inflate(FeederArms.MAX_REACH, 0, FeederArms.MAX_REACH)
-          .expandTowards(0, ELBOW_RISE, 0);
+          .expandTowards(0, ArmParts.ELBOW_RISE, 0);
     }
 
     @Override

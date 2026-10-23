@@ -17,8 +17,11 @@ class ArmPartsTest {
     // Reaching a block south, over a belt.
     private static final ArmPose SOUTH = new ArmPose(0, 1, 1, BELT);
 
-    private static List<ArmParts.Part> tips(boolean holding) {
-        return ArmParts.of(SOUTH, holding).stream().filter(part -> part.kind() == ArmParts.Kind.TIP).toList();
+    private static final double BLOCK = ArmParts.heldWidth(true);
+    private static final double ITEM = ArmParts.heldWidth(false);
+
+    private static List<ArmParts.Part> tips(double grip) {
+        return ArmParts.of(SOUTH, grip).stream().filter(part -> part.kind() == ArmParts.Kind.TIP).toList();
     }
 
     // How far in from the hand's middle, along its side (x here), a tip's inner end comes.
@@ -28,24 +31,23 @@ class ArmPartsTest {
 
     @Test
     void aPincerHasTwoJawsEachWithATip() {
-        var parts = ArmParts.of(SOUTH, true);
+        var parts = ArmParts.of(SOUTH, BLOCK);
 
         assertEquals(2, parts.stream().filter(part -> part.kind() == ArmParts.Kind.JAW).count());
-        assertEquals(2, tips(true).size());
+        assertEquals(2, tips(BLOCK).size());
     }
 
-    // Its tips meet the sides of a held block, which hangs 0.4 of a block wide.
+    // A block is drawn at half the size a flat item is, so the pincer closes further on it.
     @Test
-    void aHandHoldingItemsClosesItsPincerOnThem() {
-        for (var tip : tips(true)) {
-            assertTrue(inner(tip) < ArmParts.HELD_BLOCK_SCALE / 2, "the tip reaches in under the held block");
-        }
+    void aHandHoldingItemsClosesItsPincerOnTheirSides() {
+        for (var tip : tips(BLOCK)) assertEquals(BLOCK / 2, inner(tip), 1e-9);
+        for (var tip : tips(ITEM)) assertEquals(ITEM / 2, inner(tip), 1e-9);
     }
 
     @Test
-    void anEmptyHandOpensItsPincerWiderThanWhatItHolds() {
-        for (var tip : tips(false)) {
-            assertTrue(inner(tip) > ArmParts.HELD_BLOCK_SCALE / 2 + 1.5 * PX, "the tip stands clear of a held block's side");
+    void anEmptyHandOpensItsPincerWiderThanAnythingItHolds() {
+        for (var tip : tips(0)) {
+            assertTrue(inner(tip) > Math.max(BLOCK, ITEM) / 2 + 1.5 * PX, "the tip stands clear of a held item's side");
         }
     }
 
@@ -54,11 +56,11 @@ class ArmPartsTest {
     @Test
     void theHeldItemsHangBetweenTheJaws() {
         var held = ArmParts.held(SOUTH);
-        var parts = ArmParts.of(SOUTH, true);
+        var parts = ArmParts.of(SOUTH, BLOCK);
         var crossbar = parts.stream().filter(part -> part.kind() == ArmParts.Kind.CROSSBAR).findFirst().orElseThrow();
 
         assertTrue(held.y() < crossbar.from().y(), "below the crossbar");
-        for (var tip : tips(true)) {
+        for (var tip : tips(BLOCK)) {
             assertTrue(tip.from().y() < held.y(), "a tip on its lower half");
             assertTrue(tip.from().y() > BELT, "a tip above the belt");
         }
@@ -67,7 +69,7 @@ class ArmPartsTest {
     // The upper arm rises from the hub and the forearm comes down to the wrist over the spot reached.
     @Test
     void theArmRunsFromTheHubToTheWristOverTheSpotItReaches() {
-        var parts = ArmParts.of(SOUTH, false);
+        var parts = ArmParts.of(SOUTH, 0);
         var hub = parts.stream().filter(part -> part.kind() == ArmParts.Kind.HUB).findFirst().orElseThrow();
         var upper = parts.stream().filter(part -> part.kind() == ArmParts.Kind.UPPER_ARM).findFirst().orElseThrow();
         var forearm = parts.stream().filter(part -> part.kind() == ArmParts.Kind.FOREARM).findFirst().orElseThrow();
