@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
+            "command": "d=$(jq -r '.cwd // empty'); cd \"${d:-${CLAUDE_PROJECT_DIR:-.}}\" || exit 0; .claude/hooks/session-start.sh"
           },
           {
             "type": "command",

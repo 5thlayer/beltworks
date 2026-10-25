@@ -21,6 +21,6 @@ if ! grep -q '^siblingBuilds=' "$HOME/.gradle/gradle.properties" 2>/dev/null; th
   printf 'siblingBuilds=true\ngroundworksDir=%s\n' "$groundworks" >> "$HOME/.gradle/gradle.properties"
 fi
 
-# Fetches the JDK, Minecraft and the dependencies now, so the session's first build starts warm.
-cd "$CLAUDE_PROJECT_DIR"
+# Fetches the JDK, Minecraft and the dependencies now, so the session's first build starts warm, in the checkout the hook
+# cd-ed into: the session's own, a worktree included.
 sh ./gradlew --quiet compileJava compileTestJava
