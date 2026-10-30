@@ -13,7 +13,7 @@ libworks {
     upstream('groundworks') {
         // Groundworks' tags are v<version>.
         tagPrefix = 'v'
-        range = '[0.6.1,0.7)'
+        range = '[0.7.0,0.8)'
     }
     // Nested, unlike Groundworks: the shared Works tab needs it loaded as a mod (FactoryWorks ADR-0128).
     runtime = '0.1.13'
