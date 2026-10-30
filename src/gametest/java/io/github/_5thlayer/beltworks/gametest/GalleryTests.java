@@ -56,6 +56,8 @@ final class GalleryTests {
         tests.testOnItsOwn("gallery_builds_a_scene_of_each_feature", GalleryCheck.TICKS,
                 helper -> GalleryCheck.builds(helper, Beltworks.MOD_ID, ORIGIN, SCENES));
         tests.testOnItsOwn("gallery_sign_builds_its_scene_again_leaving_nothing_loose", GalleryCheck.TICKS, GalleryTests::replay);
+        tests.testOnItsOwn("gallery_clear_empties_its_plot", GalleryCheck.TICKS,
+                helper -> GalleryCheck.clears(helper, Beltworks.MOD_ID, ORIGIN, GalleryCheck.Layout.ONE_ROW));
     }
 
     // The scene is broken first, so only the rebuild can put its key block back.
