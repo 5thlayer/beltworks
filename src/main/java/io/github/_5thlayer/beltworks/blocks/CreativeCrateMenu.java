@@ -27,10 +27,20 @@ import io.github._5thlayer.beltworks.MenuContent;
  * it does not. {@link #setCrateItem} is the one way the item is set, for the click, a shift-click
  * from the inventory and a recipe viewer's drop alike.
  */
-public final class CreativeCrateMenu extends AbstractContainerMenu {
+public final class CreativeCrateMenu extends AbstractContainerMenu implements GhostSlotMenu {
 
     /** The item's ghost slot, the menu's first: a click sets it from the cursor stack and takes nothing. */
     public static final int CRATE_SLOT = 0;
+
+    @Override
+    public int ghostSlot() {
+        return CRATE_SLOT;
+    }
+
+    @Override
+    public void setGhost(ItemStack stack) {
+        setCrateItem(stack);
+    }
 
     private final BlockPos crate;
     private final Player player;

@@ -45,5 +45,21 @@ versionRange = "${libworks_runtime_range}"
 ordering = "NONE"
 side = "BOTH"
 
+# Recipe viewers drop an item on the ghost slot of the splitter's and the creative crate's screens.
+# Neither is needed to load.
+[[dependencies.${mod_id}]]
+modId = "jei"
+type = "optional"
+versionRange = "[0,)"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies.${mod_id}]]
+modId = "emi"
+type = "optional"
+versionRange = "[0,)"
+ordering = "NONE"
+side = "CLIENT"
+
 [[mixins]]
 config = "beltworks.mixins.json"

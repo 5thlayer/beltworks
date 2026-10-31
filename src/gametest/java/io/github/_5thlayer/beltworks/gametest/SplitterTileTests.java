@@ -43,6 +43,7 @@ import io.github._5thlayer.beltworks.items.BeltRefusal;
 import io.github._5thlayer.beltworks.items.SplitterItem;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.Splitter;
+import io.github._5thlayer.beltworks.neoforge.GhostSlotPayload;
 import io.github._5thlayer.beltworks.blocks.SplitterSettings;
 
 /**
@@ -128,6 +129,8 @@ final class SplitterTileTests {
                 SplitterTileTests::clearingPriorityClearsFilter);
         tests.test("a_click_on_the_splitter_menus_filter_slot_sets_the_filter_from_the_cursor_and_takes_nothing", 20,
                 SplitterTileTests::menuClickSetsFilter);
+        tests.test("a_recipe_viewers_drop_on_the_splitter_menus_filter_slot_sets_the_filter", 20,
+                SplitterTileTests::ghostDropSetsFilter);
         tests.test("the_splitter_menus_buttons_set_the_priorities_and_their_sides", 20,
                 SplitterTileTests::menuButtonsSetPriorities);
         tests.test("a_splitter_menu_is_valid_only_while_the_splitter_stands_within_reach", 20,
@@ -343,6 +346,29 @@ final class SplitterTileTests {
         if (settings.splitterSettings().outputPriority() != Splitter.Priority.RIGHT || !settings.splitterSettings().filter().is(Items.STONE)) {
             helper.fail("a filter set beside a switch at RIGHT left " + settings.splitterSettings() + ", expected output RIGHT and stone", RIGHT);
         }
+        helper.succeed();
+    }
+
+    // A drop from JEI or EMI names its item, and reaches only the menu the player has open (#125).
+    private static void ghostDropSetsFilter(GameTestHelper helper) {
+        placeSplitter(helper, BeltTier.BELT);
+        ServerPlayer player = player(helper, "beltworks_splitter_ghost_drop");
+        var menu = menu(helper, player);
+        player.containerMenu = menu;
+        var settings = helper.getBlockEntity(RIGHT, BeltEndBlockEntity.class);
+
+        new GhostSlotPayload(menu.containerId + 1, new ItemStack(Items.STONE)).receive(player);
+        if (!settings.splitterSettings().filter().isEmpty()) {
+            helper.fail("a drop for another menu set the filter to " + settings.splitterSettings().filter(), RIGHT);
+        }
+        new GhostSlotPayload(menu.containerId, new ItemStack(Items.DIRT, 5)).receive(player);
+        if (!settings.splitterSettings().filter().is(Items.DIRT) || settings.splitterSettings().filter().getCount() != 1) {
+            helper.fail("a drop of dirt left " + settings.splitterSettings() + ", expected a filter of one dirt", RIGHT);
+        }
+        if (settings.splitterSettings().outputPriority() != Splitter.Priority.LEFT) {
+            helper.fail("a filter dropped with no output priority left " + settings.splitterSettings() + ", expected output LEFT", RIGHT);
+        }
+        player.containerMenu = player.inventoryMenu;
         helper.succeed();
     }
 

@@ -30,10 +30,20 @@ import io.github._5thlayer.beltworks.model.Splitter;
  * what it does not. {@link #setFilter} is the one way the filter is set, for the click and for a
  * recipe viewer's drop alike.
  */
-public final class SplitterMenu extends AbstractContainerMenu {
+public final class SplitterMenu extends AbstractContainerMenu implements GhostSlotMenu {
 
     /** The filter's ghost slot, the menu's first: a click sets it from the cursor stack and takes nothing. */
     public static final int FILTER_SLOT = 0;
+
+    @Override
+    public int ghostSlot() {
+        return FILTER_SLOT;
+    }
+
+    @Override
+    public void setGhost(ItemStack stack) {
+        setFilter(stack);
+    }
 
     /** Buttons: turn a priority on, on the side its switch shows, or off. */
     public static final int INPUT_TOGGLE = 0;

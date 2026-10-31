@@ -26,7 +26,7 @@ import io.github._5thlayer.beltworks.items.BeltLegs;
 import io.github._5thlayer.beltworks.items.BeltReplaces;
 import io.github._5thlayer.beltworks.neoforge.BeltChangesPayload;
 import io.github._5thlayer.beltworks.neoforge.BeltHandPayload;
-import io.github._5thlayer.beltworks.neoforge.SplitterFilterPayload;
+import io.github._5thlayer.beltworks.neoforge.GhostSlotPayload;
 import io.github._5thlayer.beltworks.neoforge.ClimbPayload;
 import io.github._5thlayer.beltworks.neoforge.FeederReachPayload;
 import io.github._5thlayer.beltworks.neoforge.FeederArmPayload;
@@ -117,11 +117,11 @@ public final class Beltworks {
     }
 
     private static void registerPayloads(RegisterPayloadHandlersEvent event) {
-        event.registrar("8")
+        event.registrar("9")
           .playToServer(BeltHandPayload.TYPE, BeltHandPayload.STREAM_CODEC, BeltHandPayload::handle)
           .playToServer(ClimbPayload.TYPE, ClimbPayload.STREAM_CODEC, ClimbPayload::handle)
           .playToServer(FeederReachPayload.TYPE, FeederReachPayload.STREAM_CODEC, FeederReachPayload::handle)
-          .playToServer(SplitterFilterPayload.TYPE, SplitterFilterPayload.STREAM_CODEC, SplitterFilterPayload::handle)
+          .playToServer(GhostSlotPayload.TYPE, GhostSlotPayload.STREAM_CODEC, GhostSlotPayload::handle)
           .playToClient(BeltChangesPayload.TYPE, BeltChangesPayload.STREAM_CODEC, BeltChangesPayload::handle)
           .playToClient(BeltLinePayload.TYPE, BeltLinePayload.STREAM_CODEC, BeltLinePayload::handle)
           .playToClient(FeederArmPayload.TYPE, FeederArmPayload.STREAM_CODEC, FeederArmPayload::handle);

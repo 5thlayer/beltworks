@@ -49,6 +49,7 @@ import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
 import io.github._5thlayer.beltworks.blocks.CreativeCrateBlockEntity;
 import io.github._5thlayer.beltworks.blocks.CreativeCrateMenu;
 import io.github._5thlayer.beltworks.model.BeltTier;
+import io.github._5thlayer.beltworks.neoforge.GhostSlotPayload;
 
 /**
  * A creative crate (5thlayer/beltworks#125) gives the one item it is set to without end, through
@@ -92,6 +93,7 @@ final class CreativeCrateTests {
         loadersUnpowered.test("creativecrate_feeder_head_takes_from_it", 200, CreativeCrateTests::feederTakes);
         tests.test("creativecrate_plain_use_opens_its_menu", 1, CreativeCrateTests::useOpensMenu);
         tests.test("creativecrate_menu_sets_and_clears_it_taking_nothing", 1, CreativeCrateTests::menuSets);
+        tests.test("creativecrate_recipe_viewer_drop_sets_it_through_the_open_menu_only", 1, CreativeCrateTests::ghostDropSets);
         tests.test("creativecrate_broken_drops_a_blank_crate_and_picks_blank", 20, CreativeCrateTests::breaksBlank);
         tests.test("creativecrate_keeps_its_item_across_a_save_and_load", 1, CreativeCrateTests::survivesSave);
         tests.test("creativecrate_never_pushes_into_an_inventory_beside_it", 100, CreativeCrateTests::neverPushes);
@@ -311,6 +313,43 @@ final class CreativeCrateTests {
         // An empty cursor clears it.
         menu.clicked(CreativeCrateMenu.CRATE_SLOT, 0, ContainerInput.PICKUP, player);
         helper.assertTrue(crate.getResource(0).isEmpty() && menu.shown().isEmpty(), "a click with an empty cursor left " + crate.getResource(0));
+        helper.succeed();
+    }
+
+    // A drop from JEI or EMI names its item, and reaches the crate only through the valid menu the
+    // player has open, and never from a spectator.
+    private static void ghostDropSets(GameTestHelper helper) {
+        place(helper, CRATE);
+        var player = player(helper);
+        var crate = handler(helper, CRATE);
+        var menu = new CreativeCrateMenu(3, player.getInventory(), helper.absolutePos(CRATE));
+
+        // With only its own inventory open, the player's drop reaches no crate.
+        new GhostSlotPayload(player.inventoryMenu.containerId, new ItemStack(Items.STONE)).receive(player);
+        helper.assertTrue(crate.getResource(0).isEmpty(), "a drop with no crate menu open set " + crate.getResource(0));
+
+        player.containerMenu = menu;
+        new GhostSlotPayload(4, new ItemStack(Items.STONE)).receive(player);
+        helper.assertTrue(crate.getResource(0).isEmpty(), "a drop for another menu set " + crate.getResource(0));
+
+        var potion = namedPotion();
+        new GhostSlotPayload(3, potion.copyWithCount(5)).receive(player);
+        helper.assertTrue(ItemStack.isSameItemSameComponents(crate.getResource(0).toStack(), potion),
+          "a drop of the named potion set " + crate.getResource(0).toStack());
+        helper.assertTrue(menu.shown().getCount() == 1, "the slot shows " + menu.shown() + ", expected one potion");
+
+        player.setGameMode(GameType.SPECTATOR);
+        new GhostSlotPayload(3, new ItemStack(Items.DIRT)).receive(player);
+        helper.assertTrue(ItemStack.isSameItemSameComponents(crate.getResource(0).toStack(), potion),
+          "a spectator's drop set " + crate.getResource(0).toStack());
+
+        // Out of reach, the menu is no longer valid.
+        player.setGameMode(GameType.SURVIVAL);
+        var far = helper.absoluteVec(STANDING.getBottomCenter()).add(0, 0, -20);
+        player.setPos(far.x, far.y, far.z);
+        new GhostSlotPayload(3, new ItemStack(Items.DIRT)).receive(player);
+        helper.assertTrue(ItemStack.isSameItemSameComponents(crate.getResource(0).toStack(), potion),
+          "a drop through a menu out of reach set " + crate.getResource(0).toStack());
         helper.succeed();
     }
 

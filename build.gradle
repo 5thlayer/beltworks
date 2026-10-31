@@ -37,6 +37,11 @@ neoForge {
             server()
             programArgument '--nogui'
         }
+        // EMI's 26.1 port still carries @OnlyIn, and a dev run halts on a warning screen over it that
+        // production never shows.
+        configureEach {
+            systemProperty 'neoforge.warnings.onlyin.hide', 'true'
+        }
     }
 }
 
@@ -56,15 +61,22 @@ tasks.named('runClient') { dependsOn syncClientMods }
 // The last JEI for 26.1.2 that loads on gradle.properties' neoforge_version; later ones need 26.1.2.81 or more.
 def jeiVersion = '29.20.0.53'
 
+// The CurseForge file of the unofficial EMI 1.1.24 port for 26.1.2, the one libworks and Pipeworks use.
+def emiFile = '8630349'
+
 dependencies {
     clientMods 'curse.maven:jade-324717:8651070'
     // Its Creative Battery Box powers feeders and loaders with loadersNeedPower on (5thlayer/beltworks#80).
     clientMods 'maven.modrinth:energized-power:3.0.1+26.1.x-neoforge'
     clientMods "mezz.jei:jei-26.1.2-neoforge:$jeiVersion"
+    clientMods "curse.maven:emi-unofficial-port-unstable-1544558:$emiFile"
 
     compileOnly 'curse.maven:ftb-filter-system-943925:8300190'
     // Jade finds the tile's tooltip plugin by its annotation, so the Mod runs without it.
     compileOnly 'curse.maven:jade-324717:8651070'
-    // JEI finds the splitter screen's drop target by its annotation, so the Mod runs without it.
+    // JEI and EMI find the ghost slots' drop targets, the splitter's and the creative crate's, by
+    // their plugins' annotations, so the Mod runs without either. EMI has no official 26.1.2 build:
+    // this is an unofficial port.
     compileOnly "mezz.jei:jei-26.1.2-neoforge-api:$jeiVersion"
+    compileOnly "curse.maven:emi-unofficial-port-unstable-1544558:$emiFile"
 }
