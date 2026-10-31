@@ -3,9 +3,9 @@
 # ///
 """Recolour the belt textures to Factorio's yellow, red, blue and green tiers, from Upstream's
 original art in `scripts/belt-art/`, draw the family's slate (the loader's housing, the tiles'
-sides and undersides) and the loader's tier band, and write the belt tiles' corner and slope models
-and their blockstates, and the feeder's base, plate and tier arm from Malcolm Riley's art. Run with
-`uv run scripts/build-tier-textures.py`; `--check` fails on drift."""
+sides and undersides), the loader's tier band and the creative crate's banded sides, and write the
+belt tiles' corner and slope models and their blockstates, and the feeder's base, plate and tier
+arm from Malcolm Riley's art. Run with `uv run scripts/build-tier-textures.py`; `--check` fails on drift."""
 import colorsys
 import io
 import json
@@ -56,6 +56,12 @@ SIDE = (SLATE_EDGE, SLATE_EDGE, SLATE_LIGHT, SLATE, SLATE, SLATE_EDGE, SLATE, SL
 # them, which rises that pixel so the ribs stand on the block's floor and the surface stays at 6 px
 # (#57). Measured upright, so on a slope the ribs keep the level tile's lines.
 RIB = 1
+# The creative crate is a slate crate banded in magenta (#125): its sides are the loader's slate
+# with two bands of the crate's colour around it, shaded as the loader's band is, leaving the
+# middle rows clear for the item its renderer draws there. Magenta is no tier's colour, so the crate
+# reads as apart from the tiers.
+MAGENTA = (199, 78, 189)
+CRATE_BANDS = ((2, 5), (11, 14))
 # The side art's rows for a level tile's wall above the rib and for the rib.
 WALL_ROWS = (4, 16 - 2 * RIB)
 RIB_ROWS = (16 - 2 * RIB, 16)
@@ -167,6 +173,18 @@ def band(colour) -> bytes:
         shade = tuple(round(c * 255) for c in colorsys.hsv_to_rgb(h, s, value))
         for x in range(16):
             image.putpixel((x, y), (*shade, 255))
+    return png(image)
+
+
+def crate_side() -> bytes:
+    image = Image.open(io.BytesIO(slate()))
+    h, s, v = colorsys.rgb_to_hsv(*(c / 255 for c in MAGENTA))
+    for y0, y1 in CRATE_BANDS:
+        for y in range(y0, y1):
+            value = min(1.0, v * 1.2) if y == y0 else v * 0.7 if y == y1 - 1 else v
+            shade = tuple(round(c * 255) for c in colorsys.hsv_to_rgb(h, s, value))
+            for x in range(1, 15):
+                image.putpixel((x, y), (*shade, 255))
     return png(image)
 
 
@@ -584,6 +602,7 @@ def outputs():
     yield BLOCKSTATES / "belt_wedge.json", wedge_blockstate()
     yield TEXTURES / "block/loader_slate.png", slate()
     yield TEXTURES / "block/loader_mouth.png", mouth()
+    yield TEXTURES / "block/creative_crate_side.png", crate_side()
     yield TEXTURES / "block/belt_underside.png", underside()
     yield TEXTURES / "block/belt_tile_side.png", tile_side()
     yield TEXTURES / "block/belt_slope_side.png", tile_side()

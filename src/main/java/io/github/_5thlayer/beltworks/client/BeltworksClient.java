@@ -8,6 +8,7 @@ import io.github._5thlayer.beltworks.Beltworks;
 import io.github._5thlayer.beltworks.BlockEntitiesContent;
 import io.github._5thlayer.beltworks.MenuContent;
 import io.github._5thlayer.beltworks.client.renderers.BeltTileRenderer;
+import io.github._5thlayer.beltworks.client.renderers.CreativeCrateRenderer;
 import io.github._5thlayer.beltworks.client.renderers.FeederRenderer;
 import io.github._5thlayer.beltworks.collision.BeltCollisionRegistry;
 import io.github._5thlayer.beltworks.neoforge.client.BeltHandClient;
@@ -57,5 +58,6 @@ public final class BeltworksClient {
         event.registerBlockEntityRenderer(BlockEntitiesContent.BELT_END.get(), context -> new NeoForgeBeltEndRenderer());
         event.registerBlockEntityRenderer(BlockEntitiesContent.BELT_TILE.get(), context -> new BeltTileRenderer());
         event.registerBlockEntityRenderer(BlockEntitiesContent.FEEDER.get(), context -> new FeederRenderer());
+        event.registerBlockEntityRenderer(BlockEntitiesContent.CREATIVE_CRATE.get(), context -> new CreativeCrateRenderer());
     }
 }
