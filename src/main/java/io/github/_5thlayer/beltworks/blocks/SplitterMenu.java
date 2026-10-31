@@ -5,14 +5,9 @@ package io.github._5thlayer.beltworks.blocks;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.world.Container;
-import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.DataSlot;
-import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 import io.github._5thlayer.beltworks.BlockEntitiesContent;
@@ -26,24 +21,13 @@ import io.github._5thlayer.beltworks.model.Splitter;
  * <p>The priorities and the side each switch shows travel as data slots, the filter as a slot of
  * one item, so vanilla's own sync keeps the client's screen true, including when another player
  * changes the splitter. The client changes nothing: a priority is a menu button, and the filter is
- * the slot's click, read from the cursor stack the server holds, so a client cannot claim to hold
- * what it does not. {@link #setFilter} is the one way the filter is set, for the click and for a
- * recipe viewer's drop alike.
+ * the menu's {@linkplain GhostSlotMenu ghost slot}. {@link #setGhostItem} is the one way the filter
+ * is set, for the click and for a recipe viewer's drop alike.
  */
-public final class SplitterMenu extends AbstractContainerMenu implements GhostSlotMenu {
+public final class SplitterMenu extends GhostSlotMenu {
 
-    /** The filter's ghost slot, the menu's first: a click sets it from the cursor stack and takes nothing. */
-    public static final int FILTER_SLOT = 0;
-
-    @Override
-    public int ghostSlot() {
-        return FILTER_SLOT;
-    }
-
-    @Override
-    public void setGhost(ItemStack stack) {
-        setFilter(stack);
-    }
+    /** The filter's ghost slot: a click sets it from the cursor stack and takes nothing. */
+    public static final int FILTER_SLOT = GHOST_SLOT;
 
     /** Buttons: turn a priority on, on the side its switch shows, or off. */
     public static final int INPUT_TOGGLE = 0;
@@ -54,7 +38,6 @@ public final class SplitterMenu extends AbstractContainerMenu implements GhostSl
 
     private final BlockPos half;
     private final Player player;
-    private final Container filter = new SimpleContainer(1);
     private final DataSlot inputPriority = addDataSlot(DataSlot.standalone());
     private final DataSlot outputPriority = addDataSlot(DataSlot.standalone());
     // The side a switch shows: the priority's while it is on, the last one it had while it is off.
@@ -67,12 +50,11 @@ public final class SplitterMenu extends AbstractContainerMenu implements GhostSl
     }
 
     public SplitterMenu(int containerId, Inventory inventory, BlockPos half) {
-        super(MenuContent.SPLITTER.get(), containerId);
+        super(MenuContent.SPLITTER.get(), containerId, 205, 50);
         this.half = half;
         player = inventory.player;
         inputSide.set(Splitter.Priority.LEFT.ordinal());
         outputSide.set(Splitter.Priority.LEFT.ordinal());
-        addSlot(new FilterSlot(filter, 205, 50));
         addStandardInventorySlots(inventory, 35, 94);
         refresh();
     }
@@ -99,7 +81,7 @@ public final class SplitterMenu extends AbstractContainerMenu implements GhostSl
     }
 
     public ItemStack filter() {
-        return filter.getItem(0);
+        return ghostItem();
     }
 
     private static Splitter.Priority priority(DataSlot slot) {
@@ -122,7 +104,7 @@ public final class SplitterMenu extends AbstractContainerMenu implements GhostSl
         outputPriority.set(settings.outputPriority().ordinal());
         if (settings.inputPriority() != Splitter.Priority.NONE) inputSide.set(settings.inputPriority().ordinal());
         if (settings.outputPriority() != Splitter.Priority.NONE) outputSide.set(settings.outputPriority().ordinal());
-        if (!ItemStack.matches(filter(), settings.filter())) filter.setItem(0, settings.filter().copy());
+        showGhostItem(settings.filter());
     }
 
     @Override
@@ -136,7 +118,8 @@ public final class SplitterMenu extends AbstractContainerMenu implements GhostSl
      * stack is only read: nothing is taken from anyone. A filter set while output priority is off
      * turns it on, on the side its switch shows. On the server only.
      */
-    public void setFilter(ItemStack stack) {
+    @Override
+    public void setGhostItem(ItemStack stack) {
         if (player.level().isClientSide()) return;
         var entity = splitter(player);
         if (entity == null) return;
@@ -172,20 +155,6 @@ public final class SplitterMenu extends AbstractContainerMenu implements GhostSl
         return side == Splitter.Priority.LEFT ? Splitter.Priority.RIGHT : Splitter.Priority.LEFT;
     }
 
-    /**
-     * A click on the ghost slot sets the filter from the stack on the cursor, or clears it with an
-     * empty cursor, and changes neither stack. Every other input on the slot does nothing. The
-     * client does nothing at all: the server's answer arrives as the slot's contents.
-     */
-    @Override
-    public void clicked(int slotId, int button, ContainerInput input, Player who) {
-        if (slotId != FILTER_SLOT) {
-            super.clicked(slotId, button, input, who);
-            return;
-        }
-        if (input == ContainerInput.PICKUP && (button == 0 || button == 1)) setFilter(getCarried());
-    }
-
     // Nothing shift-clicks into the ghost slot, and a splitter holds no items.
     @Override
     public ItemStack quickMoveStack(Player who, int index) {
@@ -196,33 +165,5 @@ public final class SplitterMenu extends AbstractContainerMenu implements GhostSl
     @Override
     public boolean stillValid(Player who) {
         return splitter(who) != null && who.isWithinBlockInteractionRange(half, 1);
-    }
-
-    @Override
-    public boolean canDragTo(Slot slot) {
-        return !(slot instanceof FilterSlot) && super.canDragTo(slot);
-    }
-
-    @Override
-    public boolean canTakeItemForPickAll(ItemStack stack, Slot slot) {
-        return !(slot instanceof FilterSlot) && super.canTakeItemForPickAll(stack, slot);
-    }
-
-    /** The filter shown, which the player can neither put into nor take out of. */
-    private static final class FilterSlot extends Slot {
-
-        FilterSlot(Container container, int x, int y) {
-            super(container, 0, x, y);
-        }
-
-        @Override
-        public boolean mayPlace(ItemStack stack) {
-            return false;
-        }
-
-        @Override
-        public boolean mayPickup(Player player) {
-            return false;
-        }
     }
 }

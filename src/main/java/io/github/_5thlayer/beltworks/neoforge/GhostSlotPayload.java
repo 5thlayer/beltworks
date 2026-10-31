@@ -47,7 +47,7 @@ public record GhostSlotPayload(int containerId, ItemStack stack) implements Cust
         if (player.isSpectator()) return;
         var menu = player.containerMenu;
         if (menu instanceof GhostSlotMenu ghost && menu.containerId == containerId && menu.stillValid(player)) {
-            ghost.setGhost(stack);
+            ghost.setGhostItem(stack);
         }
     }
 }

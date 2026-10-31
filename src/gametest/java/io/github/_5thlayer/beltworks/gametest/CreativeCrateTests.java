@@ -444,7 +444,7 @@ final class CreativeCrateTests {
     // Set as a player would, through the crate's menu.
     private static void set(GameTestHelper helper, BlockPos at, ItemStack stack) {
         var player = player(helper);
-        new CreativeCrateMenu(0, player.getInventory(), helper.absolutePos(at)).setCrateItem(stack);
+        new CreativeCrateMenu(0, player.getInventory(), helper.absolutePos(at)).setGhostItem(stack);
     }
 
     private static ResourceHandler<ItemResource> handler(GameTestHelper helper, BlockPos at) {

@@ -11,6 +11,7 @@ import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.widget.Bounds;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.item.ItemStack;
+import io.github._5thlayer.beltworks.blocks.GhostSlotMenu;
 
 /**
  * Lets an item be dragged from EMI's list onto the ghost slot of a splitter's or a creative crate's
@@ -25,7 +26,7 @@ public class GhostSlotEmiPlugin implements EmiPlugin {
         GhostSlotDrop.SCREENS.forEach(screen -> register(registry, screen));
     }
 
-    private static <T extends AbstractContainerScreen<?>> void register(EmiRegistry registry, Class<T> screens) {
+    private static <T extends AbstractContainerScreen<? extends GhostSlotMenu>> void register(EmiRegistry registry, Class<T> screens) {
         registry.addDragDropHandler(screens, new EmiDragDropHandler.BoundsBased<T>((screen, bounds) -> {
             var slot = GhostSlotDrop.slot(screen);
             bounds.accept(new Bounds(screen.getLeftPos() + slot.x, screen.getTopPos() + slot.y, 16, 16), dropped -> {

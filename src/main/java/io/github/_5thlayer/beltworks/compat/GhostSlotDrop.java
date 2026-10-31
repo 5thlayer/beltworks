@@ -17,23 +17,23 @@ import io.github._5thlayer.beltworks.neoforge.GhostSlotPayload;
 /**
  * What the JEI and EMI plugins share (#22, #125): the screens whose ghost slot takes a dropped item,
  * where that slot is drawn, and the drop itself, sent as {@link GhostSlotPayload} for the server to
- * set through the menu's {@link GhostSlotMenu#setGhost}.
+ * set through the menu's {@link GhostSlotMenu#setGhostItem}.
  */
 final class GhostSlotDrop {
 
-    /** The screens of a menu with a ghost slot, each a {@link GhostSlotMenu}'s. */
-    static final List<Class<? extends AbstractContainerScreen<?>>> SCREENS = List.of(SplitterScreen.class, CreativeCrateScreen.class);
+    /** The screens of a menu with a ghost slot. */
+    static final List<Class<? extends AbstractContainerScreen<? extends GhostSlotMenu>>> SCREENS = List.of(SplitterScreen.class, CreativeCrateScreen.class);
 
     private GhostSlotDrop() {
     }
 
     /** The screen's ghost slot, whose position is relative to the screen's left and top. */
-    static Slot slot(AbstractContainerScreen<?> screen) {
-        return screen.getMenu().slots.get(((GhostSlotMenu) screen.getMenu()).ghostSlot());
+    static Slot slot(AbstractContainerScreen<? extends GhostSlotMenu> screen) {
+        return screen.getMenu().getSlot(GhostSlotMenu.GHOST_SLOT);
     }
 
     /** Asks the server to set the screen's ghost slot to one of the item dropped on it. */
-    static void drop(AbstractContainerScreen<?> screen, ItemStack stack) {
+    static void drop(AbstractContainerScreen<? extends GhostSlotMenu> screen, ItemStack stack) {
         ClientPacketDistributor.sendToServer(new GhostSlotPayload(screen.getMenu().containerId, stack.copyWithCount(1)));
     }
 }

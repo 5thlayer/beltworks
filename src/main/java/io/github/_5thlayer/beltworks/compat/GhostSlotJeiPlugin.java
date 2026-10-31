@@ -14,6 +14,7 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.resources.Identifier;
 import io.github._5thlayer.beltworks.Beltworks;
+import io.github._5thlayer.beltworks.blocks.GhostSlotMenu;
 
 /**
  * Lets an item be dragged from JEI's list onto the ghost slot of a splitter's or a creative crate's
@@ -25,7 +26,7 @@ public class GhostSlotJeiPlugin implements IModPlugin {
 
     private static final Identifier UID = Beltworks.id("ghost_slot");
 
-    private static final class Drop<T extends AbstractContainerScreen<?>> implements IGhostIngredientHandler<T> {
+    private static final class Drop<T extends AbstractContainerScreen<? extends GhostSlotMenu>> implements IGhostIngredientHandler<T> {
 
         @Override
         public <I> List<Target<I>> getTargetsTyped(T screen, ITypedIngredient<I> ingredient, boolean doStart) {
@@ -62,7 +63,7 @@ public class GhostSlotJeiPlugin implements IModPlugin {
         GhostSlotDrop.SCREENS.forEach(screen -> register(registration, screen));
     }
 
-    private static <T extends AbstractContainerScreen<?>> void register(IGuiHandlerRegistration registration, Class<T> screen) {
+    private static <T extends AbstractContainerScreen<? extends GhostSlotMenu>> void register(IGuiHandlerRegistration registration, Class<T> screen) {
         registration.addGhostIngredientHandler(screen, new Drop<>());
     }
 }
