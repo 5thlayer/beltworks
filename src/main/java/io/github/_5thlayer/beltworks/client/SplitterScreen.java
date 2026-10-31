@@ -16,6 +16,13 @@ import net.minecraft.world.entity.player.Inventory;
 import io.github._5thlayer.beltworks.blocks.SplitterMenu;
 import io.github._5thlayer.beltworks.model.Splitter;
 
+import static io.github._5thlayer.beltworks.client.ContainerPanel.EDGE;
+import static io.github._5thlayer.beltworks.client.ContainerPanel.LABEL;
+import static io.github._5thlayer.beltworks.client.ContainerPanel.LIGHT;
+import static io.github._5thlayer.beltworks.client.ContainerPanel.PANEL;
+import static io.github._5thlayer.beltworks.client.ContainerPanel.SHADE;
+import static io.github._5thlayer.beltworks.client.ContainerPanel.SLOT_SHADE;
+
 /**
  * A splitter's screen, in Factorio's layout and vanilla's colours: the settings on top, the player's
  * inventory below. Each settings row names a setting, with a checkbox turning it on and a
@@ -39,14 +46,6 @@ public final class SplitterScreen extends AbstractContainerScreen<SplitterMenu> 
     private static final int SETTINGS_HEIGHT = TITLE_HEIGHT + ROWS * ROW_HEIGHT + 2 * MARGIN;
     private static final int HEIGHT = 178;
     private static final int INVENTORY_X = 35;
-    // Vanilla's container colours: a light panel lit from the top left, slots sunk into it.
-    private static final int PANEL = 0xFFC6C6C6;
-    private static final int LIGHT = 0xFFFFFFFF;
-    private static final int SHADE = 0xFF555555;
-    private static final int SLOT = 0xFF8B8B8B;
-    private static final int SLOT_SHADE = 0xFF373737;
-    private static final int EDGE = 0xFF000000;
-    private static final int LABEL = 0xFF404040;
     private static final int DIM = 0xFF8B8B8B;
     private static final int CHECKBOX = 17;
 
@@ -87,55 +86,11 @@ public final class SplitterScreen extends AbstractContainerScreen<SplitterMenu> 
     @Override
     public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         super.extractBackground(graphics, mouseX, mouseY, partialTick);
-        panel(graphics, leftPos, topPos, leftPos + WIDTH, topPos + HEIGHT);
+        ContainerPanel.draw(graphics, menu, leftPos, topPos, WIDTH, HEIGHT);
         graphics.text(font, title, leftPos + 8, topPos + 8, LABEL, false);
         graphics.text(font, playerInventoryTitle, leftPos + INVENTORY_X, topPos + SETTINGS_HEIGHT + 4, LABEL, false);
-        for (var slot : menu.slots) {
-            var x = leftPos + slot.x;
-            var y = topPos + slot.y;
-            // Shaded on the top and left, lit on the bottom and right, its other two corners the slot's own grey.
-            graphics.fill(x - 1, y - 1, x + 17, y + 17, SLOT_SHADE);
-            graphics.fill(x, y, x + 17, y + 17, LIGHT);
-            graphics.fill(x, y, x + 16, y + 16, SLOT);
-            graphics.fill(x + 16, y - 1, x + 17, y, SLOT);
-            graphics.fill(x - 1, y + 16, x, y + 17, SLOT);
-        }
         input.label(graphics, 0);
         output.label(graphics, 1);
-    }
-
-    /**
-     * A vanilla window, pixel for pixel as the inventory texture draws one: a black outline rounded
-     * at its corners, two pixels lit on the top and left, two shaded on the bottom and right.
-     */
-    private static void panel(GuiGraphicsExtractor graphics, int x0, int y0, int x1, int y1) {
-        var w = x1 - x0;
-        var h = y1 - y0;
-        fill(graphics, x0, y0, 3, 3, w - 3, h - 3, PANEL);
-        fill(graphics, x0, y0, w - 3, 2, w - 2, 3, PANEL);
-        fill(graphics, x0, y0, 2, h - 3, 3, h - 2, PANEL);
-        fill(graphics, x0, y0, 2, 1, w - 3, 2, LIGHT);
-        fill(graphics, x0, y0, 1, 2, w - 3, 3, LIGHT);
-        fill(graphics, x0, y0, 1, 3, 4, 4, LIGHT);
-        fill(graphics, x0, y0, 1, 4, 3, h - 3, LIGHT);
-        fill(graphics, x0, y0, w - 3, 3, w - 1, h - 3, SHADE);
-        fill(graphics, x0, y0, w - 4, h - 4, w - 3, h - 3, SHADE);
-        fill(graphics, x0, y0, 3, h - 3, w - 1, h - 2, SHADE);
-        fill(graphics, x0, y0, 3, h - 2, w - 2, h - 1, SHADE);
-        fill(graphics, x0, y0, 2, 0, w - 3, 1, EDGE);
-        fill(graphics, x0, y0, 1, 1, 2, 2, EDGE);
-        fill(graphics, x0, y0, 0, 2, 1, h - 3, EDGE);
-        fill(graphics, x0, y0, 1, h - 3, 2, h - 2, EDGE);
-        fill(graphics, x0, y0, 2, h - 2, 3, h - 1, EDGE);
-        fill(graphics, x0, y0, 3, h - 1, w - 2, h, EDGE);
-        fill(graphics, x0, y0, w - 3, 1, w - 2, 2, EDGE);
-        fill(graphics, x0, y0, w - 2, 2, w - 1, 3, EDGE);
-        fill(graphics, x0, y0, w - 1, 3, w, h - 2, EDGE);
-        fill(graphics, x0, y0, w - 2, h - 2, w - 1, h - 1, EDGE);
-    }
-
-    private static void fill(GuiGraphicsExtractor graphics, int x, int y, int left, int top, int right, int bottom, int colour) {
-        graphics.fill(x + left, y + top, x + right, y + bottom, colour);
     }
 
     // The labels are drawn with the background, in colours that read on it.
