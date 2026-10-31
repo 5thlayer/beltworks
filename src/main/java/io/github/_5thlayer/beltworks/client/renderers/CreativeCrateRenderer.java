@@ -25,13 +25,19 @@ import java.util.List;
 
 /**
  * The item a creative crate is set to, drawn flat on each of its four sides between its bands
- * (GLOSSARY.md, Creative Crate), as a feeder's filter is on its base. An unset crate shows nothing,
- * and a side another block covers is left out.
+ * (GLOSSARY.md, Creative Crate). An unset crate shows nothing, and a side another block covers is
+ * left out.
+ *
+ * <p>The item is drawn as its inventory icon, in the GUI display context, pressed flat against the
+ * side: a block item is its tilted cube squashed into a picture, not a cube sunk into the crate. The
+ * squash turns every face's normal to the side's own, so the icon is lit as the side is.
  */
 public class CreativeCrateRenderer implements BlockEntityRenderer<CreativeCrateBlockEntity, CreativeCrateRenderer.RenderState> {
 
     // Six pixels across, the clear rows between the side's bands, a hair off the face.
     private static final float ITEM_SCALE = 6 / 16f;
+    // The icon's depth: little enough to read as flat, enough that its faces keep their order.
+    private static final float FLAT = 0.001f;
     private static final double OUT = 0.5 + 0.01;
 
     /** A side the item shows on, lit by the block in front of it, since the crate's own is dark. */
@@ -61,7 +67,7 @@ public class CreativeCrateRenderer implements BlockEntityRenderer<CreativeCrateB
         }
         if (sides.isEmpty()) return;
         var itemState = new ItemStackRenderState();
-        Minecraft.getInstance().getItemModelResolver().updateForTopItem(itemState, item, ItemDisplayContext.FIXED, level, null, 0);
+        Minecraft.getInstance().getItemModelResolver().updateForTopItem(itemState, item, ItemDisplayContext.GUI, level, null, 0);
         state.item = itemState;
         state.sides = sides;
     }
@@ -74,8 +80,9 @@ public class CreativeCrateRenderer implements BlockEntityRenderer<CreativeCrateB
             var direction = side.direction();
             poseStack.pushPose();
             poseStack.translate(0.5 + direction.getStepX() * OUT, 0.5, 0.5 + direction.getStepZ() * OUT);
-            poseStack.mulPose(Axis.YP.rotationDegrees(180 - direction.toYRot()));
-            poseStack.scale(ITEM_SCALE, ITEM_SCALE, ITEM_SCALE);
+            // The icon's front, its +z as in a GUI, faces out of the side, so it reads unmirrored.
+            poseStack.mulPose(Axis.YP.rotationDegrees(-direction.toYRot()));
+            poseStack.scale(ITEM_SCALE, ITEM_SCALE, ITEM_SCALE * FLAT);
             item.submit(poseStack, collector, side.light(), OverlayTexture.NO_OVERLAY, 0);
             poseStack.popPose();
         }
