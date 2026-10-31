@@ -129,7 +129,7 @@ final class SplitterTileTests {
                 SplitterTileTests::clearingPriorityClearsFilter);
         tests.test("a_click_on_the_splitter_menus_filter_slot_sets_the_filter_from_the_cursor_and_takes_nothing", 20,
                 SplitterTileTests::menuClickSetsFilter);
-        tests.test("a_recipe_viewers_drop_on_the_splitter_menus_filter_slot_sets_the_filter", 20,
+        tests.test("creativecrate_ghost_drop_sets_the_splitter_filter", 20,
                 SplitterTileTests::ghostDropSetsFilter);
         tests.test("the_splitter_menus_buttons_set_the_priorities_and_their_sides", 20,
                 SplitterTileTests::menuButtonsSetPriorities);

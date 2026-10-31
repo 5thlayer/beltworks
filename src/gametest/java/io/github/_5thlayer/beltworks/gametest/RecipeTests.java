@@ -33,7 +33,7 @@ final class RecipeTests {
     static void register(BeltGameTests.Registrar tests) {
         tests.test("every_belt_piece_crafts_from_vanilla_ingredients", 1, RecipeTests::everyPieceCrafts);
         tests.test("rotten_flesh_smokes_into_leather_in_the_smoker_only", 1, RecipeTests::rottenFleshSmokes);
-        tests.test("no_recipe_makes_the_creative_crate", 1, RecipeTests::noCrateRecipe);
+        tests.test("creativecrate_has_no_recipe", 1, RecipeTests::noCrateRecipe);
     }
 
     // The creative crate is a piece with no recipe, so survival never gets an endless source (#125).
