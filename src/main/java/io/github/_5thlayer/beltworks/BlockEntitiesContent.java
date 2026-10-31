@@ -6,6 +6,7 @@ package io.github._5thlayer.beltworks;
 
 import io.github._5thlayer.beltworks.blocks.BeltTileBlockEntity;
 import io.github._5thlayer.beltworks.blocks.BeltEndBlockEntity;
+import io.github._5thlayer.beltworks.blocks.CreativeCrateBlockEntity;
 import io.github._5thlayer.beltworks.blocks.FeederBlockEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -36,5 +37,8 @@ public class BlockEntitiesContent {
             "feeder", () -> new BlockEntityType<>(FeederBlockEntity::new, BlockContent.FEEDER_BLOCK.get(),
                     BlockContent.IMPROVED_FEEDER_BLOCK.get(), BlockContent.EXPRESS_FEEDER_BLOCK.get(),
                     BlockContent.TURBO_FEEDER_BLOCK.get()));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<CreativeCrateBlockEntity>> CREATIVE_CRATE = TYPES.register(
+            "creative_crate", () -> new BlockEntityType<>(CreativeCrateBlockEntity::new, BlockContent.CREATIVE_CRATE.get()));
 
 }

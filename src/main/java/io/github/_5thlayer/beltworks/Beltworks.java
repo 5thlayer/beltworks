@@ -155,5 +155,7 @@ public final class Beltworks {
         event.registerBlockEntity(Capabilities.Energy.BLOCK, BlockEntitiesContent.FEEDER.get(),
           (feeder, side) -> feeder.getEnergy().powered()
             ? ENERGY_FACES.computeIfAbsent(feeder, owner -> new LoaderEnergyHandler(owner, feeder.getEnergy())) : null);
+        // A creative crate gives and voids items alike on every side.
+        event.registerBlockEntity(Capabilities.Item.BLOCK, BlockEntitiesContent.CREATIVE_CRATE.get(), (crate, side) -> crate.items());
     }
 }

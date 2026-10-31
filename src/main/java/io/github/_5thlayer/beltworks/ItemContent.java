@@ -37,6 +37,10 @@ public class ItemContent {
     public static final DeferredHolder<Item, Item> EXPRESS_FEEDER = feeder(BeltTier.EXPRESS, BlockContent.EXPRESS_FEEDER_BLOCK);
     public static final DeferredHolder<Item, Item> TURBO_FEEDER = feeder(BeltTier.TURBO, BlockContent.TURBO_FEEDER_BLOCK);
 
+    // Last, so it follows the pieces in the Works tab.
+    public static final DeferredHolder<Item, Item> CREATIVE_CRATE = ITEMS.register("creative_crate",
+      () -> new TooltipBlockItem(BlockContent.CREATIVE_CRATE.get(), properties("creative_crate")));
+
     public static Item tileFor(BeltTier tier) {
         return switch (tier) {
             case BELT -> BELT_TILE.get();

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A creative crate, in the Works tab and with no recipe, gives the one item it is set to without end, exactly as chosen, to a loader, a feeder, a hopper or another mod's pipe, and voids whatever is put into it, so it is both the source and the sink of a test belt; unset, it is a void. Use it to open its screen, and click its slot with an item, or shift-click a stack in your inventory, to set it; an empty cursor clears it, and nothing is taken from you. Broken, it loses its item (5thlayer/beltworks#125).
+
 ## 0.5.7
 
 - Beltworks requires Groundworks 0.7.0 or later, below 0.8. With it, a sheet of paper copies, cuts and pastes a box of blocks as a Blueprint, and Next Assembly is now Next Choice, still on `V` (5thlayer/groundworks#76).

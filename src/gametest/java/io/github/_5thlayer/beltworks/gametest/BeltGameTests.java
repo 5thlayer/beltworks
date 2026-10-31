@@ -114,6 +114,7 @@ public final class BeltGameTests {
         CreativeTabTests.register(tests);
         RecipeTests.register(tests);
         GalleryTests.register(tests);
+        CreativeCrateTests.register(tests);
     }
 
     /**

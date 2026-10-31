@@ -50,6 +50,7 @@ public final class BeltworksClient {
 
     private static void registerScreens(RegisterMenuScreensEvent event) {
         event.register(MenuContent.SPLITTER.get(), SplitterScreen::new);
+        event.register(MenuContent.CREATIVE_CRATE.get(), CreativeCrateScreen::new);
     }
 
     private static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {

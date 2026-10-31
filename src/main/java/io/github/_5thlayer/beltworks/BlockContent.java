@@ -7,6 +7,7 @@ package io.github._5thlayer.beltworks;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.BeltWedgeBlock;
 import io.github._5thlayer.beltworks.blocks.BeltEndBlock;
+import io.github._5thlayer.beltworks.blocks.CreativeCrateBlock;
 import io.github._5thlayer.beltworks.blocks.FeederBlock;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
 import io.github._5thlayer.beltworks.model.BeltTier;
@@ -16,6 +17,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.material.PushReaction;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -43,6 +45,11 @@ public class BlockContent {
     public static final DeferredHolder<Block, Block> IMPROVED_FEEDER_BLOCK = feeder(BeltTier.IMPROVED);
     public static final DeferredHolder<Block, Block> EXPRESS_FEEDER_BLOCK = feeder(BeltTier.EXPRESS);
     public static final DeferredHolder<Block, Block> TURBO_FEEDER_BLOCK = feeder(BeltTier.TURBO);
+
+    // Creative only: it has no recipe.
+    public static final DeferredHolder<Block, Block> CREATIVE_CRATE = BLOCKS.register("creative_crate", () -> new CreativeCrateBlock(
+      BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_MAGENTA).strength(1.5F, 6.0F).sound(SoundType.WOOD)
+        .setId(ResourceKey.create(Registries.BLOCK, Beltworks.id("creative_crate")))));
 
     public static Block loaderFor(BeltTier tier) {
         return switch (tier) {

@@ -17,7 +17,8 @@ final class CreativeTabTests {
             "loader", "improved_loader", "express_loader", "turbo_loader",
             "belt_tile", "improved_belt_tile", "express_belt_tile", "turbo_belt_tile",
             "splitter", "improved_splitter", "express_splitter", "turbo_splitter",
-            "feeder", "improved_feeder", "express_feeder", "turbo_feeder");
+            "feeder", "improved_feeder", "express_feeder", "turbo_feeder",
+            "creative_crate");
 
     private CreativeTabTests() {
     }

@@ -4,6 +4,7 @@
 package io.github._5thlayer.beltworks.gametest;
 
 import io.github._5thlayer.beltworks.BlockContent;
+import io.github._5thlayer.beltworks.ItemContent;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -13,6 +14,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.crafting.SingleRecipeInput;
+import net.minecraft.world.item.crafting.display.SlotDisplayContext;
 import net.minecraft.world.level.ItemLike;
 
 import java.util.Arrays;
@@ -20,7 +22,8 @@ import java.util.List;
 
 /**
  * Every belt piece crafts from vanilla ingredients (ADR 0002): tier 1 from its tier material, copper,
- * and each tier above from the tier below and its own tier material.
+ * and each tier above from the tier below and its own tier material. The creative crate crafts from
+ * nothing.
  */
 final class RecipeTests {
 
@@ -30,6 +33,21 @@ final class RecipeTests {
     static void register(BeltGameTests.Registrar tests) {
         tests.test("every_belt_piece_crafts_from_vanilla_ingredients", 1, RecipeTests::everyPieceCrafts);
         tests.test("rotten_flesh_smokes_into_leather_in_the_smoker_only", 1, RecipeTests::rottenFleshSmokes);
+        tests.test("no_recipe_makes_the_creative_crate", 1, RecipeTests::noCrateRecipe);
+    }
+
+    // The creative crate is a piece with no recipe, so survival never gets an endless source (#125).
+    private static void noCrateRecipe(GameTestHelper helper) {
+        var level = helper.getLevel();
+        var context = SlotDisplayContext.fromLevel(level);
+        for (var recipe : level.getServer().getRecipeManager().getRecipes()) {
+            for (var display : recipe.value().display()) {
+                if (display.result().resolveForStacks(context).stream().anyMatch(stack -> stack.is(ItemContent.CREATIVE_CRATE.get()))) {
+                    throw helper.assertionException(BlockPos.ZERO, recipe.id() + " makes a creative crate");
+                }
+            }
+        }
+        helper.succeed();
     }
 
     private static void everyPieceCrafts(GameTestHelper helper) {
