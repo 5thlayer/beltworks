@@ -152,6 +152,12 @@ _Avoid_: sorter, filter splitter
 A pattern of splitters that spreads several belts evenly across several others. Built by the player, never a block.
 _Avoid_: balancer block
 
+### Creative
+
+**Creative Crate**:
+A creative-only block, with no recipe, that holds an endless supply of the one item it is set to, exactly as chosen, data and all, so whatever pulls from it never empties it; it never pushes. It voids whatever is put into it, set or not, so an unset crate is a void. Its screen sets the item, from the player's inventory or a recipe viewer, taking nothing from them. It is drawn as a slate crate banded in magenta, with its item shown on its sides. Broken, it loses its item. Factorio's infinity chest cut down to one item, the source and the sink of a test belt.
+_Avoid_: infinity chest, creative chest, creative source, void chest
+
 ### Rotating
 
 **Rotate**:
