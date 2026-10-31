@@ -114,3 +114,19 @@ A feeder marks its head with a ring and its tail with a chevron. See **Feeder** 
 - Look away from the feeder: its marks go. Aim at another: only that one's show.
 - Hold a feeder: the Placement Preview marks its planned head and tail and follows Rotate the Plan and both Reach keys, and a placed feeder under the crosshair shows no marks. On a Fast Replace of a turned feeder, the chevron shows the old feeder's turn.
 - Press F1: no marks, on a placed feeder or in the preview.
+
+## Creative crate (#125)
+
+A creative crate is an endless source of the one item it is set to, from the creative tab only. See **Creative Crate** in `GLOSSARY.md`.
+
+- Place a crate in daylight and at night: its sides are slate with magenta bands across them, and its top and bottom plain slate.
+- Set it to a flat item, such as a diamond: the item shows flat on all four sides, between the bands, upright and reading the right way round, not mirrored. Walk round it and look at each side.
+- Set it to a block item, such as stone or a chest: each side shows the block's inventory icon flat against it, never a cube sunk into the crate or standing out of it.
+- The item on each side is lit like the block in front of that side: put a torch beside one side at night and only that side's item brightens.
+- Put a solid block against one side: the item on that side goes, and comes back when the block is broken. A glass pane or a torch there doesn't hide it.
+- An unset crate shows nothing on its sides. Set it and the item shows at once; clear it and it goes, with the crate's screen open or closed, for a second player watching too.
+- Open the crate: one slot above your inventory, in vanilla's colours. Hover the empty slot with an empty hand: a tooltip says what it is for.
+- Click the slot with a stack: the crate is set to one of it, the stack stays on the cursor, and the item shows in the slot. Right-click sets it too. Click with an empty hand: the crate clears.
+- Shift-click a stack in your inventory: the crate is set to it and the stack stays where it was. Drag a stack across the slot, or double-click to gather: the slot takes nothing.
+- With JEI: drag an item from JEI's list onto the crate's slot, and onto a splitter's filter slot: each is set to it. Drag a fluid: nothing happens.
+- With EMI, which the dev client loads beside JEI: drag from EMI's list onto the crate's slot and the splitter's filter slot, and each is set to it; a fluid does nothing. The dev client loads with no `@OnlyIn` warning screen over EMI.
