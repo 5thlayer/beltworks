@@ -9,3 +9,6 @@ __pycache__/
 
 # The ctags symbol index (docs/agents/code-navigation.md)
 /tags
+
+# The token benchmark's runs (bench/README.md)
+/bench/out/

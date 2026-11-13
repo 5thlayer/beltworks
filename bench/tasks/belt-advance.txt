@@ -1,0 +1,1 @@
+Where does an item's position on a belt advance each tick, and what stops it from advancing? Name the classes and methods involved.

@@ -1,0 +1,1 @@
+If I wanted to store one more value per item on a belt (for example, the tick it entered the belt), which classes and methods would I have to change, including saving, loading and syncing to the client?

@@ -1,0 +1,1 @@
+How are belt collision shapes looked up for an entity standing on a belt, and where is that lookup wired into vanilla?

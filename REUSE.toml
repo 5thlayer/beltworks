@@ -23,6 +23,7 @@ path = [
     ".github/**",
     ".claude/settings.json",
     ".claude/hooks/*.sh",
+    "bench/tasks/*.txt",
     "src/main/resources/gallery_pack/**",
 ]
 SPDX-FileCopyrightText = "2026 5thlayer"

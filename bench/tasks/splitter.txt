@@ -1,0 +1,1 @@
+How does a splitter decide which output an incoming item goes to? Walk through the code path from the item arriving to it being placed on an output.

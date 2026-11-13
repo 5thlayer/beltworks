@@ -1,0 +1,1 @@
+What is a transport line, how does a belt tile learn which line it belongs to, and what rebuilds that membership when belts are placed or broken?
