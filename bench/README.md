@@ -11,7 +11,7 @@ Each arm is a git worktree, by default beside the checkout in `../beltworks-benc
 
 ## Running it
 
-Universal Ctags must be installed. Every run is a real `claude -p` session and costs real tokens: a full run is 6 tasks × 2 arms × 5 runs = 60 sessions, at about $0.30 each.
+Universal Ctags must be installed. Every run is a real `claude -p` session: a full run is 6 tasks × 2 arms × 5 runs = 60 sessions, about 14M input tokens, nearly all cache reads. On a subscription they count against the plan's usage limits, not a bill.
 
 ```sh
 sh bench/run.sh                    # every task, 5 runs per arm
@@ -38,7 +38,7 @@ The agent gets read and search tools only (`Read`, `Grep`, `Glob` and read-only 
 - **tags lookups**: whether agents follow the instruction at all. If it stays at 0, fix the CLAUDE.md wording, not ctags.
 - **input tok (all calls)**: the input processed across every API call. More grep-then-read turns can cancel out smaller reads, because each turn re-sends the context.
 - **peak context**: the largest single call, which decides how soon a long session compacts.
-- **cost $**: the overall figure, with cache reads and writes priced in.
+- **API-price cost $**: `claude -p`'s `total_cost_usd`, the tokens priced at API rates with cache reads and writes weighted. On a subscription nobody pays it; read it as one weighted measure of usage, to compare arms.
 - **answers.md**: a saving that comes with a worse answer isn't a saving.
 
 Trust medians over 5 or more runs per task, not single runs: one run that wanders off can swamp a mean. Most files in `src/main/java` are under 300 lines, which the navigation doc lets agents read whole, so expect the effect mainly on tasks that touch the large classes (`BeltTileBlock`, `BeltContents`, `BeltEndBlockEntity`).

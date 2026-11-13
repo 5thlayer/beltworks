@@ -13,7 +13,7 @@ from pathlib import Path
 
 METRICS = [
     # key, heading, format
-    ("cost", "cost $", "{:.4f}"),
+    ("cost", "API-price cost $", "{:.4f}"),
     ("turns", "turns", "{:.0f}"),
     ("input_total", "input tok (all calls)", "{:,.0f}"),
     ("peak_context", "peak context", "{:,.0f}"),
