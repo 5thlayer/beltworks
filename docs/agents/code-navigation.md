@@ -1,6 +1,6 @@
 # Code navigation: the ctags symbol index
 
-Don't read whole files to find code. Search `tags`, a Universal Ctags index of `src/main/java`, then read only the lines you need.
+Find code through `tags`, a Universal Ctags index of `src/main/java`, instead of opening files to look for it. Once found, read enough to understand it: the whole method or class, not a window of lines.
 
 ## Setup
 
@@ -20,11 +20,12 @@ Each line is `name<TAB>path<TAB>/^pattern$/;"<TAB>kind<TAB>line:N<TAB>language:J
 
 - Where a symbol is defined: `grep -P '^BeltContents\t' tags`. Qualified names work too: `grep -P '^BeltContents\.Added\t' tags`.
 - A class's members: `grep -P '\tclass:BeltContents(\t|$)' tags`. Without the `(\t|$)`, the pattern also matches `BeltContentsFoo` and nested types' members.
-- Read only what you need: take `line:N` and read 40 to 80 lines around it, not the whole file.
+- Read what you found: from `line:N`, read the whole method, or the whole type for a class or record. Don't read a fixed window of lines around it: answers built from fragments guess wrong about the code around them.
 - References: ctags has none, so `grep -rn 'SymbolName' src/main/java`.
 - Mixins: search for the target string. Injection targets (`method = "..."`, `@At(target = "...")`) are strings, not references.
 
 ## Rules
 
-- Read a whole file only if it's under about 300 lines or you're editing most of it.
+- Read a whole file when it's under about 300 lines, or when you need most of it. Over that, read the methods and types you need, each in full.
+- Use `tags` to find code, not to ration reading: `bench/` measured the index cutting reads by a third at no overall token saving, and limited reads made answers less precise.
 - Rebuild `tags` after adding, renaming or moving classes or methods: a stale `line:N` points at the wrong code.

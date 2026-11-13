@@ -52,7 +52,7 @@ A release that involves Groundworks follows the `release-train` skill: one ownin
 
 ## Code navigation
 
-Don't read whole files to find code: search the ctags index `tags` for a symbol's file and line, and read only the lines around it. Rebuild it after adding, renaming or moving classes or methods. See `docs/agents/code-navigation.md`.
+Find code through the ctags index `tags`, which gives a symbol's file and line, instead of opening files to look for it. Then read the whole method or type you found, or the whole file when it's under about 300 lines. Rebuild `tags` after adding, renaming or moving classes or methods. See `docs/agents/code-navigation.md`.
 
 ## Agent skills
 
