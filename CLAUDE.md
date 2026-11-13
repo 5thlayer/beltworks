@@ -50,6 +50,10 @@ A change players notice adds its line under `## Unreleased` in `CHANGELOG.md` as
 
 A release that involves Groundworks follows the `release-train` skill: one owning session per checkout, releases in order Groundworks → Beltworks, and pushes only on the user's word.
 
+## Code navigation
+
+Don't read whole files to find code: search the ctags index `tags` for a symbol's file and line, and read only the lines around it. Rebuild it after adding, renaming or moving classes or methods. See `docs/agents/code-navigation.md`.
+
 ## Agent skills
 
 ### Issue tracker
