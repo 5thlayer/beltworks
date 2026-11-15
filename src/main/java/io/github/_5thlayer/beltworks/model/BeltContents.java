@@ -35,7 +35,8 @@ public final class BeltContents<T> {
     public static final double SPACING = 0.125;
 
     // A ring's positions wrap by a modulo each tick and drift by rounding, which would leave its last
-    // slot a hair short of a spacing and never filled (#409).
+    // slot a hair short of a spacing and never filled (#409). A loader's stretch is read with it too,
+    // so rounding never pushes a steady stream's next entry back to the start.
     private static final double GAP_TOLERANCE = 1e-9;
 
     private final Deque<Entry<T>> entries = new ArrayDeque<>();

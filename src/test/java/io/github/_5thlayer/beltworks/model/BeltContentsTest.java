@@ -343,6 +343,8 @@ class BeltContentsTest {
             assertTrue(belt.entries().getFirst().position() <= TIER_2, "loaded at " + belt.entries().getFirst().position());
         }
 
+        // The first batch spans about 7.5 to 11 of the 16 blocks and the resumed one stays below 4.
+        assertEquals(batch, belt.entries().stream().filter(entry -> entry.position() > 5).count());
         var resumed = belt.entries().stream().map(BeltContents.Entry::position).toList().subList(0, belt.size() - batch);
         for (int i = 1; i < resumed.size(); i++) {
             assertEquals(BeltContents.SPACING, resumed.get(i) - resumed.get(i - 1), 1e-9);
