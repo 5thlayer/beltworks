@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A splitter under the crosshair marks its priorities, as Factorio does: a yellow triangle on the preferred half, at its back edge for input priority and its front edge for output priority, pointing the way items travel.
+
 ## 0.5.8
 
 - A creative crate, in the Works tab and with no recipe, gives the one item it is set to without end, exactly as chosen, to a loader, a feeder, a hopper or another mod's pipe, and voids whatever is put into it, so it is both the source and the sink of a test belt; unset, it is a void. Use it to open its screen, and click its slot with an item, or shift-click a stack in your inventory, to set it; an empty cursor clears it, and nothing is taken from you. Broken, it loses its item (5thlayer/beltworks#125).

@@ -15,7 +15,9 @@ public record FeederMarks(Mark head, Mark tail) {
 
     public enum Kind {
         RING,
-        CHEVRON
+        CHEVRON,
+        /** A splitter's priority mark (SplitterMarks), its tip ahead. */
+        TRIANGLE
     }
 
     /** A mark centred at {@code x}, {@code y} and {@code z}, {@code size} blocks across, pointing the way the arm reaches it. */

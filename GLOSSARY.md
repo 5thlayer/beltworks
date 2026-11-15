@@ -144,6 +144,8 @@ _Avoid_: input filter
 **Output priority**:
 A splitter's preference for one of its two outputs: everything goes to that side, and to the other only when that side is backed up. None, left or right. Lost when the splitter is broken.
 
+A placed splitter under the crosshair marks each priority it has, as Factorio does: a triangle on the preferred half pointing the way items travel, at the back edge for input priority and at the front edge for output priority.
+
 **Splitter filter**:
 An item, or a filter item standing for several, set on a splitter with an output priority side. What it matches goes only to that side, and everything else only to the other; either waits when its side is backed up, never overflowing. Clearing the output priority clears the filter. Matches by item, as a loader's filter does.
 _Avoid_: sorter, filter splitter

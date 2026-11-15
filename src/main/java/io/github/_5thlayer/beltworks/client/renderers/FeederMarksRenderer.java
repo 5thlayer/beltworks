@@ -13,7 +13,7 @@ import io.github._5thlayer.beltworks.model.FeederMarks;
 import java.util.List;
 
 /**
- * A feeder's {@link FeederMarks}, flat in a bright yellow on each end's top and drawn over
+ * A feeder's {@link FeederMarks}, or a splitter's priority marks, flat in a bright yellow on each end's top and drawn over
  * everything, so a tail behind a machine still shows (GLOSSARY.md, Feeder).
  */
 public final class FeederMarksRenderer {
@@ -31,13 +31,19 @@ public final class FeederMarksRenderer {
 
     /** The marks, counted from the block {@code poseStack} stands at. */
     public static void submit(FeederMarks marks, PoseStack poseStack, SubmitNodeCollector collector) {
+        submit(List.of(marks.head(), marks.tail()), poseStack, collector);
+    }
+
+    /** Any marks, a splitter's among them, counted from the block {@code poseStack} stands at. */
+    public static void submit(List<FeederMarks.Mark> marks, PoseStack poseStack, SubmitNodeCollector collector) {
         // Vanilla's see-through text background: colour alone, translucent, with no depth test.
         collector.submitCustomGeometry(poseStack, RenderTypes.textBackgroundSeeThrough(), (pose, consumer) -> {
             var quads = new Quads(pose, consumer);
-            for (var mark : List.of(marks.head(), marks.tail())) {
+            for (var mark : marks) {
                 switch (mark.kind()) {
                     case RING -> ring(mark, quads);
                     case CHEVRON -> chevron(mark, quads);
+                    case TRIANGLE -> triangle(mark, quads);
                 }
             }
         });
@@ -72,6 +78,16 @@ public final class FeederMarksRenderer {
             var backZ = -ahead.z() * STROKE;
             quads.flat(mark, cornerX, cornerZ, tipX, tipZ, tipX + backX, tipZ + backZ, cornerX + backX, cornerZ + backZ);
         }
+    }
+
+    // Filled, its base a mark's size across and its tip ahead, as long as a chevron; a quad with its tip doubled.
+    private static void triangle(FeederMarks.Mark mark, Quads quads) {
+        var ahead = mark.pointing();
+        var acrossX = -ahead.z() * mark.size() / 2;
+        var acrossZ = ahead.x() * mark.size() / 2;
+        var tipX = ahead.x() * CHEVRON_LENGTH / 2;
+        var tipZ = ahead.z() * CHEVRON_LENGTH / 2;
+        quads.flat(mark, -tipX + acrossX, -tipZ + acrossZ, tipX, tipZ, tipX, tipZ, -tipX - acrossX, -tipZ - acrossZ);
     }
 
     private record Quads(PoseStack.Pose pose, VertexConsumer consumer) {
