@@ -11,7 +11,7 @@ class FeederMarksTest {
 
     private static final LineScan.Travel NORTH = new LineScan.Travel(0, -1);
 
-    private static void assertAt(double x, double y, double z, FeederMarks.Mark mark) {
+    private static void assertAt(double x, double y, double z, WorldMark mark) {
         assertEquals(x, mark.x(), 1e-9, "x");
         assertEquals(y, mark.y(), 1e-9, "y");
         assertEquals(z, mark.z(), 1e-9, "z");
@@ -22,7 +22,7 @@ class FeederMarksTest {
     void theRingLiesOnTheHeadsTopAtItsReach() {
         var marks = FeederMarks.of(new FeederArms(2, 1, FeederArms.Turn.STRAIGHT), NORTH, 0.375, 0);
 
-        assertEquals(FeederMarks.Kind.RING, marks.head().kind());
+        assertEquals(WorldMark.Kind.RING, marks.head().kind());
         assertAt(0.5, 0.375, 2.5, marks.head());
     }
 
@@ -41,7 +41,7 @@ class FeederMarksTest {
     void theChevronLiesOnATurnedTailsTopPointingAwayFromTheFeeder() {
         var marks = FeederMarks.of(new FeederArms(1, 3, FeederArms.Turn.LEFT), NORTH, 0, 0.875);
 
-        assertEquals(FeederMarks.Kind.CHEVRON, marks.tail().kind());
+        assertEquals(WorldMark.Kind.CHEVRON, marks.tail().kind());
         assertAt(-2.5, 0.875, 0.5, marks.tail());
         assertEquals(new LineScan.Travel(-1, 0), marks.tail().pointing());
     }

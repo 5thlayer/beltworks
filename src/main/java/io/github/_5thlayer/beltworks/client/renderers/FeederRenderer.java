@@ -28,8 +28,6 @@ import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 import io.github._5thlayer.beltworks.Beltworks;
@@ -41,6 +39,7 @@ import io.github._5thlayer.beltworks.model.ArmParts;
 import io.github._5thlayer.beltworks.model.ArmPose;
 import io.github._5thlayer.beltworks.model.BeltTier;
 import io.github._5thlayer.beltworks.model.FeederArms;
+import io.github._5thlayer.beltworks.client.Crosshair;
 import io.github._5thlayer.beltworks.model.FeederMarks;
 import io.github._5thlayer.beltworks.model.LineScan;
 
@@ -146,10 +145,10 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
      * Whether a placed feeder at {@code pos} shows its marks: under the crosshair with the HUD shown,
      * unless a feeder is held, whose planned marks the Placement Preview draws instead.
      */
+    // While a feeder is held its Placement Preview marks instead (GLOSSARY.md, Feeder).
     private static boolean marked(BlockPos pos) {
-        var minecraft = Minecraft.getInstance();
-        return minecraft.player != null && !minecraft.options.hideGui && !FeederReach.isFeeder(minecraft.player.getMainHandItem())
-               && minecraft.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK && hit.getBlockPos().equals(pos);
+        var player = Minecraft.getInstance().player;
+        return player != null && !FeederReach.isFeeder(player.getMainHandItem()) && Crosshair.on(pos);
     }
 
     private static BlockPos wristBlock(ArmPose pose) {
@@ -158,7 +157,7 @@ public class FeederRenderer implements BlockEntityRenderer<FeederBlockEntity, Fe
 
     @Override
     public void submit(RenderState state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState cameraRenderState) {
-        if (state.marks != null) FeederMarksRenderer.submit(state.marks, poseStack, collector);
+        if (state.marks != null) WorldMarkRenderer.submit(state.marks, poseStack, collector);
         submit(state.beams, state.tier, poseStack, collector, RenderTypes.entityCutout(TextureAtlas.LOCATION_BLOCKS), 0xFFFFFFFF);
 
         var held = state.held;

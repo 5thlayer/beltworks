@@ -40,7 +40,7 @@ import io.github._5thlayer.beltworks.blocks.PlannedSupports;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
 import io.github._5thlayer.beltworks.blocks.Supports;
 import io.github._5thlayer.beltworks.client.renderers.BeltEndRenderer;
-import io.github._5thlayer.beltworks.client.renderers.FeederMarksRenderer;
+import io.github._5thlayer.beltworks.client.renderers.WorldMarkRenderer;
 import io.github._5thlayer.beltworks.client.renderers.FeederRenderer;
 import io.github._5thlayer.beltworks.client.renderers.SupportRenderer;
 import io.github._5thlayer.beltworks.model.ArmPose;
@@ -109,7 +109,7 @@ final class BeltPreviews {
             poseStack.translate(pos.getX() - camera.x(), pos.getY() - camera.y(), pos.getZ() - camera.z());
             FeederRenderer.submitPlanned(beams, feeder.tier(), poseStack, geometry.getSubmitNodeCollector(), event.getTint());
             if (!Minecraft.getInstance().options.hideGui) {
-                FeederMarksRenderer.submit(FeederMarks.of(arms, travel, headTop, tailTop), poseStack, geometry.getSubmitNodeCollector());
+                WorldMarkRenderer.submit(FeederMarks.of(arms, travel, headTop, tailTop), poseStack, geometry.getSubmitNodeCollector());
             }
             poseStack.popPose();
         }

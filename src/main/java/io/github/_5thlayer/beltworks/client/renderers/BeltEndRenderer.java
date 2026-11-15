@@ -28,9 +28,6 @@ import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 import io.github._5thlayer.beltworks.Beltworks;
@@ -40,12 +37,13 @@ import io.github._5thlayer.beltworks.blocks.BeltEndBlockEntity;
 import io.github._5thlayer.beltworks.blocks.BeltTileBlock;
 import io.github._5thlayer.beltworks.blocks.SplitterBlock;
 import io.github._5thlayer.beltworks.client.BeltworksClientConfig;
+import io.github._5thlayer.beltworks.client.Crosshair;
 import io.github._5thlayer.beltworks.model.BeltContents;
 import io.github._5thlayer.beltworks.model.BeltTier;
-import io.github._5thlayer.beltworks.model.FeederMarks;
 import io.github._5thlayer.beltworks.model.ItemLift;
 import io.github._5thlayer.beltworks.model.Splitter;
 import io.github._5thlayer.beltworks.model.SplitterMarks;
+import io.github._5thlayer.beltworks.model.WorldMark;
 import io.github._5thlayer.beltworks.util.SplineUtil;
 
 import java.util.ArrayList;
@@ -106,7 +104,8 @@ public class BeltEndRenderer implements BlockEntityRenderer<BeltEndBlockEntity, 
         }
         if (entity.isSplitter()) {
             addHalfItems(entity, state, partialTicks);
-            if (marked(pos, blockState)) {
+            // Either half under the crosshair marks the whole splitter, as a feeder's marks show (GLOSSARY.md, Output priority).
+            if (Crosshair.on(pos, SplitterBlock.partner(pos, blockState))) {
                 var settings = entity.splitterSettings();
                 var half = blockState.getValue(SplitterBlock.SIDE) == SplitterBlock.Side.LEFT ? Splitter.Priority.LEFT : Splitter.Priority.RIGHT;
                 state.marks = SplitterMarks.of(half, settings.inputPriority(), settings.outputPriority(),
@@ -128,13 +127,6 @@ public class BeltEndRenderer implements BlockEntityRenderer<BeltEndBlockEntity, 
     // A half's belt surface, where its block model draws it, as a tile's top (PlanetaryFactory #394).
     private static final double SURFACE_TOP = 6 / 16d + 0.01;
 
-    // Either half under the crosshair marks the whole splitter, as a feeder's marks show (GLOSSARY.md, Output priority).
-    private static boolean marked(BlockPos pos, BlockState state) {
-        var minecraft = Minecraft.getInstance();
-        return minecraft.player != null && !minecraft.options.hideGui
-               && minecraft.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK
-               && (hit.getBlockPos().equals(pos) || hit.getBlockPos().equals(SplitterBlock.partner(pos, state)));
-    }
 
     // From where the item draw below puts an item down to where a tile's are, since a half is drawn
     // as a tile (PlanetaryFactory #394): BeltTileRenderer's surface plus its lift for each kind.
@@ -196,7 +188,7 @@ public class BeltEndRenderer implements BlockEntityRenderer<BeltEndBlockEntity, 
     @Override
     public void submit(RenderState state, PoseStack poseStack, SubmitNodeCollector collector, CameraRenderState cameraRenderState) {
         SupportRenderer.submit(state.support, poseStack, collector);
-        if (!state.marks.isEmpty()) FeederMarksRenderer.submit(state.marks, poseStack, collector);
+        if (!state.marks.isEmpty()) WorldMarkRenderer.submit(state.marks, poseStack, collector);
         for (var item : state.items) {
             poseStack.pushPose();
             poseStack.translate(item.position.x + 0.5, item.position.y + 0.8f - 3 / 16f, item.position.z + 0.5);
@@ -359,6 +351,6 @@ public class BeltEndRenderer implements BlockEntityRenderer<BeltEndBlockEntity, 
         private Direction filterFacing = Direction.NORTH;
         private boolean filterOnSplitter;
         private List<SupportRenderer.Box> support = List.of();
-        private List<FeederMarks.Mark> marks = List.of();
+        private List<WorldMark> marks = List.of();
     }
 }

@@ -22,15 +22,15 @@ public final class SplitterMarks {
     }
 
     /** The marks of the half on side {@code half}, facing {@code facing}, its belt's surface standing {@code top} high. */
-    public static List<FeederMarks.Mark> of(Splitter.Priority half, Splitter.Priority input, Splitter.Priority output,
+    public static List<WorldMark> of(Splitter.Priority half, Splitter.Priority input, Splitter.Priority output,
                                             LineScan.Travel facing, double top) {
-        var marks = new ArrayList<FeederMarks.Mark>(2);
+        var marks = new ArrayList<WorldMark>(2);
         if (input == half) marks.add(mark(facing, -OFFSET, top));
         if (output == half) marks.add(mark(facing, OFFSET, top));
         return marks;
     }
 
-    private static FeederMarks.Mark mark(LineScan.Travel facing, double along, double top) {
-        return new FeederMarks.Mark(FeederMarks.Kind.TRIANGLE, 0.5 + facing.x() * along, top, 0.5 + facing.z() * along, facing, SIZE);
+    private static WorldMark mark(LineScan.Travel facing, double along, double top) {
+        return new WorldMark(WorldMark.Kind.TRIANGLE, 0.5 + facing.x() * along, top, 0.5 + facing.z() * along, facing, SIZE);
     }
 }

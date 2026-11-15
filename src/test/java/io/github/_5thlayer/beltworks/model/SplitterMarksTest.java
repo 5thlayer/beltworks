@@ -22,7 +22,7 @@ class SplitterMarksTest {
 
         assertEquals(1, marks.size());
         var mark = marks.getFirst();
-        assertEquals(FeederMarks.Kind.TRIANGLE, mark.kind());
+        assertEquals(WorldMark.Kind.TRIANGLE, mark.kind());
         assertEquals(0.5, mark.x(), 1e-9);
         assertEquals(0.375, mark.y(), 1e-9);
         assertEquals(0.5 + SplitterMarks.OFFSET, mark.z(), 1e-9);

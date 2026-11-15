@@ -9,14 +9,15 @@ import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.util.LightCoordsUtil;
 import io.github._5thlayer.beltworks.model.FeederMarks;
+import io.github._5thlayer.beltworks.model.WorldMark;
 
 import java.util.List;
 
 /**
- * A feeder's {@link FeederMarks}, or a splitter's priority marks, flat in a bright yellow on each end's top and drawn over
- * everything, so a tail behind a machine still shows (GLOSSARY.md, Feeder).
+ * {@link WorldMark}s, a feeder's ends' and a splitter's priorities', flat in a bright yellow on each end's top and drawn over
+ * everything, so a tail behind a machine still shows (GLOSSARY.md, Feeder and Output priority).
  */
-public final class FeederMarksRenderer {
+public final class WorldMarkRenderer {
 
     private static final int YELLOW = 0xFFE6FF00;
     // How thick the ring's band and the chevron's strokes are, and how long the chevron is along its way.
@@ -26,7 +27,7 @@ public final class FeederMarksRenderer {
     // Just above the top, which nothing hides anyway, so the marks never flicker on it.
     private static final double LIFT = 0.01;
 
-    private FeederMarksRenderer() {
+    private WorldMarkRenderer() {
     }
 
     /** The marks, counted from the block {@code poseStack} stands at. */
@@ -34,8 +35,8 @@ public final class FeederMarksRenderer {
         submit(List.of(marks.head(), marks.tail()), poseStack, collector);
     }
 
-    /** Any marks, a splitter's among them, counted from the block {@code poseStack} stands at. */
-    public static void submit(List<FeederMarks.Mark> marks, PoseStack poseStack, SubmitNodeCollector collector) {
+    /** Any marks, counted from the block {@code poseStack} stands at. */
+    public static void submit(List<WorldMark> marks, PoseStack poseStack, SubmitNodeCollector collector) {
         // Vanilla's see-through text background: colour alone, translucent, with no depth test.
         collector.submitCustomGeometry(poseStack, RenderTypes.textBackgroundSeeThrough(), (pose, consumer) -> {
             var quads = new Quads(pose, consumer);
@@ -49,7 +50,7 @@ public final class FeederMarksRenderer {
         });
     }
 
-    private static void ring(FeederMarks.Mark mark, Quads quads) {
+    private static void ring(WorldMark mark, Quads quads) {
         var outer = mark.size() / 2;
         var inner = outer - STROKE;
         for (var i = 0; i < RING_SEGMENTS; i++) {
@@ -62,7 +63,7 @@ public final class FeederMarksRenderer {
     }
 
     // Two strokes from the back corners, a mark's size apart, meeting at the tip ahead.
-    private static void chevron(FeederMarks.Mark mark, Quads quads) {
+    private static void chevron(WorldMark mark, Quads quads) {
         var ahead = mark.pointing();
         // The way across, a quarter turn from ahead.
         var acrossX = -ahead.z();
@@ -81,7 +82,7 @@ public final class FeederMarksRenderer {
     }
 
     // Filled, its base a mark's size across and its tip ahead, as long as a chevron; a quad with its tip doubled.
-    private static void triangle(FeederMarks.Mark mark, Quads quads) {
+    private static void triangle(WorldMark mark, Quads quads) {
         var ahead = mark.pointing();
         var acrossX = -ahead.z() * mark.size() / 2;
         var acrossZ = ahead.x() * mark.size() / 2;
@@ -93,13 +94,13 @@ public final class FeederMarksRenderer {
     private record Quads(PoseStack.Pose pose, VertexConsumer consumer) {
 
         // A flat quad at the mark's top, its corners off the mark's centre, wound both ways so it shows from above and below.
-        void flat(FeederMarks.Mark mark, double... corners) {
+        void flat(WorldMark mark, double... corners) {
             var y = (float) (mark.y() + LIFT);
             for (var i = 0; i < 4; i++) vertex(mark, corners[2 * i], y, corners[2 * i + 1]);
             for (var i = 3; i >= 0; i--) vertex(mark, corners[2 * i], y, corners[2 * i + 1]);
         }
 
-        private void vertex(FeederMarks.Mark mark, double x, float y, double z) {
+        private void vertex(WorldMark mark, double x, float y, double z) {
             consumer.addVertex(pose.pose(), (float) (mark.x() + x), y, (float) (mark.z() + z))
               .setColor(YELLOW)
               .setLight(LightCoordsUtil.FULL_BRIGHT);
