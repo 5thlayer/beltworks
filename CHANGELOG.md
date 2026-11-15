@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.5.10
+
 - A loader whose source pauses while items are still on its line loads again at the line's start, instead of right behind the last item down the line, so the line no longer fills backwards from its end.
 
 ## 0.5.9
