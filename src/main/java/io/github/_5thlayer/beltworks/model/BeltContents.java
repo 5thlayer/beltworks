@@ -99,6 +99,9 @@ public final class BeltContents<T> {
 
         while (true) {
             var at = entries.isEmpty() ? 0 : entries.peekFirst().position - SPACING;
+            // Only into the stretch the line moved onto this tick: behind an entry further down the
+            // line, say a batch that ran on while the source paused, it starts again from the start.
+            if (at > speed + GAP_TOLERANCE) at = 0;
             if (at < 0 || at > length - SPACING) return changed;
             var payload = source.get();
             if (payload == null) return changed;

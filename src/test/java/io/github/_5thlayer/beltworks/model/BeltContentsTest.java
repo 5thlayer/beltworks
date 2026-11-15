@@ -312,4 +312,41 @@ class BeltContentsTest {
                     "entries at " + positions.get(i - 1) + " and " + positions.get(i));
         }
     }
+
+    @Test
+    void aLoaderAfterAPauseLoadsAtTheStartNotBehindTheBatchDownTheLine() {
+        var belt = new BeltContents<String>();
+        belt.restore("batch", 4);
+
+        belt.tick(8, TIER_1, new ArrayDeque<>(List.of("item"))::poll, ACCEPTS);
+
+        var positions = belt.entries().stream().map(BeltContents.Entry::position).toList();
+        assertEquals(2, positions.size());
+        assertEquals(0, positions.getFirst());
+    }
+
+    @Test
+    void aFasterBeltResumingAfterAPauseLoadsAnEvenStreamFromTheStart() {
+        var belt = new BeltContents<String>();
+        for (int tick = 0; tick < 20; tick++) belt.tick(16, TIER_2, ENDLESS, ACCEPTS);
+        for (int tick = 0; tick < 20; tick++) belt.tick(16, TIER_2, () -> null, ACCEPTS);
+        var batch = belt.size();
+
+        int mostInOneTick = 0;
+        for (int tick = 0; tick < 20; tick++) {
+            var loaded = new int[1];
+            belt.tick(16, TIER_2, () -> {
+                loaded[0]++;
+                return "item";
+            }, ACCEPTS);
+            mostInOneTick = Math.max(mostInOneTick, loaded[0]);
+            assertTrue(belt.entries().getFirst().position() <= TIER_2, "loaded at " + belt.entries().getFirst().position());
+        }
+
+        var resumed = belt.entries().stream().map(BeltContents.Entry::position).toList().subList(0, belt.size() - batch);
+        for (int i = 1; i < resumed.size(); i++) {
+            assertEquals(BeltContents.SPACING, resumed.get(i) - resumed.get(i - 1), 1e-9);
+        }
+        assertEquals(2, mostInOneTick);
+    }
 }

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A loader whose source pauses while items are still on its line loads again at the line's start, instead of right behind the last item down the line, so the line no longer fills backwards from its end.
+
 ## 0.5.9
 
 - A splitter under the crosshair marks its priorities, as Factorio does: a yellow triangle on the preferred half, at its back edge for input priority and its front edge for output priority, pointing the way items travel.
