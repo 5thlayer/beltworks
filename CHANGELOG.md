@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.5.9
+
 - A splitter under the crosshair marks its priorities, as Factorio does: a yellow triangle on the preferred half, at its back edge for input priority and its front edge for output priority, pointing the way items travel.
 
 ## 0.5.8
